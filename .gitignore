@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Environment variables (secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+out/
+.vite/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime / cache
+.cache/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+.eslintcache
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+
+# Optional: local Cursor/AI config (not needed on GitHub)
+.cursor/
+
+# Uploads / local storage (if you add file storage later)
+uploads/
+temp/
+tmp/
+
+# Database dumps / local Mongo data
+*.dump
+dump/
+
+# Stripe CLI (local webhook forwarding secrets)
+.stripe/
+
+# Certificates / keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Windows
+$RECYCLE.BIN/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.npm

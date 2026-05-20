@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#2d7a3a"/>
+  
+  <!-- Solid Leaf Icon -->
+  <path d="M16 7 C16 7 9 9 9 16.5 C9 24 16 26 16 26 L16 7 Z" fill="white"/>
+  <path d="M16 7 C16 7 23 9 23 16.5 C23 24 16 26 16 26 L16 7 Z" fill="white" opacity="0.85"/>
+  <circle cx="18" cy="18" r="1.5" fill="#2d7a3a"/>
+</svg>
