@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js')
+const WebSocket = require('ws')
 
 let supabaseAdmin = null
 
@@ -12,8 +13,10 @@ function getSupabaseAdmin() {
     return null
   }
 
+  // Node 20 has no built-in WebSocket; Supabase Realtime requires `ws` on the server.
   supabaseAdmin = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    realtime: { transport: WebSocket },
   })
 
   return supabaseAdmin
