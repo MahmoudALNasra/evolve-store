@@ -1,7 +1,12 @@
 const path = require('path')
 const express = require('express')
 const fs = require('fs')
-const { isCrawlerRequest, isBlacklistedPath } = require('../config/crawlerUserAgents')
+const { isCrawlerRequest } = require('../config/crawlerUserAgents')
+
+/** Do not SPA-fallback for API/admin; prerender blacklist also skips .js/.css — must not apply here. */
+function shouldSpaFallback(pathname) {
+  return !/^\/api\b/.test(pathname) && !/^\/admin\b/.test(pathname)
+}
 
 /**
  * Serve Vite build + SPA fallback. Crawlers on non-product routes may be
@@ -19,11 +24,11 @@ function createSpaMiddleware(clientDist) {
 
   return function serveSpa(req, res, next) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next()
-    if (isBlacklistedPath(req.path)) return next()
 
     return staticMiddleware(req, res, (err) => {
       if (err) return next(err)
       if (res.headersSent) return
+      if (!shouldSpaFallback(req.path)) return next()
 
       if (!indexExists) {
         return res.status(503).send(
