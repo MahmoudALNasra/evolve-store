@@ -30,22 +30,43 @@ export default function AdminOrders() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [shipTracking, setShipTracking] = useState('')
   const [shipping, setShipping] = useState(false)
+  const [ordersPassword, setOrdersPassword] = useState(() => sessionStorage.getItem('adminOrdersPassword') || '')
+  const [ordersUnlocked, setOrdersUnlocked] = useState(() => Boolean(sessionStorage.getItem('adminOrdersPassword')))
+  const [unlocking, setUnlocking] = useState(false)
+
+  const ordersAuthConfig = (config = {}) => ({
+    ...config,
+    headers: {
+      ...(config.headers || {}),
+      'x-admin-orders-password': ordersPassword,
+    },
+  })
 
   const load = () => {
+    if (!ordersUnlocked) return
     setLoading(true)
-    api.get('/orders', {
+    api.get('/orders', ordersAuthConfig({
       params: {
         page,
         limit: 20,
         status: statusFilter || undefined,
         search: search.trim() || undefined,
       },
-    })
+    }))
       .then(({ data }) => { setOrders(data.orders); setTotal(data.total); setPages(data.pages) })
+      .catch((err) => {
+        if (err.response?.status === 403) {
+          sessionStorage.removeItem('adminOrdersPassword')
+          setOrdersUnlocked(false)
+          toast.error('Orders password is required')
+        } else {
+          toast.error(err.response?.data?.message || 'Failed to load orders')
+        }
+      })
       .finally(() => setLoading(false))
 
     // Load status counts
-    api.get('/orders/stats/counts')
+    api.get('/orders/stats/counts', ordersAuthConfig())
       .then(({ data }) => setStatusCounts(data))
       .catch(() => {})
   }
@@ -55,7 +76,29 @@ export default function AdminOrders() {
     const t = setTimeout(() => { load() }, search ? 300 : 0)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, search])
+  }, [page, statusFilter, search, ordersUnlocked])
+
+  const handleUnlockOrders = async (e) => {
+    e.preventDefault()
+    const password = ordersPassword.trim()
+    if (!password) return toast.error('Enter the orders password')
+
+    setUnlocking(true)
+    try {
+      await api.get('/orders/stats/counts', {
+        headers: { 'x-admin-orders-password': password },
+      })
+      sessionStorage.setItem('adminOrdersPassword', password)
+      setOrdersPassword(password)
+      setOrdersUnlocked(true)
+      setPage(1)
+      toast.success('Orders unlocked')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid orders password')
+    } finally {
+      setUnlocking(false)
+    }
+  }
 
   const handleStatusChange = async () => {
     if (!selected || !pendingStatus || pendingStatus === selected.status) return
@@ -81,7 +124,7 @@ export default function AdminOrders() {
 
     setUpdatingStatus(true)
     try {
-      await api.put(`/orders/${selected._id}/status`, { status: pendingStatus })
+      await api.put(`/orders/${selected._id}/status`, { status: pendingStatus }, ordersAuthConfig())
       toast.success(`Status updated to ${STATUS_LABELS[pendingStatus]}`)
       setSelected((o) => ({ ...o, status: pendingStatus }))
       setPendingStatus('')
@@ -118,9 +161,7 @@ export default function AdminOrders() {
     setShipping(true)
     try {
       // 1. Save tracking number
-      await api.put(`/orders/${selected._id}/tracking`, { trackingNumber: trk })
-      // 2. Mark as shipped
-      await api.put(`/orders/${selected._id}/status`, { status: 'shipped' })
+      await api.put(`/orders/${selected._id}/tracking`, { trackingNumber: trk }, ordersAuthConfig())
 
       toast.success('Order marked as shipped — customer can now track')
       setSelected((o) => ({ ...o, trackingNumber: trk, status: 'shipped' }))
@@ -134,7 +175,7 @@ export default function AdminOrders() {
 
   const handleTrackingUpdate = async () => {
     if (!trackingNumber.trim()) return toast.error('Please enter a tracking number')
-    await api.put(`/orders/${selected._id}/tracking`, { trackingNumber: trackingNumber.trim() })
+    await api.put(`/orders/${selected._id}/tracking`, { trackingNumber: trackingNumber.trim() }, ordersAuthConfig())
     toast.success('Tracking number updated')
     setSelected((o) => ({ ...o, trackingNumber: trackingNumber.trim() }))
     load()
@@ -208,7 +249,7 @@ export default function AdminOrders() {
       <body>
         <div class="header">
           <div>
-            <div class="company">Evolve Pharmacy</div>
+            <div class="company">Evolve Specialty Pharmacy & Wellness</div>
             <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Health & Wellness Store</div>
             <div style="font-size: 11px; color: #6b7280; line-height: 1.5;">
               19239 Stone Oak Pkwy Ste # 103<br>
@@ -315,7 +356,7 @@ export default function AdminOrders() {
         <div class="section">
           <div class="section-title">Ship From:</div>
           <div class="address">
-            <strong>Evolve Pharmacy</strong><br>
+            <strong>Evolve Specialty Pharmacy & Wellness</strong><br>
             19239 Stone Oak Pkwy Ste # 103<br>
             San Antonio, TX 78258<br>
             United States
@@ -364,6 +405,38 @@ export default function AdminOrders() {
       </body>
       </html>
     `
+  }
+
+  if (!ordersUnlocked) {
+    return (
+      <div className="admin-page">
+        <div className="admin-page-header">
+          <h1 className="admin-page-title">Orders</h1>
+        </div>
+
+        <div className="admin-card" style={{ maxWidth: 460 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1c2b1c', marginBottom: 8 }}>Orders Password Required</h2>
+          <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 18 }}>
+            Enter the orders password to view or modify orders. You can change it in the server environment variable
+            <code style={{ marginLeft: 4 }}>ADMIN_ORDERS_PASSWORD</code>.
+          </p>
+          <form onSubmit={handleUnlockOrders} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              type="password"
+              value={ordersPassword}
+              onChange={(e) => setOrdersPassword(e.target.value)}
+              placeholder="Orders password"
+              className="auth-field"
+              style={{ margin: 0 }}
+              autoFocus
+            />
+            <button type="submit" className="btn-admin btn-admin-primary" disabled={unlocking}>
+              {unlocking ? 'Checking...' : 'Unlock Orders'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   return (

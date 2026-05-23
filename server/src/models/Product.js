@@ -1,4 +1,7 @@
 const mongoose = require('mongoose')
+const { generateUniqueSlug } = require('../utils/productSlug')
+const { generateProductTags } = require('../utils/generateProductTags')
+const { normalizeSku } = require('../utils/normalizeProductFields')
 
 const imageSchema = new mongoose.Schema({
   url: { type: String, required: true },
@@ -14,6 +17,7 @@ const variantSchema = new mongoose.Schema({
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    slug: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
     description: { type: String, default: '' },
     price: { type: Number, required: true, min: 0 },
     comparePrice: { type: Number, default: 0 },
@@ -38,6 +42,47 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-productSchema.index({ name: 'text', description: 'text', tags: 'text' })
+// Text index for fast candidate retrieval (name, description, category)
+productSchema.index({ name: 'text', description: 'text', category: 'text' })
+productSchema.index({ isPublished: 1, name: 1 })
+productSchema.index({ isPublished: 1, category: 1 })
+
+productSchema.pre('save', async function () {
+  const sku = normalizeSku(this.sku)
+  if (sku) this.sku = sku
+  else this.sku = undefined
+
+  if (!this.slug && this.name) {
+    this.slug = await generateUniqueSlug(this.constructor, this.name, {
+      excludeId: this._id,
+    })
+  }
+
+  if (!this.tags?.length) {
+    this.tags = generateProductTags({
+      name: this.name,
+      description: this.description,
+      category: this.category,
+    })
+  }
+})
+
+productSchema.pre('findOneAndUpdate', function () {
+  const update = this.getUpdate()
+  if (!update) return
+
+  const target = update.$set || update
+  if (!('sku' in target)) return
+
+  const sku = normalizeSku(target.sku)
+  if (sku) {
+    target.sku = sku
+    return
+  }
+
+  delete target.sku
+  update.$unset = { ...(update.$unset || {}), sku: 1 }
+  if (!update.$set) update.$set = target
+})
 
 module.exports = mongoose.model('Product', productSchema)

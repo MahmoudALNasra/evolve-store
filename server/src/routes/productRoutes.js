@@ -1,19 +1,69 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const XLSX = require('xlsx')
+const ExcelJS = require('exceljs')
 const Product = require('../models/Product')
+const Category = require('../models/Category')
+const { assignSlugsToProducts } = require('../utils/productSlug')
+const { searchProducts, searchProductsPaginated } = require('../services/productSearchService')
+const { getProductRecommendations } = require('../services/productRecommendationsService')
+const applyAutoTagsToPayload = require('../utils/applyProductTags')
+const { normalizeProductPayload } = require('../utils/normalizeProductFields')
+const { getStorefrontCategoryNames } = require('../services/categoryListService')
 const { protect, admin } = require('../middleware/auth')
 const { upload, uploadExcel } = require('../config/cloudinary')
 
 const router = express.Router()
+
+function normalizeCategoryName(category) {
+  return String(category || '').trim() || 'Uncategorized'
+}
+
+async function ensureCategoriesExist(categoryNames = []) {
+  const names = [...new Set(categoryNames.map(normalizeCategoryName).filter(Boolean))]
+  if (!names.length) return []
+
+  const results = await Promise.all(
+    names.map((name) =>
+      Category.updateOne(
+        { name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } },
+        { $setOnInsert: { name, description: '' } },
+        { upsert: true }
+      )
+    )
+  )
+
+  return {
+    names,
+    created: results.reduce((sum, result) => sum + (result.upsertedCount || 0), 0),
+  }
+}
 
 // ── Public ──────────────────────────────────────────────────
 
 // GET /api/products
 router.get('/', async (req, res) => {
   const { search, category, minPrice, maxPrice, featured, page = 1, limit = 20, sort = '-createdAt' } = req.query
-  const filter = { isPublished: true }
 
-  if (search) filter.$text = { $search: search }
+  if (search && String(search).trim().length >= 2) {
+    const { products, total } = await searchProductsPaginated(search, {
+      page: Number(page),
+      limit: Number(limit),
+      sort,
+      category,
+      minPrice,
+      maxPrice,
+      featured,
+    })
+    return res.json({
+      products,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)) || 1,
+    })
+  }
+
+  const filter = { isPublished: true }
   if (category) filter.category = { $regex: category, $options: 'i' }
   if (minPrice || maxPrice) {
     filter.price = {}
@@ -31,15 +81,46 @@ router.get('/', async (req, res) => {
   res.json({ products, total, page: Number(page), pages: Math.ceil(total / Number(limit)) })
 })
 
-// GET /api/products/categories
+// GET /api/products/search?q=… — typo-tolerant suggestions for the navbar dropdown
+router.get('/search', async (req, res) => {
+  const q = String(req.query.q || '').trim()
+  const limit = Math.min(Number(req.query.limit) || 8, 20)
+  const result = await searchProducts(q, { limit })
+  res.json(result)
+})
+
+// GET /api/products/categories — names from admin Category collection
 router.get('/categories', async (req, res) => {
-  const cats = await Product.distinct('category', { isPublished: true })
+  const cats = await getStorefrontCategoryNames()
   res.json(cats)
 })
 
-// GET /api/products/:id
-router.get('/:id', async (req, res) => {
-  const product = await Product.findById(req.params.id)
+// GET /api/products/:slug/recommendations — random related products (category + tags)
+router.get('/:slug/recommendations', async (req, res) => {
+  const { slug } = req.params
+  const result = await getProductRecommendations(slug)
+
+  if (result.notFound) {
+    return res.status(404).json({ message: 'Product not found', products: [] })
+  }
+
+  res.json({ products: result.products })
+})
+
+// GET /api/products/:slug
+router.get('/:slug', async (req, res) => {
+  const { slug } = req.params
+  let product = await Product.findOne({ slug })
+
+  // Legacy support: old bookmarked URLs that still use MongoDB ObjectId
+  if (
+    !product &&
+    mongoose.Types.ObjectId.isValid(slug) &&
+    String(new mongoose.Types.ObjectId(slug)) === slug
+  ) {
+    product = await Product.findById(slug)
+  }
+
   if (!product) return res.status(404).json({ message: 'Product not found' })
   res.json(product)
 })
@@ -67,7 +148,10 @@ router.get('/admin/all', protect, admin, async (req, res) => {
 
 // POST /api/products  — create single
 router.post('/', protect, admin, async (req, res) => {
-  const product = await Product.create(req.body)
+  const { payload } = normalizeProductPayload(req.body)
+  if (payload.category) await ensureCategoriesExist([payload.category])
+  applyAutoTagsToPayload(payload)
+  const product = await Product.create(payload)
   res.status(201).json(product)
 })
 
@@ -78,20 +162,43 @@ router.post('/upload-image', protect, admin, upload.single('image'), (req, res) 
 })
 
 // GET /api/products/template/bulk-add  — download Excel template
-router.get('/template/bulk-add', protect, admin, (req, res) => {
+router.get('/template/bulk-add', protect, admin, async (req, res) => {
   const headers = [
     'name', 'description', 'price', 'comparePrice', 'category', 'tags',
     'sku', 'barcode', 'stock', 'weight', 'isPublished', 'isFeatured', 'imageUrls',
   ]
+  const categories = await getStorefrontCategoryNames()
   const example = [
-    'Sample Product', 'A great product', 29.99, 39.99, 'Electronics', 'tech,gadget',
+    'Sample Product', 'A great product', 29.99, 39.99, categories[0] || 'Uncategorized', 'tech,gadget',
     'SKU-001', '1234567890', 100, 0.5, true, false, 'https://example.com/img.jpg',
   ]
-  const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet([headers, example])
-  ws['!cols'] = headers.map(() => ({ wch: 20 }))
-  XLSX.utils.book_append_sheet(wb, ws, 'Products')
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Products')
+  ws.addRow(headers)
+  ws.addRow(example)
+  ws.columns = headers.map((header) => ({ header, key: header, width: 22 }))
+  ws.getRow(1).font = { bold: true }
+
+  if (categories.length) {
+    const categoryWs = wb.addWorksheet('Categories')
+    categoryWs.state = 'veryHidden'
+    categoryWs.addRow(['Categories'])
+    categories.forEach((name) => categoryWs.addRow([name]))
+    categoryWs.getColumn(1).width = 32
+
+    for (let row = 2; row <= 1000; row += 1) {
+      ws.getCell(`E${row}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [`Categories!$A$2:$A$${categories.length + 1}`],
+        showErrorMessage: true,
+        errorTitle: 'Unknown category',
+        error: 'Select an existing category or type a new one. New categories are created during import.',
+      }
+    }
+  }
+
+  const buf = await wb.xlsx.writeBuffer()
   res.setHeader('Content-Disposition', 'attachment; filename=bulk-add-template.xlsx')
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   res.send(buf)
@@ -126,9 +233,9 @@ router.post('/bulk', protect, admin, uploadExcel.single('file'), async (req, res
     description: row.description || '',
     price: Number(row.price) || 0,
     comparePrice: Number(row.comparePrice) || 0,
-    category: row.category || 'Uncategorized',
-    tags: row.tags ? String(row.tags).split(',').map((t) => t.trim()) : [],
-    sku: row.sku || undefined,
+    category: normalizeCategoryName(row.category),
+    tags: row.tags ? String(row.tags).split(',').map((t) => t.trim()) : [], // auto-filled below if empty
+    sku: String(row.sku || '').trim() || undefined,
     barcode: row.barcode || '',
     stock: Number(row.stock) || 0,
     weight: Number(row.weight) || 0,
@@ -139,8 +246,15 @@ router.post('/bulk', protect, admin, uploadExcel.single('file'), async (req, res
       : [],
   }))
 
+  const categoryResult = await ensureCategoriesExist(products.map((product) => product.category))
+  products.forEach(applyAutoTagsToPayload)
+  await assignSlugsToProducts(Product, products)
   const inserted = await Product.insertMany(products, { ordered: false })
-  res.status(201).json({ inserted: inserted.length, message: `${inserted.length} products created` })
+  res.status(201).json({
+    inserted: inserted.length,
+    categoriesCreated: categoryResult.created,
+    message: `${inserted.length} products created`,
+  })
 })
 
 // POST /api/products/bulk-restock  — bulk restock via Excel
@@ -161,7 +275,7 @@ router.post('/bulk-restock', protect, admin, uploadExcel.single('file'), async (
     const product = await Product.findOneAndUpdate(
       { sku },
       { $inc: { stock: qty } },
-      { new: true }
+      { returnDocument: 'after' }
     )
     if (product) results.updated++
     else results.notFound.push(sku)
@@ -172,7 +286,11 @@ router.post('/bulk-restock', protect, admin, uploadExcel.single('file'), async (
 
 // PUT /api/products/:id  — update
 router.put('/:id', protect, admin, async (req, res) => {
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const { payload, unsetSku } = normalizeProductPayload(req.body)
+  if (payload.category) await ensureCategoriesExist([payload.category])
+  applyAutoTagsToPayload(payload)
+  const update = unsetSku ? { $set: payload, $unset: { sku: 1 } } : payload
+  const product = await Product.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true })
   if (!product) return res.status(404).json({ message: 'Product not found' })
   res.json(product)
 })
@@ -184,7 +302,7 @@ router.put('/:id/restock', protect, admin, async (req, res) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { $inc: { stock: Number(qty) } },
-    { new: true }
+    { returnDocument: 'after' }
   )
   if (!product) return res.status(404).json({ message: 'Product not found' })
   res.json(product)

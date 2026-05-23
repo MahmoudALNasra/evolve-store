@@ -1,5 +1,6 @@
 const express = require('express')
 const Category = require('../models/Category')
+const Product = require('../models/Product')
 const { protect, admin } = require('../middleware/auth')
 
 const router = express.Router()
@@ -43,9 +44,15 @@ router.put('/:id', protect, admin, async (req, res) => {
     const exists = await Category.findOne({ name: name.trim(), _id: { $ne: req.params.id } })
     if (exists) return res.status(400).json({ message: 'Category name already exists' })
 
-    category.name = name.trim()
+    const previousName = category.name
+    const nextName = name.trim()
+    category.name = nextName
     category.description = description?.trim() || ''
     await category.save()
+
+    if (previousName !== nextName) {
+      await Product.updateMany({ category: previousName }, { $set: { category: nextName } })
+    }
     res.json(category)
   } catch (err) {
     res.status(500).json({ message: err.message })

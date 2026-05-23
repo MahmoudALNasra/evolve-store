@@ -1,0 +1,12 @@
+{
+  "name": "estore",
+  "private": true,
+  "description": "Evolve Specialty Pharmacy & Wellness e-store — run scripts from server/ or client/, or use the scripts below",
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "start:prod": "npm run build --prefix client && npm run start --prefix server"
+  }
+}

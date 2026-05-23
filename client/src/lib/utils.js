@@ -7,11 +7,37 @@ export const formatDate = (date) =>
 export const truncate = (str, len = 80) =>
   str && str.length > len ? str.slice(0, len) + '…' : str
 
-export const getImageUrl = (images) =>
-  images && images.length > 0 ? images[0].url : 'https://placehold.co/400x400?text=No+Image'
+import { getOptimizedImageUrl } from './cloudinaryImage'
+import {
+  EXTENDED_FREE_SHIPPING_MAX_RATE,
+  EXTENDED_FREE_SHIPPING_THRESHOLD,
+  FREE_SHIPPING_MAX_RATE,
+  FREE_SHIPPING_THRESHOLD,
+  SHIPPING_RATE_MARKUP,
+  addShippingMarkup,
+  calcShipping,
+  formatShippingRange,
+  getFreeShippingMinimumSubtotal,
+  getShippingQuote,
+  getShippingZone,
+  isFreeShippingEligible,
+} from './shippingRates'
 
-// Shipping rules — keep in sync with server/src/routes/checkoutRoutes.js
-export const FREE_SHIPPING_THRESHOLD = 100
-export const STANDARD_SHIPPING_RATE = 11.99
-export const calcShipping = (subtotal) =>
-  subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_RATE
+/** First product image with Cloudinary f_auto,q_auto (use ProductImage for responsive srcSet). */
+export const getImageUrl = (images, width = 400) =>
+  getOptimizedImageUrl(null, images, width)
+
+export {
+  EXTENDED_FREE_SHIPPING_MAX_RATE,
+  EXTENDED_FREE_SHIPPING_THRESHOLD,
+  FREE_SHIPPING_MAX_RATE,
+  FREE_SHIPPING_THRESHOLD,
+  SHIPPING_RATE_MARKUP,
+  addShippingMarkup,
+  calcShipping,
+  formatShippingRange,
+  getFreeShippingMinimumSubtotal,
+  getShippingQuote,
+  getShippingZone,
+  isFreeShippingEligible,
+}

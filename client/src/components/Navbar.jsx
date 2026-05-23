@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X, Search, Leaf } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ShoppingCart, User, Menu, X } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
 import useCartStore from '../store/useCartStore'
+import Logo from './Logo'
+import SearchBar from './SearchBar'
 
 export default function Navbar() {
   const { user, logout } = useAuthStore()
   const items = useCartStore((s) => s.items)
+  const openCart = useCartStore((s) => s.openCart)
   const cartCount = items.reduce((s, i) => s + i.quantity, 0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const navigate = useNavigate()
   const userMenuRef = useRef(null)
 
   // Close user dropdown on outside click / escape (touch-friendly)
@@ -33,42 +34,22 @@ export default function Navbar() {
 
   const closeAll = () => { setMenuOpen(false); setUserMenuOpen(false) }
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (search.trim()) {
-      navigate(`/shop?search=${encodeURIComponent(search.trim())}`)
-      setSearch('')
-      closeAll()
-    }
-  }
-
   return (
     <nav className="navbar">
       <div className="navbar-inner">
-        <Link to="/" className="navbar-logo">
-          <div className="navbar-logo-icon"><Leaf size={18} /></div>
-          <div className="navbar-logo-text">
-            <div className="navbar-logo-title">Evolve<span>Pharmacy</span></div>
-            <div className="navbar-logo-sub">Health & Wellness</div>
-          </div>
-        </Link>
+        <Logo size={42} className="navbar-brand" />
 
-        <form onSubmit={handleSearch} className="navbar-search">
-          <span className="navbar-search-icon"><Search size={15} /></span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search vitamins, supplements…"
-          />
-        </form>
+        <SearchBar />
 
         <div className="navbar-actions">
           <Link to="/shop" className="navbar-link">Shop</Link>
+          <Link to="/about" className="navbar-link">About</Link>
+          <Link to="/contact" className="navbar-link">Contact</Link>
 
-          <Link to="/cart" className="navbar-cart-btn">
+          <button type="button" onClick={openCart} className="navbar-cart-btn" aria-label="Open cart">
             <ShoppingCart size={21} />
             {cartCount > 0 && <span className="navbar-cart-badge">{cartCount}</span>}
-          </Link>
+          </button>
 
           {user ? (
             <div className={`navbar-user${userMenuOpen ? ' open' : ''}`} ref={userMenuRef}>
@@ -110,12 +91,16 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="navbar-mobile-menu">
-          <form onSubmit={handleSearch} className="navbar-search" style={{ maxWidth: '100%' }}>
-            <span className="navbar-search-icon"><Search size={15} /></span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vitamins, supplements…" />
-          </form>
+          <SearchBar className="navbar-search--mobile" inputProps={{ style: { width: '100%' } }} onNavigate={closeAll} />
           <Link to="/shop" onClick={closeAll}>Shop All Products</Link>
-          <Link to="/cart" onClick={closeAll}>Cart ({cartCount})</Link>
+          <Link to="/about" onClick={closeAll}>About Us</Link>
+          <Link to="/contact" onClick={closeAll}>Contact Us</Link>
+          <button
+            onClick={() => { closeAll(); openCart() }}
+            style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 7, fontSize: 14, fontWeight: 500, color: '#374151', background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Cart ({cartCount})
+          </button>
           {user ? (
             <>
               <Link to="/account" onClick={closeAll}>My Account</Link>

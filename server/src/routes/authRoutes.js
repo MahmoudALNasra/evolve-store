@@ -5,6 +5,12 @@ const User = require('../models/User')
 const generateToken = require('../utils/generateToken')
 const { protect } = require('../middleware/auth')
 const validatePassword = require('../utils/validatePassword')
+const {
+  consumeEmailLoginToken,
+  sanitizeRedirect,
+  appendUtmsToUrl,
+  extractUtmsFromQuery,
+} = require('../utils/emailLoginToken')
 
 const router = express.Router()
 
@@ -60,6 +66,25 @@ router.post('/login', async (req, res) => {
 // @GET /api/auth/me
 router.get('/me', protect, (req, res) => {
   res.json(req.user)
+})
+
+// @GET /api/auth/email-login — one-time magic link from order emails
+router.get('/email-login', async (req, res) => {
+  const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '')
+  const safeRedirect = sanitizeRedirect(req.query.redirect)
+
+  const doc = await consumeEmailLoginToken(req.query.token)
+  if (!doc) {
+    return res.redirect(`${clientUrl}/login?redirect=${encodeURIComponent(safeRedirect)}`)
+  }
+
+  const jwt = generateToken(doc.user)
+  const utms = extractUtmsFromQuery(req.query)
+
+  let successUrl = `${clientUrl}/oauth-success?token=${encodeURIComponent(jwt)}&redirect=${encodeURIComponent(safeRedirect)}`
+  successUrl = appendUtmsToUrl(successUrl, utms)
+
+  res.redirect(successUrl)
 })
 
 // @GET /api/auth/google

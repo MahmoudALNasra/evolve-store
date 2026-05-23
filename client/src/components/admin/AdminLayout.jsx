@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Leaf, Pill } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Pill } from 'lucide-react'
+import Logo from '../Logo'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -15,7 +16,7 @@ export default function AdminLayout() {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
-          <div className="admin-sidebar-logo"><Leaf size={18} /></div>
+          <Logo size={36} showText={false} to="/admin" className="admin-sidebar-brand" />
           <span className="admin-sidebar-title">Evolve Admin</span>
         </div>
         <nav className="admin-sidebar-nav">

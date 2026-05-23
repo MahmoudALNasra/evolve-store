@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 
 export default function AdminSettings() {
   const [form, setForm] = useState({
-    storeName: 'Evolve Pharmacy',
+    storeName: 'Evolve Specialty Pharmacy & Wellness',
     currency: 'USD',
     lowStockThreshold: 5,
     supportEmail: 'support@evolvepharmacy.com',

@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Star } from 'lucide-react'
-import { formatPrice, getImageUrl } from '../lib/utils'
+import { formatPrice } from '../lib/utils'
+import ProductImage from './ProductImage'
+import { getProductPath } from '../lib/productSeo'
 import useCartStore from '../store/useCartStore'
 import toast from 'react-hot-toast'
 
 export default function ProductCard({ product }) {
   const addItem = useCartStore((s) => s.addItem)
+  const stock = Number(product.stock) || 0
+  const isOutOfStock = stock <= 0
   const discount = product.comparePrice > product.price
     ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
     : 0
@@ -13,18 +17,26 @@ export default function ProductCard({ product }) {
   const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (product.stock === 0) return toast.error('Out of stock')
+    if (isOutOfStock) return toast.error('Out of stock')
     addItem(product, 1)
     toast.success(`${product.name} added to cart`)
   }
 
   return (
-    <Link to={`/product/${product._id}`} className="product-card">
+    <Link to={getProductPath(product)} className="product-card">
       <div className="product-card-img-wrap">
-        <img src={getImageUrl(product.images)} alt={product.name} />
+        <ProductImage
+          images={product.images}
+          alt={product.name}
+          variant="card"
+          className="product-card-img"
+          width={400}
+          height={400}
+          loading="lazy"
+        />
         {discount > 0 && <span className="product-badge product-badge-sale">-{discount}%</span>}
         {product.isFeatured && discount === 0 && <span className="product-badge product-badge-best">Best Seller</span>}
-        {product.stock === 0 && (
+        {isOutOfStock && (
           <div className="product-badge-outofstock"><span>Out of Stock</span></div>
         )}
       </div>
@@ -49,9 +61,9 @@ export default function ProductCard({ product }) {
           {discount > 0 && <span className="product-card-compare">{formatPrice(product.comparePrice)}</span>}
         </div>
 
-        <button onClick={handleAddToCart} disabled={product.stock === 0} className="btn-add-cart">
+        <button onClick={handleAddToCart} disabled={isOutOfStock} className="btn-add-cart">
           <ShoppingCart size={15} />
-          Add to Cart
+          {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
         </button>
       </div>
     </Link>

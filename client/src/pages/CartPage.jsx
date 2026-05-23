@@ -3,7 +3,18 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft } from 'lucide-react'
 import useCartStore from '../store/useCartStore'
 import useAuthStore from '../store/useAuthStore'
-import { formatPrice, getImageUrl, FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_RATE, calcShipping } from '../lib/utils'
+import {
+  EXTENDED_FREE_SHIPPING_MAX_RATE,
+  EXTENDED_FREE_SHIPPING_THRESHOLD,
+  formatPrice,
+  FREE_SHIPPING_MAX_RATE,
+  FREE_SHIPPING_THRESHOLD,
+  formatShippingRange,
+  getShippingQuote,
+} from '../lib/utils'
+import ProductImage from '../components/ProductImage'
+import { getProductPath } from '../lib/productSeo'
+import { calculateSalesTax, formatSalesTaxRate } from '../lib/salesTax'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import Spinner from '../components/ui/Spinner'
@@ -15,6 +26,8 @@ export default function CartPage() {
   const [loading, setLoading] = useState(false)
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
+  const shippingQuote = getShippingQuote(subtotal)
+  const tax = calculateSalesTax(subtotal)
 
   useEffect(() => {
     console.log('📄 CartPage loaded. Items in cart:', items)
@@ -84,14 +97,21 @@ export default function CartPage() {
         <div className="cart-items">
           {items.map((item) => (
             <div key={item._id} className="cart-item">
-              <Link to={`/product/${item._id}`}>
-                <img src={getImageUrl(item.images)} alt={item.name} className="cart-item-img" />
+              <Link to={getProductPath(item)}>
+                <ProductImage
+                  images={item.images}
+                  alt={item.name}
+                  variant="cart"
+                  className="cart-item-img"
+                  width={72}
+                  height={72}
+                />
               </Link>
               <div className="cart-item-info">
                 <div className="cart-item-top">
                   <div>
                     {item.category && <div className="cart-item-cat">{item.category}</div>}
-                    <Link to={`/product/${item._id}`} className="cart-item-name">{item.name}</Link>
+                    <Link to={getProductPath(item)} className="cart-item-name">{item.name}</Link>
                   </div>
                   <button className="btn-remove" onClick={() => removeItem(item._id)}>
                     <Trash2 size={15} />
@@ -137,12 +157,35 @@ export default function CartPage() {
           <div className="cart-summary-line" style={{ marginTop: 8 }}>
             <span className="cart-summary-line-label">Shipping</span>
             <span className={`cart-summary-line-val${subtotal >= FREE_SHIPPING_THRESHOLD ? ' free' : ''}`}>
-              {subtotal >= FREE_SHIPPING_THRESHOLD ? 'Free 🎉' : formatPrice(STANDARD_SHIPPING_RATE)}
+              {subtotal >= EXTENDED_FREE_SHIPPING_THRESHOLD
+                ? `Free up to ${formatPrice(EXTENDED_FREE_SHIPPING_MAX_RATE)}`
+                : subtotal >= FREE_SHIPPING_THRESHOLD
+                  ? `Free up to ${formatPrice(FREE_SHIPPING_MAX_RATE)}`
+                : formatShippingRange(shippingQuote, formatPrice)}
             </span>
+          </div>
+          <div className="cart-summary-line" style={{ marginTop: 8 }}>
+            <span className="cart-summary-line-label">Sales Tax ({formatSalesTaxRate()})</span>
+            <span className="cart-summary-line-val">{formatPrice(tax)}</span>
+          </div>
+          <div className="cart-free-shipping-note">
+            Free shipping is based on product subtotal before tax and shipping: rates up to{' '}
+            {formatPrice(FREE_SHIPPING_MAX_RATE)} are free at {formatPrice(FREE_SHIPPING_THRESHOLD)}+, and rates up
+            to {formatPrice(EXTENDED_FREE_SHIPPING_MAX_RATE)} are free at{' '}
+            {formatPrice(EXTENDED_FREE_SHIPPING_THRESHOLD)}+.
+          </div>
+          <div className="cart-free-shipping-note">
+            Free pharmacy pickup is available at checkout.
           </div>
           {subtotal < FREE_SHIPPING_THRESHOLD && (
             <div className="cart-free-shipping-note">
               Add {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)} more for free shipping!
+            </div>
+          )}
+          {subtotal >= FREE_SHIPPING_THRESHOLD && subtotal < EXTENDED_FREE_SHIPPING_THRESHOLD && (
+            <div className="cart-free-shipping-note">
+              Add {formatPrice(EXTENDED_FREE_SHIPPING_THRESHOLD - subtotal)} more to unlock free shipping up to{' '}
+              {formatPrice(EXTENDED_FREE_SHIPPING_MAX_RATE)}.
             </div>
           )}
 
@@ -151,7 +194,7 @@ export default function CartPage() {
           <div className="cart-summary-total">
             <span>Total</span>
             <span className="cart-summary-total-val">
-              {formatPrice(subtotal + calcShipping(subtotal))}
+              {formatPrice(subtotal + shippingQuote.amount + tax)}
             </span>
           </div>
 

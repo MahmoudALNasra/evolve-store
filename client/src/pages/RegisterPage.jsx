@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Leaf, Check, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
+import Logo from '../components/Logo'
 import useAuthStore from '../store/useAuthStore'
 import toast from 'react-hot-toast'
 
@@ -38,10 +39,7 @@ export default function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-brand">
-          <Link to="/" className="auth-brand-logo">
-            <div className="auth-brand-icon"><Leaf size={20} /></div>
-            <span className="auth-brand-name">Evolve<span>Pharmacy</span></span>
-          </Link>
+          <Logo size={56} className="auth-brand-logo" />
           <h1>Create an account</h1>
           <p>Start shopping today</p>
         </div>

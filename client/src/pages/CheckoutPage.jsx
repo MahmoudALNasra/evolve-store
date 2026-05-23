@@ -1,16 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, CreditCard } from 'lucide-react'
+import { ArrowLeft, MapPin, CreditCard, Clock, PackageCheck, Truck, X, Minus, Plus } from 'lucide-react'
 import useCartStore from '../store/useCartStore'
 import useAuthStore from '../store/useAuthStore'
-import { formatPrice, calcShipping } from '../lib/utils'
+import { formatPrice } from '../lib/utils'
+import ProductImage from '../components/ProductImage'
 import { US_STATES, isValidUSZip, isValidStreetAddress, isValidCity } from '../lib/usStates'
+import {
+  buildPickupDateTime,
+  formatPickupAddress,
+  getPickupDateBounds,
+  getPickupDefaults,
+  getPickupTimeOptionsForDate,
+  PICKUP_ADDRESS,
+} from '../lib/pickupTimes'
+import { calculateSalesTax, formatSalesTaxRate } from '../lib/salesTax'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
+function isAddressReady(addr) {
+  return (
+    addr.line1?.trim() &&
+    isValidStreetAddress(addr.line1) &&
+    addr.city?.trim() &&
+    isValidCity(addr.city) &&
+    addr.state &&
+    addr.zip?.trim() &&
+    isValidUSZip(addr.zip)
+  )
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  const { items } = useCartStore()
+  const { items, removeItem, updateQty } = useCartStore()
   const user = useAuthStore((s) => s.user)
   
   const [loading, setLoading] = useState(false)
@@ -23,11 +45,86 @@ export default function CheckoutPage() {
     zip: '',
     country: 'United States',
   })
+  const [fulfillmentMethod, setFulfillmentMethod] = useState('shipping')
+  const pickupDefaults = useMemo(() => getPickupDefaults(), [])
+  const pickupDateBounds = useMemo(() => getPickupDateBounds(), [])
+  const [pickupDate, setPickupDate] = useState(pickupDefaults.date)
+  const [pickupTimeValue, setPickupTimeValue] = useState(pickupDefaults.time)
+  const pickupTimeOptions = useMemo(() => getPickupTimeOptionsForDate(pickupDate), [pickupDate])
+  const pickupTime = buildPickupDateTime(pickupDate, pickupTimeValue)
+  const [shippingRates, setShippingRates] = useState([])
+  const [selectedRate, setSelectedRate] = useState(null)
+  const [ratesLoading, setRatesLoading] = useState(false)
+  const [dispatchMessage, setDispatchMessage] = useState('')
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
-  const shipping = calcShipping(subtotal)
-  const tax = 0 // Calculate tax if needed
+  const isPickup = fulfillmentMethod === 'pickup'
+  const hasValidZip = isValidUSZip(shippingAddress.zip)
+  const hasSelectedShippingRate = Boolean(selectedRate?.token)
+  const shipping = isPickup || !hasSelectedShippingRate ? 0 : selectedRate.amount
+  const shippingLabel = isPickup ? 'Pharmacy Pickup' : (selectedRate?.label || 'Shipping')
+  const shippingSummary = isPickup
+    ? 'Free'
+    : !hasValidZip
+      ? 'Enter ZIP to calculate'
+      : ratesLoading
+        ? 'Calculating...'
+        : hasSelectedShippingRate
+          ? selectedRate.amount === 0
+            ? 'Free'
+            : formatPrice(selectedRate.amount)
+          : 'Select option'
+  const totalLabel = !isPickup && !hasSelectedShippingRate ? 'Total before shipping' : 'Total'
+  const tax = calculateSalesTax(subtotal)
   const total = subtotal + shipping + tax
+
+  useEffect(() => {
+    if (!pickupTimeOptions.length) {
+      setPickupTimeValue('')
+      return
+    }
+
+    if (!pickupTimeOptions.some((option) => option.value === pickupTimeValue)) {
+      setPickupTimeValue(pickupTimeOptions[0].value)
+    }
+  }, [pickupTimeOptions, pickupTimeValue])
+
+  useEffect(() => {
+    if (isPickup || !isAddressReady(shippingAddress)) {
+      setShippingRates([])
+      setSelectedRate(null)
+      setDispatchMessage('')
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setRatesLoading(true)
+      try {
+        const { data } = await api.post('/shipping/rates', {
+          shippingAddress,
+          items: items.map((i) => ({ product: i._id, quantity: i.quantity })),
+        })
+        setDispatchMessage(data.dispatch?.message || '')
+        const rates = data.rates || []
+        setShippingRates(rates)
+        setSelectedRate((prev) => {
+          if (prev) {
+            const refreshedRate = rates.find((r) => r.objectId === prev.objectId)
+            if (refreshedRate) return refreshedRate
+          }
+          return rates[0] || null
+        })
+      } catch (err) {
+        setShippingRates([])
+        setSelectedRate(null)
+        toast.error(err.response?.data?.message || 'Could not load shipping rates')
+      } finally {
+        setRatesLoading(false)
+      }
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [isPickup, shippingAddress, items, subtotal])
 
   const handleChange = (e) => {
     let { name, value } = e.target
@@ -52,6 +149,16 @@ export default function CheckoutPage() {
 
   const validateForm = () => {
     const newErrors = {}
+
+    if (isPickup) {
+      if (!pickupDate) newErrors.pickupDate = 'Please select a pickup date'
+      if (!pickupTimeValue || !pickupTime) newErrors.pickupTime = 'Please select a pickup time'
+      if (pickupDate && !pickupTimeOptions.length) {
+        newErrors.pickupDate = 'Pickup is available Monday through Friday only'
+      }
+      setErrors(newErrors)
+      return Object.keys(newErrors).length === 0
+    }
     
     // Street address
     if (!shippingAddress.line1.trim()) {
@@ -78,6 +185,12 @@ export default function CheckoutPage() {
     } else if (!isValidUSZip(shippingAddress.zip)) {
       newErrors.zip = 'Enter a valid US ZIP (12345 or 12345-6789)'
     }
+
+    if (!ratesLoading && !selectedRate?.token) {
+      newErrors.shipping = isAddressReady(shippingAddress)
+        ? 'Please select a shipping option'
+        : 'Enter your full address to see shipping options'
+    }
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -97,7 +210,10 @@ export default function CheckoutPage() {
       
       const { data } = await api.post('/checkout', {
         items: items.map(item => ({ product: item._id, quantity: item.quantity })),
-        shippingAddress
+        shippingAddress,
+        fulfillmentMethod,
+        pickupTime: isPickup ? pickupTime : undefined,
+        shippingRateToken: isPickup ? undefined : selectedRate?.token,
       })
       
       console.log('✅ Stripe session created:', data.url)
@@ -152,6 +268,113 @@ export default function CheckoutPage() {
           {/* Left: Shipping Form */}
           <div>
             <form onSubmit={handleSubmit}>
+              <div className="card" style={{ marginBottom: 24 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', marginBottom: 14 }}>Delivery Method</h2>
+                <div className="responsive-form-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentMethod('shipping')}
+                    style={{
+                      textAlign: 'left',
+                      padding: 16,
+                      borderRadius: 12,
+                      border: `1.5px solid ${!isPickup ? '#2d7a3a' : '#e5e7eb'}`,
+                      background: !isPickup ? '#f0f9f4' : '#fff',
+                      color: '#1a1a1a',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, marginBottom: 6 }}>
+                      <Truck size={16} /> Ship to me
+                    </span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Delivery to your address</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentMethod('pickup')}
+                    style={{
+                      textAlign: 'left',
+                      padding: 16,
+                      borderRadius: 12,
+                      border: `1.5px solid ${isPickup ? '#2d7a3a' : '#e5e7eb'}`,
+                      background: isPickup ? '#f0f9f4' : '#fff',
+                      color: '#1a1a1a',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, marginBottom: 6 }}>
+                      <PackageCheck size={16} /> Pick up
+                    </span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Free pickup at the pharmacy</span>
+                  </button>
+                </div>
+              </div>
+
+              {isPickup && (
+                <div className="card" style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                    <div style={{ width: 40, height: 40, background: '#f0f9f4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Clock size={20} style={{ color: '#2d7a3a' }} />
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', marginBottom: 2 }}>Pickup Details</h2>
+                      <p style={{ fontSize: 13, color: '#9ca3af' }}>Monday - Friday, 9:00 AM - 5:00 PM</p>
+                    </div>
+                  </div>
+                  <div style={{ background: '#f8f6f0', border: '1px solid #ede5d3', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
+                    <strong>{PICKUP_ADDRESS.name}</strong><br />
+                    {formatPickupAddress()}
+                  </div>
+                  <div className="responsive-form-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                        Pickup Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={pickupDate}
+                        min={pickupDateBounds.min}
+                        max={pickupDateBounds.max}
+                        onChange={(e) => {
+                          const nextDate = e.target.value
+                          const nextOptions = getPickupTimeOptionsForDate(nextDate)
+                          setPickupDate(nextDate)
+                          setPickupTimeValue(nextOptions[0]?.value || '')
+                          if (errors.pickupDate) setErrors({ ...errors, pickupDate: '' })
+                        }}
+                        style={{ width: '100%', padding: '12px 16px', fontSize: 14, border: `1.5px solid ${errors.pickupDate ? '#dc2626' : '#e5e7eb'}`, borderRadius: 10, background: '#fff' }}
+                      />
+                      {errors.pickupDate && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>{errors.pickupDate}</p>}
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                        Pickup Time *
+                      </label>
+                      <select
+                        value={pickupTimeValue}
+                        onChange={(e) => {
+                          setPickupTimeValue(e.target.value)
+                          if (errors.pickupTime) setErrors({ ...errors, pickupTime: '' })
+                        }}
+                        disabled={!pickupTimeOptions.length}
+                        style={{ width: '100%', padding: '12px 16px', fontSize: 14, border: `1.5px solid ${errors.pickupTime ? '#dc2626' : '#e5e7eb'}`, borderRadius: 10, background: '#fff' }}
+                      >
+                        {pickupTimeOptions.length ? (
+                          pickupTimeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))
+                        ) : (
+                          <option value="">Closed this day</option>
+                        )}
+                      </select>
+                      {errors.pickupTime && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>{errors.pickupTime}</p>}
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>
+                    Choose any weekday. Earliest pickup is at least 1 hour from now; late orders move to the next business day.
+                  </p>
+                </div>
+              )}
+
+              {!isPickup && (
               <div className="card" style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                   <div style={{
@@ -359,8 +582,73 @@ export default function CheckoutPage() {
                       }}
                     />
                   </div>
+
+                  {isAddressReady(shippingAddress) && (
+                    <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid #e8eee8' }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
+                        Shipping options
+                      </h4>
+                      {dispatchMessage && (
+                        <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>
+                          {dispatchMessage}
+                        </p>
+                      )}
+                      {ratesLoading ? (
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>Loading carrier rates…</p>
+                      ) : shippingRates.length === 0 ? (
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>No shipping options available.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {shippingRates.map((rate) => (
+                            <label
+                              key={rate.objectId}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 14px',
+                                borderRadius: 10,
+                                border: `1.5px solid ${
+                                  selectedRate?.objectId === rate.objectId ? '#2d7a3a' : '#e5e7eb'
+                                }`,
+                                background: selectedRate?.objectId === rate.objectId ? '#f0f9f4' : 'white',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="shippingRate"
+                                checked={selectedRate?.objectId === rate.objectId}
+                                onChange={() => {
+                                  setSelectedRate(rate)
+                                  if (errors.shipping) setErrors({ ...errors, shipping: '' })
+                                }}
+                                style={{ accentColor: '#2d7a3a' }}
+                              />
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                                {rate.label}
+                                {rate.estimatedDays != null && (
+                                  <span style={{ fontWeight: 400, color: '#9ca3af' }}>
+                                    {' '}
+                                    · est. {rate.estimatedDays} day{rate.estimatedDays === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                              </span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: rate.amount === 0 ? '#2d7a3a' : '#1c2b1c' }}>
+                                {rate.amount === 0 ? 'Free' : formatPrice(rate.amount)}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {errors.shipping && (
+                        <p style={{ fontSize: 12, color: '#dc2626', marginTop: 8 }}>{errors.shipping}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+              )}
 
               <button
                 type="submit"
@@ -395,17 +683,107 @@ export default function CheckoutPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e8eee8' }}>
                 {items.map((item) => (
                   <div key={item._id} style={{ display: 'flex', gap: 12 }}>
-                    <img
-                      src={item.images?.[0]?.url || 'https://placehold.co/60x60?text=?'}
+                    <ProductImage
+                      images={item.images}
                       alt={item.name}
-                      style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8eee8' }}
+                      variant="checkout"
+                      width={60}
+                      height={60}
+                      style={{ borderRadius: 10, objectFit: 'cover', border: '1px solid #e8eee8' }}
+                      className="checkout-item-img"
                     />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{item.name}</p>
-                      <p style={{ fontSize: 12, color: '#9ca3af' }}>Qty: {item.quantity}</p>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 8,
+                          padding: 3,
+                          background: '#f9fafb',
+                        }}
+                        aria-label={`Quantity for ${item.name}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateQty(item._id, item.quantity - 1)
+                            setSelectedRate(null)
+                          }}
+                          disabled={loading || item.quantity <= 1}
+                          aria-label={`Decrease ${item.name} quantity`}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            border: 'none',
+                            borderRadius: 6,
+                            background: 'white',
+                            color: '#374151',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: loading || item.quantity <= 1 ? 'not-allowed' : 'pointer',
+                            opacity: loading || item.quantity <= 1 ? 0.45 : 1,
+                          }}
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span style={{ minWidth: 18, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#374151' }}>
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateQty(item._id, item.quantity + 1)
+                            setSelectedRate(null)
+                          }}
+                          disabled={loading}
+                          aria-label={`Increase ${item.name} quantity`}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            border: 'none',
+                            borderRadius: 6,
+                            background: 'white',
+                            color: '#374151',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.45 : 1,
+                          }}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                       <p style={{ fontSize: 14, fontWeight: 700, color: '#1c2b1c' }}>{formatPrice(item.price * item.quantity)}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item._id)}
+                        disabled={loading}
+                        aria-label={`Remove ${item.name} from cart`}
+                        title="Remove from cart"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 8,
+                          border: '1px solid #fee2e2',
+                          background: '#fff5f5',
+                          color: '#dc2626',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: loading ? 'not-allowed' : 'pointer',
+                          opacity: loading ? 0.5 : 1,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -417,19 +795,34 @@ export default function CheckoutPage() {
                   <span style={{ fontWeight: 600, color: '#374151' }}>{formatPrice(subtotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: '#6b7280' }}>Shipping</span>
-                  <span style={{ fontWeight: 600, color: shipping === 0 ? '#2d7a3a' : '#374151' }}>
-                    {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                  <span style={{ color: '#6b7280' }}>{shippingLabel}</span>
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      color: isPickup || (hasSelectedShippingRate && shipping === 0) ? '#2d7a3a' : '#374151',
+                    }}
+                  >
+                    {shippingSummary}
                   </span>
                 </div>
+                {isPickup && (
+                  <div style={{ fontSize: 11, color: '#2d7a3a', lineHeight: 1.5, marginTop: -4 }}>
+                    Pickup at {formatPickupAddress()}.
+                  </div>
+                )}
+                {!isPickup && dispatchMessage && (
+                  <div style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5, marginTop: -4 }}>
+                    {dispatchMessage}
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: '#6b7280' }}>Tax</span>
+                  <span style={{ color: '#6b7280' }}>Sales Tax ({formatSalesTaxRate()})</span>
                   <span style={{ fontWeight: 600, color: '#374151' }}>{formatPrice(tax)}</span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, marginBottom: 16 }}>
-                <span style={{ fontWeight: 700, color: '#1a1a1a' }}>Total</span>
+                <span style={{ fontWeight: 700, color: '#1a1a1a' }}>{totalLabel}</span>
                 <span style={{ fontWeight: 700, color: '#2d7a3a', fontSize: 20 }}>{formatPrice(total)}</span>
               </div>
 

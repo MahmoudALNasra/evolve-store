@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Leaf } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
+import Logo from '../components/Logo'
 import useCartStore from '../store/useCartStore'
 import toast from 'react-hot-toast'
 
@@ -63,10 +63,7 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-brand">
-          <Link to="/" className="auth-brand-logo">
-            <div className="auth-brand-icon"><Leaf size={20} /></div>
-            <span className="auth-brand-name">Evolve<span>Pharmacy</span></span>
-          </Link>
+          <Logo size={56} className="auth-brand-logo" />
           <h1>Welcome back</h1>
           <p>Sign in to your account</p>
         </div>

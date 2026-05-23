@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Package, ChevronRight, Truck, CheckCircle, Clock, ShoppingBag, Search } from 'lucide-react'
 import api from '../lib/api'
 import { formatPrice, formatDate } from '../lib/utils'
+import ProductImage from '../components/ProductImage'
 import { getTrackingInfo } from '../lib/tracking'
 
 const STATUS_COLOR = {
@@ -355,10 +356,13 @@ function OrderCard({ order }) {
             {/* Thumbnail stack */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {visibleItems.map((item, idx) => (
-                <img
+                <ProductImage
                   key={item._id || idx}
-                  src={item.image || 'https://placehold.co/48x48?text=?'}
+                  src={item.image}
                   alt={item.name}
+                  variant="orderRow"
+                  width={44}
+                  height={44}
                   style={{
                     width: 44,
                     height: 44,

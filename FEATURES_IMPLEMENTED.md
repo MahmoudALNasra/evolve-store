@@ -1,4 +1,4 @@
-# ✅ Features Implemented - Evolve Pharmacy E-commerce
+# ✅ Features Implemented - Evolve Specialty Pharmacy & Wellness E-commerce
 
 ## 🎉 Summary
 

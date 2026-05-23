@@ -30,23 +30,48 @@ ecommerce/
 
 ## Quick Start
 
+> **Windows:** Run commands in **PowerShell** or **Command Prompt**. You need **two terminals** (server + client). There is no `package.json` at the repo root unless you use the convenience scripts below — always `cd` into `server` or `client` first.
+
 ### 1. Server setup
 
-```bash
+```powershell
 cd server
 npm install
-cp .env.example .env   # fill in your values
-npm run dev            # starts on http://localhost:5000
+copy .env.example .env
+npm run dev
 ```
+
+API: **http://localhost:5000**
 
 ### 2. Client setup
 
-```bash
+```powershell
 cd client
 npm install
-cp .env.example .env   # fill in your values
-npm run dev            # starts on http://localhost:5173
+copy .env.example .env
+npm run dev
 ```
+
+Shop: **http://localhost:5173**
+
+### Optional: from repo root
+
+```powershell
+npm run install:all
+npm run dev:server
+# second terminal:
+npm run dev:client
+```
+
+### Troubleshooting `npm run dev`
+
+| Error | Fix |
+|-------|-----|
+| `npm is not recognized` | Install [Node.js LTS](https://nodejs.org/) (includes npm). **Close and reopen** the terminal. Or run: `& "C:\Program Files\nodejs\npm.cmd" run dev` from `server` or `client`. |
+| `ENOENT` / no `package.json` | You are in the wrong folder. Use `cd server` or `cd client`, not only `estore`. |
+| `EADDRINUSE` port 5000 | Another server is already running. Close that terminal or run `netstat -ano \| findstr :5000` then `taskkill /PID <pid> /F`. |
+| `MongoDB connection failed` | Start local MongoDB or fix `MONGO_URI` in `server/.env` (Atlas connection string). |
+| `Cannot find module 'nodemailer'` | Run `npm install` inside `server`. |
 
 ---
 
@@ -68,6 +93,12 @@ npm run dev            # starts on http://localhost:5173
 | `CLOUDINARY_API_SECRET` | From Cloudinary dashboard |
 | `STRIPE_SECRET_KEY` | From Stripe dashboard (use `sk_test_...` for dev) |
 | `STRIPE_WEBHOOK_SECRET` | From Stripe CLI or dashboard webhook settings |
+| `EMAIL_FROM` | Zoho noreply address e.g. `noreply@yourdomain.com` |
+| `SMTP_HOST` | `smtp.zoho.com` (or `smtppro.zoho.com` for org mail) |
+| `SMTP_USER` / `SMTP_PASS` | Zoho mailbox + app-specific password |
+| `SUPPORT_EMAIL` | Reply-to / support inbox (optional) |
+| `GA4_MEASUREMENT_ID` | GA4 web stream ID (`G-XXXXXXXX`) for Measurement Protocol |
+| `GA4_API_SECRET` | Measurement Protocol API secret (Admin → Data Streams → your stream) |
 
 ### `client/.env`
 
@@ -124,6 +155,19 @@ stripe listen --forward-to localhost:5000/api/webhooks/stripe
 ```
 
 Copy the webhook secret printed and set it as `STRIPE_WEBHOOK_SECRET` in `server/.env`.
+
+---
+
+## Order emails (Zoho SMTP)
+
+After a successful Stripe payment, the webhook sends an **order confirmation** from your `noreply` address. When an admin sets order status to **shipped**, a **shipping notification** is sent.
+
+1. Create `noreply@yourdomain.com` in Zoho Mail and generate an **app-specific password**.
+2. Add the email variables from `server/.env.example` to `server/.env`.
+3. Run `npm install` in `server/` (installs `nodemailer`).
+4. Restart the server after changing `.env`.
+
+If SMTP is not configured, the app still works — emails are skipped with a console warning.
 
 ---
 

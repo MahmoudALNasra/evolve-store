@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle, Leaf, FlaskConical, Heart, Dumbbell, Brain, Ap
 import api from '../lib/api'
 import ProductCard from '../components/ProductCard'
 import Spinner from '../components/ui/Spinner'
+import Logo from '../components/Logo'
 
 const CATEGORY_ICONS = {
   Vitamins: <Apple size={20} />,
@@ -34,6 +35,7 @@ export default function HomePage() {
       {/* Hero */}
       <section className="hero-section">
         <div className="hero-inner">
+          <Logo size={120} showText={false} to="/" className="hero-logo" />
           <div className="hero-badge"><Leaf size={13} /> 100% Natural &amp; Lab Tested</div>
           <h1 className="hero-title">
             Fuel Your Best<br /><span>Self Every Day</span>
@@ -102,7 +104,7 @@ export default function HomePage() {
       <section className="why-section">
         <div className="why-inner">
           <div style={{ textAlign: 'center' }}>
-            <div className="section-title">Why Choose Evolve Pharmacy?</div>
+            <div className="section-title">Why Choose Evolve Specialty Pharmacy & Wellness?</div>
             <div className="section-subtitle" style={{ marginTop: 6 }}>We take your health seriously</div>
           </div>
           <div className="why-grid">

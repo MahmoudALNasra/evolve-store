@@ -84,6 +84,7 @@ export default function AdminProducts() {
         toast.success('Product created')
       }
       setModal(null)
+      loadCategories()
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Save failed')
@@ -137,8 +138,13 @@ export default function AdminProducts() {
     setSaving(true)
     try {
       const { data } = await api.post('/products/bulk', fd)
-      toast.success(`${data.inserted} products imported`)
+      toast.success(
+        `${data.inserted} products imported${
+          data.categoriesCreated ? `, ${data.categoriesCreated} new categories added` : ''
+        }`
+      )
       setModal(null)
+      loadCategories()
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Import failed')
@@ -306,7 +312,8 @@ export default function AdminProducts() {
               </div>
               <div className="auth-field">
                 <label>Tags (comma-separated)</label>
-                <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="health, wellness, sale" />
+                <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="Leave empty to auto-generate from name & description" />
+                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Optional. Empty = auto-tags from product name, description, and category.</p>
               </div>
               <div className="auth-field">
                 <label>SKU</label>

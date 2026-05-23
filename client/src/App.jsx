@@ -6,8 +6,11 @@ import useAuthStore from './store/useAuthStore'
 // Layout
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import FloatingPrescriptionCtas from './components/FloatingPrescriptionCtas'
+import CartDrawer from './components/CartDrawer'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import ScrollToTop from './components/ScrollToTop'
+import AnalyticsTracker from './components/AnalyticsTracker'
 import AdminLayout from './components/admin/AdminLayout'
 
 // Storefront pages
@@ -23,6 +26,8 @@ import OrderDetailsPage from './pages/OrderDetailsPage'
 import AccountPage from './pages/AccountPage'
 import OAuthSuccess from './pages/OAuthSuccess'
 import OrderSuccessPage from './pages/OrderSuccessPage'
+import AboutPage from './pages/AboutPage'
+import ContactPage from './pages/ContactPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import RefillPrescriptionPage from './pages/RefillPrescriptionPage'
 import TransferPrescriptionPage from './pages/TransferPrescriptionPage'
@@ -40,6 +45,8 @@ function StorefrontLayout({ children }) {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">{children}</main>
+      <FloatingPrescriptionCtas />
+      <CartDrawer />
       <Footer />
     </div>
   )
@@ -52,6 +59,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <AnalyticsTracker />
       <ScrollToTop />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Routes>
@@ -74,12 +82,14 @@ export default function App() {
         {/* Storefront */}
         <Route path="/" element={<StorefrontLayout><HomePage /></StorefrontLayout>} />
         <Route path="/shop" element={<StorefrontLayout><ShopPage /></StorefrontLayout>} />
-        <Route path="/product/:id" element={<StorefrontLayout><ProductPage /></StorefrontLayout>} />
+        <Route path="/product/:slug" element={<StorefrontLayout><ProductPage /></StorefrontLayout>} />
         <Route path="/cart" element={<StorefrontLayout><CartPage /></StorefrontLayout>} />
         <Route path="/checkout" element={<StorefrontLayout><ProtectedRoute><CheckoutPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/orders" element={<StorefrontLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/orders/:id" element={<StorefrontLayout><ProtectedRoute><OrderDetailsPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/account" element={<StorefrontLayout><ProtectedRoute><AccountPage /></ProtectedRoute></StorefrontLayout>} />
+        <Route path="/about" element={<StorefrontLayout><AboutPage /></StorefrontLayout>} />
+        <Route path="/contact" element={<StorefrontLayout><ContactPage /></StorefrontLayout>} />
         <Route path="/privacy-policy" element={<StorefrontLayout><PrivacyPolicyPage /></StorefrontLayout>} />
         <Route path="/refill-prescription" element={<StorefrontLayout><RefillPrescriptionPage /></StorefrontLayout>} />
         <Route path="/transfer-prescription" element={<StorefrontLayout><TransferPrescriptionPage /></StorefrontLayout>} />

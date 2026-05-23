@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import useAuthStore from '../store/useAuthStore'
 import useCartStore from '../store/useCartStore'
+import { captureUtmsFromSearch } from '../lib/analyticsUtm'
 import Spinner from '../components/ui/Spinner'
 
 export default function OAuthSuccess() {
@@ -10,6 +11,8 @@ export default function OAuthSuccess() {
   const { init } = useAuthStore()
 
   useEffect(() => {
+    captureUtmsFromSearch(window.location.search)
+
     const token = searchParams.get('token')
     if (token) {
       localStorage.setItem('token', token)

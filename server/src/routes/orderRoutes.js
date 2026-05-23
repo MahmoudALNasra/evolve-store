@@ -1,9 +1,41 @@
 const express = require('express')
+const crypto = require('crypto')
 const Order = require('../models/Order')
 const Product = require('../models/Product')
 const { protect, admin } = require('../middleware/auth')
+const { sendOrderShipped } = require('../services/emailService')
 
 const router = express.Router()
+
+function getAdminOrdersPassword() {
+  return process.env.ADMIN_ORDERS_PASSWORD || 'change-this-orders-password'
+}
+
+function passwordsMatch(received, expected) {
+  const a = Buffer.from(String(received || ''))
+  const b = Buffer.from(String(expected || ''))
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+function requireOrdersPassword(req, res, next) {
+  const password = req.get('x-admin-orders-password')
+  if (passwordsMatch(password, getAdminOrdersPassword())) return next()
+  return res.status(403).json({ message: 'Orders password required' })
+}
+
+async function sendShippedEmailIfReady(order, previous = {}) {
+  if (!order?.user || (order.fulfillmentMethod === 'shipping' && !order.trackingNumber)) return false
+
+  const trackingWasAdded = order.trackingNumber && !previous.trackingNumber
+  if (order.shippedEmailSent && !trackingWasAdded) return false
+
+  const sent = await sendOrderShipped(order, order.user)
+  if (sent) {
+    order.shippedEmailSent = true
+    await order.save()
+  }
+  return sent
+}
 
 // GET /api/orders/my  — current user's orders
 router.get('/my', protect, async (req, res) => {
@@ -14,7 +46,7 @@ router.get('/my', protect, async (req, res) => {
 })
 
 // GET /api/orders  — admin: all orders
-router.get('/', protect, admin, async (req, res) => {
+router.get('/', protect, admin, requireOrdersPassword, async (req, res) => {
   const { status, search, page = 1, limit = 20 } = req.query
   const filter = {}
   if (status) filter.status = status
@@ -47,11 +79,14 @@ router.get('/:id', protect, async (req, res) => {
   const isOwner = order.user._id.toString() === req.user._id.toString()
   if (!isOwner && req.user.role !== 'admin')
     return res.status(403).json({ message: 'Access denied' })
+  if (!isOwner && req.user.role === 'admin' && !passwordsMatch(req.get('x-admin-orders-password'), getAdminOrdersPassword())) {
+    return res.status(403).json({ message: 'Orders password required' })
+  }
   res.json(order)
 })
 
 // GET /api/orders/stats/counts  — admin: get status counts
-router.get('/stats/counts', protect, admin, async (req, res) => {
+router.get('/stats/counts', protect, admin, requireOrdersPassword, async (req, res) => {
   const counts = await Order.aggregate([
     { $group: { _id: '$status', count: { $sum: 1 } } }
   ])
@@ -64,27 +99,53 @@ router.get('/stats/counts', protect, admin, async (req, res) => {
 })
 
 // PUT /api/orders/:id/status  — admin: update status
-router.put('/:id/status', protect, admin, async (req, res) => {
+router.put('/:id/status', protect, admin, requireOrdersPassword, async (req, res) => {
   const { status } = req.body
-  const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true })
+  const previous = await Order.findById(req.params.id)
+  if (!previous) return res.status(404).json({ message: 'Order not found' })
+
+  const order = await Order.findByIdAndUpdate(req.params.id, { status }, { returnDocument: 'after' }).populate(
+    'user',
+    'name email'
+  )
   if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  if (
+    status === 'shipped' &&
+    previous.status !== 'shipped' &&
+    !order.shippedEmailSent
+  ) {
+    await sendShippedEmailIfReady(order, previous)
+  }
+
   res.json(order)
 })
 
 // PUT /api/orders/:id/tracking  — admin: update tracking number
-router.put('/:id/tracking', protect, admin, async (req, res) => {
-  const { trackingNumber } = req.body
+router.put('/:id/tracking', protect, admin, requireOrdersPassword, async (req, res) => {
+  const trackingNumber = String(req.body?.trackingNumber || '').trim()
+  const previous = await Order.findById(req.params.id)
+  if (!previous) return res.status(404).json({ message: 'Order not found' })
+
+  const update = { trackingNumber }
+  if (trackingNumber) update.status = 'shipped'
+
   const order = await Order.findByIdAndUpdate(
     req.params.id,
-    { trackingNumber },
-    { new: true }
-  )
+    update,
+    { returnDocument: 'after' }
+  ).populate('user', 'name email')
   if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  if (trackingNumber) {
+    await sendShippedEmailIfReady(order, previous)
+  }
+
   res.json(order)
 })
 
 // DELETE /api/orders/:id  — admin only
-router.delete('/:id', protect, admin, async (req, res) => {
+router.delete('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
   const order = await Order.findByIdAndDelete(req.params.id)
   if (!order) return res.status(404).json({ message: 'Order not found' })
   res.json({ message: 'Order deleted' })

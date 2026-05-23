@@ -15,21 +15,33 @@ export default function OrderSuccessPage() {
     
     if (!cleared && sessionId) {
       console.log('✅ Order success page loaded, session:', sessionId)
-      
-      // Wait a bit for webhook to process, then verify order
-      setTimeout(() => {
-        // Clear cart after successful order
-        // Note: Webhook should have already confirmed payment
+
+      const timer = setTimeout(async () => {
+        // Clear first so a failed verification cannot leave paid items in cart.
         clearCart()
         setCleared(true)
+
+        // Verifies Stripe session and fulfills order/email if local webhook was missed.
+        for (let attempt = 1; attempt <= 6; attempt += 1) {
+          try {
+            const { data } = await api.get(`/checkout/session/${sessionId}`, { skipAuthRedirect: true })
+            if (data?.isPaid) break
+          } catch (err) {
+            console.warn(`Order verification attempt ${attempt} failed:`, err.response?.data?.message || err.message)
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+        }
         console.log('🗑️ Cart cleared after order success')
       }, 2000) // 2 second delay to allow webhook to process
+
+      return () => clearTimeout(timer)
     } else if (!cleared && !sessionId) {
       // No session ID, still clear cart (user navigated here directly)
       clearCart()
       setCleared(true)
     }
-  }, [])
+  }, [clearCart, cleared, searchParams])
 
   return (
     <div style={{ 

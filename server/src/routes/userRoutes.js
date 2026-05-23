@@ -26,7 +26,7 @@ router.put('/profile', protect, async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { name, avatar },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   )
   res.json(user)
 })
@@ -36,7 +36,7 @@ router.put('/:id/role', protect, admin, async (req, res) => {
   const { role } = req.body
   if (!['user', 'admin'].includes(role))
     return res.status(400).json({ message: 'Invalid role' })
-  const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true })
+  const user = await User.findByIdAndUpdate(req.params.id, { role }, { returnDocument: 'after' })
   if (!user) return res.status(404).json({ message: 'User not found' })
   res.json(user)
 })

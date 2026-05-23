@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Package, MapPin, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react'
 import api from '../lib/api'
 import { formatPrice, formatDate } from '../lib/utils'
+import ProductImage from '../components/ProductImage'
 import { getTrackingInfo } from '../lib/tracking'
 
 const STATUS_COLOR = {
@@ -56,6 +57,7 @@ export default function OrderDetailsPage() {
   if (!order) return null
 
   const StatusIcon = STATUS_ICONS[order.status]
+  const isPickup = order.fulfillmentMethod === 'pickup'
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh', padding: '40px 24px' }}>
@@ -204,15 +206,18 @@ export default function OrderDetailsPage() {
                     borderRadius: 10,
                     border: '1px solid #e8eee8'
                   }}>
-                    <img
-                      src={item.image || 'https://placehold.co/80x80?text=?'}
+                    <ProductImage
+                      src={item.image}
                       alt={item.name}
+                      variant="order"
+                      width={80}
+                      height={80}
                       style={{
                         width: 80,
                         height: 80,
                         borderRadius: 10,
                         objectFit: 'cover',
-                        border: '1px solid #e8eee8'
+                        border: '1px solid #e8eee8',
                       }}
                     />
                     <div style={{ flex: 1 }}>
@@ -236,7 +241,7 @@ export default function OrderDetailsPage() {
               </div>
             </div>
 
-            {/* Shipping Address */}
+            {/* Fulfillment Details */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <div style={{
@@ -250,10 +255,24 @@ export default function OrderDetailsPage() {
                 }}>
                   <MapPin size={18} style={{ color: '#2d7a3a' }} />
                 </div>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Shipping Address</h2>
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>
+                  {isPickup ? 'Pickup Details' : 'Shipping Address'}
+                </h2>
               </div>
               
-              {order.shippingAddress && (order.shippingAddress.line1 || order.shippingAddress.city) ? (
+              {isPickup ? (
+                <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
+                  {order.pickup?.display && <p><strong>Pickup time:</strong> {order.pickup.display}</p>}
+                  <p>{order.pickup?.address?.name || 'Evolve Specialty Pharmacy & Wellness'}</p>
+                  <p>{order.pickup?.address?.line1}</p>
+                  <p>
+                    {order.pickup?.address?.city}
+                    {order.pickup?.address?.state && `, ${order.pickup.address.state}`}
+                    {order.pickup?.address?.zip && ` ${order.pickup.address.zip}`}
+                  </p>
+                  <p style={{ color: '#6b7280', marginTop: 8 }}>Open Monday - Friday, 9:00 AM - 5:00 PM</p>
+                </div>
+              ) : order.shippingAddress && (order.shippingAddress.line1 || order.shippingAddress.city) ? (
                 <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
                   {order.shippingAddress.line1 && <p>{order.shippingAddress.line1}</p>}
                   {order.shippingAddress.line2 && <p>{order.shippingAddress.line2}</p>}
@@ -285,7 +304,7 @@ export default function OrderDetailsPage() {
                   <span style={{ fontWeight: 600, color: '#374151' }}>{formatPrice(order.subtotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                  <span style={{ color: '#6b7280' }}>Shipping</span>
+                  <span style={{ color: '#6b7280' }}>{isPickup ? 'Pickup' : 'Shipping'}</span>
                   <span style={{ fontWeight: 600, color: '#2d7a3a' }}>
                     {order.shipping > 0 ? formatPrice(order.shipping) : 'Free'}
                   </span>

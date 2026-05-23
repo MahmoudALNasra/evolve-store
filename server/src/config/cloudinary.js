@@ -13,7 +13,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'estore/products',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 'auto' }],
+    transformation: [{ fetch_format: 'auto', quality: 'auto', width: 1200, height: 1200, crop: 'limit' }],
   },
 })
 

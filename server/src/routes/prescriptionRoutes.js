@@ -167,7 +167,7 @@ router.put('/:id', protect, admin, async (req, res) => {
   }
   if (typeof adminNotes === 'string') update.adminNotes = adminNotes
 
-  const doc = await Prescription.findByIdAndUpdate(req.params.id, update, { new: true })
+  const doc = await Prescription.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' })
   if (!doc) return res.status(404).json({ message: 'Prescription not found' })
   res.json(doc)
 })

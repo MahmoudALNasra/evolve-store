@@ -1,7 +1,9 @@
 const express = require('express')
 const Stripe = require('stripe')
 const Order = require('../models/Order')
-const Product = require('../models/Product')
+const { trackPurchase, trackGa4EventSafe } = require('../services/ga4AnalyticsService')
+const { fulfillPaidCheckoutOrder } = require('../services/orderFulfillmentService')
+const { releaseReservedStock } = require('../services/inventoryService')
 
 const router = express.Router()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -28,21 +30,23 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         const orderId = session.metadata.orderId
         console.log(`✅ Payment completed for order: ${orderId}`)
 
-        const order = await Order.findById(orderId)
+        const order = await Order.findById(orderId).populate('user', 'name email')
         if (order) {
-          console.log(`📦 Updating order ${orderId} to processing`)
-          order.isPaid = true
-          order.paidAt = new Date()
-          order.status = 'processing'
-          order.stripePaymentIntentId = session.payment_intent
-          await order.save()
-          console.log(`✅ Order ${orderId} marked as paid and processing`)
+          await fulfillPaidCheckoutOrder(order, session)
+          console.log(`✅ Order ${orderId} fulfilled from Stripe webhook`)
 
-          // Reduce stock
-          for (const item of order.items) {
-            await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } })
+          // GA4 server-side purchase (idempotent — safe on webhook retries)
+          if (!order.ga4PurchaseSent) {
+            const phone = session.customer_details?.phone || ''
+            const email = session.customer_details?.email || order.user?.email
+            trackGa4EventSafe(async () => {
+              const result = await trackPurchase(order, order.user, { phone, email })
+              if (result?.ok) {
+                order.ga4PurchaseSent = true
+                await order.save()
+              }
+            })
           }
-          console.log(`📉 Stock reduced for order ${orderId}`)
         } else {
           console.error(`❌ Order ${orderId} not found`)
         }
@@ -56,6 +60,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         const order = await Order.findById(orderId)
         if (order && !order.isPaid) {
           order.status = 'cancelled'
+          await releaseReservedStock(order)
           await order.save()
         }
         break

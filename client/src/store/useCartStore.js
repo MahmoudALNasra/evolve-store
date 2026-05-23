@@ -6,22 +6,27 @@ const useCartStore = create(
     (set, get) => ({
       items: [],
       _hasHydrated: false,
+      isCartOpen: false,
 
       setHasHydrated: (state) => {
         set({ _hasHydrated: state })
       },
+
+      openCart: () => set({ isCartOpen: true }),
+      closeCart: () => set({ isCartOpen: false }),
 
       addItem: (product, quantity = 1) => {
         const items = get().items
         const existing = items.find((i) => i._id === product._id)
         if (existing) {
           set({
+            isCartOpen: true,
             items: items.map((i) =>
               i._id === product._id ? { ...i, quantity: i.quantity + quantity } : i
             ),
           })
         } else {
-          set({ items: [...items, { ...product, quantity }] })
+          set({ items: [...items, { ...product, quantity }], isCartOpen: true })
         }
       },
 
