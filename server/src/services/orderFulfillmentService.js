@@ -1,5 +1,6 @@
 const Product = require('../models/Product')
 const { sendOrderConfirmation, sendNewOrderNotification } = require('./emailService')
+const { applySaleItems } = require('./inventorySyncService')
 
 /**
  * Idempotently mark a Stripe Checkout order as paid, reduce stock once,
@@ -41,6 +42,22 @@ async function fulfillPaidCheckoutOrder(order, session) {
     if (sent) {
       order.newOrderEmailSent = true
       await order.save()
+    }
+  }
+
+  if (process.env.INVENTORY_SYNC_ON_ORDERS === 'true' && !order.inventorySynced) {
+    try {
+      await applySaleItems(
+        order.items.map((item) => ({
+          productId: item.product,
+          quantity: item.quantity,
+        })),
+        { updateWebsiteStock: false }
+      )
+      order.inventorySynced = true
+      await order.save()
+    } catch (err) {
+      console.error('Order inventory sync failed:', err.message)
     }
   }
 

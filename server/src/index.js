@@ -21,6 +21,7 @@ const contactRoutes = require('./routes/contactRoutes')
 const newsletterRoutes = require('./routes/newsletterRoutes')
 const shippingRoutes = require('./routes/shippingRoutes')
 const sitemapRoutes = require('./routes/sitemapRoutes')
+const inventorySyncRoutes = require('./routes/inventorySyncRoutes')
 const errorHandler = require('./middleware/errorHandler')
 const { logGa4StartupStatus } = require('./utils/ga4MeasurementProtocol')
 const { shouldServeSpa, getClientDistPath } = require('./middleware/spaGate')
@@ -28,6 +29,7 @@ const createBotProductPrerender = require('./middleware/botProductPrerender')
 const createPrerenderMiddleware = require('./middleware/prerenderCrawlers')
 const createSpaMiddleware = require('./middleware/serveSpa')
 const { startCheckoutReconciliation } = require('./services/checkoutReconciliationService')
+const { startInventorySyncScheduler } = require('./services/inventorySyncService')
 
 const app = express()
 
@@ -62,6 +64,8 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/shipping', shippingRoutes)
+app.use('/api/inventory', inventorySyncRoutes)
+app.use('/webhooks', inventorySyncRoutes)
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
@@ -88,6 +92,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   logGa4StartupStatus()
   startCheckoutReconciliation()
+  startInventorySyncScheduler()
 })
 
 server.on('error', (err) => {

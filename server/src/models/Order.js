@@ -67,6 +67,7 @@ const orderSchema = new mongoose.Schema(
     shippedEmailSent: { type: Boolean, default: false },
     ga4BeginCheckoutSent: { type: Boolean, default: false },
     ga4PurchaseSent: { type: Boolean, default: false },
+    inventorySynced: { type: Boolean, default: false },
     analyticsContext: {
       clientIp: { type: String, default: '' },
       userAgent: { type: String, default: '' },
