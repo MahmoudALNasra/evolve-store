@@ -30,6 +30,35 @@ function isAddressReady(addr) {
   )
 }
 
+function getApiErrorPayload(err) {
+  const data = err.response?.data
+  if (data && typeof data === 'object') {
+    return {
+      message: data.message || 'Something went wrong',
+      resolution: data.resolution || '',
+      suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+      code: data.code || '',
+    }
+  }
+
+  return {
+    message: err.response?.data?.message || err.message || 'Something went wrong',
+    resolution: '',
+    suggestions: [],
+    code: '',
+  }
+}
+
+function showHelpfulErrorToast(err, fallback) {
+  const payload = getApiErrorPayload(err)
+  const details = [payload.resolution, ...payload.suggestions].filter(Boolean)
+  toast.error(
+    `${payload.message || fallback}${details.length ? `\n\n${details.slice(0, 2).join('\n')}` : ''}`,
+    { duration: 9000 }
+  )
+  return payload
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQty } = useCartStore()
@@ -56,6 +85,7 @@ export default function CheckoutPage() {
   const [selectedRate, setSelectedRate] = useState(null)
   const [ratesLoading, setRatesLoading] = useState(false)
   const [dispatchMessage, setDispatchMessage] = useState('')
+  const [shippingRateError, setShippingRateError] = useState(null)
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const isPickup = fulfillmentMethod === 'pickup'
@@ -94,6 +124,7 @@ export default function CheckoutPage() {
       setShippingRates([])
       setSelectedRate(null)
       setDispatchMessage('')
+      setShippingRateError(null)
       return
     }
 
@@ -105,6 +136,7 @@ export default function CheckoutPage() {
           items: items.map((i) => ({ product: i._id, quantity: i.quantity })),
         })
         setDispatchMessage(data.dispatch?.message || '')
+        setShippingRateError(null)
         const rates = data.rates || []
         setShippingRates(rates)
         setSelectedRate((prev) => {
@@ -117,7 +149,7 @@ export default function CheckoutPage() {
       } catch (err) {
         setShippingRates([])
         setSelectedRate(null)
-        toast.error(err.response?.data?.message || 'Could not load shipping rates')
+        setShippingRateError(showHelpfulErrorToast(err, 'Could not load shipping rates'))
       } finally {
         setRatesLoading(false)
       }
@@ -222,7 +254,7 @@ export default function CheckoutPage() {
       window.location.href = data.url
     } catch (err) {
       console.error('Checkout error:', err)
-      toast.error(err.response?.data?.message || 'Checkout failed')
+      showHelpfulErrorToast(err, 'Checkout failed')
       setLoading(false)
     }
   }
@@ -595,6 +627,33 @@ export default function CheckoutPage() {
                       )}
                       {ratesLoading ? (
                         <p style={{ fontSize: 13, color: '#6b7280' }}>Loading carrier rates…</p>
+                      ) : shippingRateError ? (
+                        <div
+                          role="alert"
+                          style={{
+                            border: '1px solid #fecaca',
+                            background: '#fef2f2',
+                            color: '#7f1d1d',
+                            borderRadius: 10,
+                            padding: 14,
+                            fontSize: 13,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          <strong style={{ display: 'block', marginBottom: 4 }}>
+                            {shippingRateError.message || 'Could not load shipping rates'}
+                          </strong>
+                          {shippingRateError.resolution && (
+                            <p style={{ margin: '0 0 8px' }}>{shippingRateError.resolution}</p>
+                          )}
+                          {shippingRateError.suggestions?.length > 0 && (
+                            <ul style={{ margin: 0, paddingLeft: 18 }}>
+                              {shippingRateError.suggestions.map((suggestion) => (
+                                <li key={suggestion}>{suggestion}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       ) : shippingRates.length === 0 ? (
                         <p style={{ fontSize: 13, color: '#6b7280' }}>No shipping options available.</p>
                       ) : (

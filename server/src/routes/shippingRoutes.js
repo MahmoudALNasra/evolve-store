@@ -20,6 +20,80 @@ function validateUSAddress(addr) {
   return null
 }
 
+function normalizeShippoError(err) {
+  const status = err.response?.status
+  const data = err.response?.data
+  const rawMessage = [
+    data?.detail,
+    data?.message,
+    data?.error,
+    err.message,
+  ].filter(Boolean).join(' ')
+
+  if (status === 401 || status === 403 || /auth|token|api key|permission/i.test(rawMessage)) {
+    return {
+      status: 502,
+      code: 'SHIPPO_AUTH_ERROR',
+      message: 'Shipping rates are temporarily unavailable because the carrier connection is not authorized.',
+      resolution: 'Store admin: verify SHIPPO_API_KEY is set correctly, restart the API, then reload checkout.',
+      suggestions: [
+        'Try again in a few minutes.',
+        'If this continues, choose pickup or contact the pharmacy so we can help complete the order.',
+      ],
+    }
+  }
+
+  if (status === 400 || /address|zip|postal|state|city|street/i.test(rawMessage)) {
+    return {
+      status: 400,
+      code: 'SHIPPO_ADDRESS_ERROR',
+      message: 'The carrier could not rate this shipping address.',
+      resolution: 'Check the street address, city, state, and ZIP code. Use a USPS-standard address when possible.',
+      suggestions: [
+        'Confirm the ZIP code matches the city and state.',
+        'Avoid abbreviations that may confuse validation, then request rates again.',
+      ],
+    }
+  }
+
+  if (/No UPS Ground shipping rates/i.test(rawMessage)) {
+    return {
+      status: 502,
+      code: 'NO_UPS_GROUND_RATES',
+      message: 'UPS Ground is not available for this address right now.',
+      resolution: 'Try a different valid US delivery address, or contact the pharmacy for shipping help.',
+      suggestions: [
+        'Confirm this is a deliverable US address.',
+        'Try again shortly in case the carrier rate service is delayed.',
+      ],
+    }
+  }
+
+  if (err.code === 'ECONNABORTED' || /timeout|network/i.test(rawMessage)) {
+    return {
+      status: 504,
+      code: 'SHIPPO_TIMEOUT',
+      message: 'The carrier rate service took too long to respond.',
+      resolution: 'Wait a moment and request rates again.',
+      suggestions: [
+        'Refresh shipping rates before continuing to payment.',
+        'If it keeps happening, contact the pharmacy for help.',
+      ],
+    }
+  }
+
+  return {
+    status: 502,
+    code: 'SHIPPO_RATE_ERROR',
+    message: 'We could not load carrier shipping rates right now.',
+    resolution: 'Refresh rates and try again. If the issue continues, contact the pharmacy.',
+    suggestions: [
+      'Re-check the shipping address.',
+      'Refresh the page and select a shipping option again.',
+    ],
+  }
+}
+
 // POST /api/shipping/rates
 router.post('/rates', protect, async (req, res) => {
   const { shippingAddress, items } = req.body || {}
@@ -60,9 +134,8 @@ router.post('/rates', protect, async (req, res) => {
     })
   } catch (err) {
     console.error('Shipping rates error:', err.response?.data || err.message)
-    res.status(502).json({
-      message: err.response?.data?.detail || err.message || 'Unable to fetch shipping rates',
-    })
+    const normalized = normalizeShippoError(err)
+    res.status(normalized.status).json(normalized)
   }
 })
 
