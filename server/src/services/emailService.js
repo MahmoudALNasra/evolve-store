@@ -1,4 +1,5 @@
-const { getTransporter, isEmailConfigured } = require('../config/email')
+const axios = require('axios')
+const { getTransporter, isEmailConfigured, isResendConfigured } = require('../config/email')
 const { buildContactMessageEmail } = require('../templates/contactMessageEmail')
 const { buildOrderConfirmationEmail } = require('../templates/orderConfirmationEmail')
 const { buildNewOrderNotificationEmail } = require('../templates/newOrderNotificationEmail')
@@ -11,10 +12,38 @@ const getFromAddress = () => {
   return `"${name}" <${email}>`
 }
 
+const sendWithResend = async ({ to, subject, text, html }) => {
+  const { data } = await axios.post(
+    'https://api.resend.com/emails',
+    {
+      from: getFromAddress(),
+      to: [to],
+      subject,
+      text,
+      html,
+      reply_to: process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: Number(process.env.EMAIL_API_TIMEOUT_MS || 15000),
+    }
+  )
+
+  return data?.id || true
+}
+
 const sendMail = async ({ to, subject, text, html }) => {
+  if (isResendConfigured()) {
+    await sendWithResend({ to, subject, text, html })
+    return true
+  }
+
   const transport = getTransporter()
   if (!transport) {
-    console.warn('Email skipped: SMTP not configured (set SMTP_* and EMAIL_FROM in .env)')
+    console.warn('Email skipped: no email provider configured (set RESEND_API_KEY or SMTP_* in .env)')
     return false
   }
 

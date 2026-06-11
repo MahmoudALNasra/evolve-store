@@ -14,6 +14,9 @@ const US_STATE_CODES = new Set([
 
 function validateUSAddress(addr) {
   if (!addr?.line1?.trim()) return 'Street address is required'
+  if (!/\d/.test(addr.line1) || addr.line1.trim().length < 5) {
+    return 'Enter the house/building number before the street name, e.g., 123 Main St'
+  }
   if (!addr?.city?.trim()) return 'City is required'
   if (!addr?.state || !US_STATE_CODES.has(addr.state)) return 'Valid US state is required'
   if (!addr?.zip || !/^\d{5}(-\d{4})?$/.test(addr.zip)) return 'Valid US ZIP is required'

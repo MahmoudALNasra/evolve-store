@@ -26,7 +26,9 @@ const US_STATE_CODES = new Set([
 const validateUSAddress = (addr) => {
   if (!addr || typeof addr !== 'object') return 'Shipping address is required'
   if (!addr.line1 || !addr.line1.trim()) return 'Street address is required'
-  if (!/\d/.test(addr.line1) || addr.line1.trim().length < 5) return 'Invalid street address'
+  if (!/\d/.test(addr.line1) || addr.line1.trim().length < 5) {
+    return 'Enter the house/building number before the street name, e.g., 123 Main St'
+  }
   if (!addr.city || !/^[a-zA-Z\s\-'.]{2,}$/.test(addr.city.trim())) return 'Invalid city'
   if (!addr.state || !US_STATE_CODES.has(addr.state)) return 'Invalid US state'
   if (!addr.zip || !/^\d{5}(-\d{4})?$/.test(addr.zip)) return 'Invalid US ZIP code'

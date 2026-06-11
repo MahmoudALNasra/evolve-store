@@ -196,7 +196,7 @@ export default function CheckoutPage() {
     if (!shippingAddress.line1.trim()) {
       newErrors.line1 = 'Street address is required'
     } else if (!isValidStreetAddress(shippingAddress.line1)) {
-      newErrors.line1 = 'Please enter a valid street address (e.g., 123 Main St)'
+      newErrors.line1 = 'Enter the house/building number before the street name, e.g., 123 Main St'
     }
     
     // City
@@ -453,7 +453,7 @@ export default function CheckoutPage() {
                       name="line1"
                       value={shippingAddress.line1}
                       onChange={handleChange}
-                      placeholder="123 Main Street"
+                      placeholder="123 Main St (number first)"
                       autoComplete="address-line1"
                       style={{
                         width: '100%',
@@ -467,6 +467,10 @@ export default function CheckoutPage() {
                       onFocus={(e) => !errors.line1 && (e.target.style.borderColor = '#2d7a3a')}
                       onBlur={(e) => !errors.line1 && (e.target.style.borderColor = '#e5e7eb')}
                     />
+                    <p style={{ fontSize: 12, color: '#6b7280', marginTop: 6, lineHeight: 1.45 }}>
+                      Use the carrier format: house/building number first, then street name.
+                      Example: <strong>123 Main St</strong>, not <strong>Main St 123</strong>.
+                    </p>
                     {errors.line1 && (
                       <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>{errors.line1}</p>
                     )}
