@@ -20,6 +20,7 @@ function createBotProductPrerenderMiddleware(clientDist) {
       const { status, html } = await renderBotProductPage(match[1], clientDist)
       res.status(status)
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.setHeader('X-Robots-Tag', 'index, follow')
       res.setHeader('X-Rendered-By', 'estore-bot-product')
       if (req.method === 'HEAD') return res.end()
       return res.send(html)

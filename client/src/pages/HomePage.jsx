@@ -5,6 +5,7 @@ import api from '../lib/api'
 import ProductCard from '../components/ProductCard'
 import Spinner from '../components/ui/Spinner'
 import Logo from '../components/Logo'
+import SEO from '../components/SEO'
 
 const CATEGORY_ICONS = {
   Vitamins: <Apple size={20} />,
@@ -32,6 +33,21 @@ export default function HomePage() {
 
   return (
     <div>
+      <SEO
+        title="Evolve Specialty Pharmacy & Wellness"
+        description="Shop Evolve Specialty Pharmacy & Wellness for trusted vitamins, supplements, personal care, medical supplies, prescription refills, and wellness products with expert pharmacy support."
+        path="/"
+        keywords={[
+          'specialty pharmacy',
+          'wellness pharmacy',
+          'vitamins and supplements',
+          'prescription refills',
+          'pharmacy delivery',
+          'health and wellness products',
+          'medical supplies',
+          'Evolve Specialty Pharmacy',
+        ]}
+      />
       {/* Hero */}
       <section className="hero-section">
         <div className="hero-inner">

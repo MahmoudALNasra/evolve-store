@@ -39,6 +39,29 @@ export function getProductDescription(product) {
   return `Shop ${product.name} at ${STORE_NAME}. Premium health and wellness products.`
 }
 
+function normalizeKeyword(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+export function getProductKeywords(product) {
+  const tags = Array.isArray(product.tags) ? product.tags : []
+  const keywords = [
+    product.name,
+    product.category,
+    product.brand,
+    product.sku,
+    product.barcode,
+    ...tags,
+    `${product.name} ${STORE_NAME}`,
+    `${product.category || 'wellness products'} online`,
+    'specialty pharmacy',
+    'wellness products',
+    'vitamins and supplements',
+  ]
+
+  return [...new Set(keywords.map(normalizeKeyword).filter(Boolean))].slice(0, 14)
+}
+
 function schemaAvailability(stock) {
   return stock > 0
     ? 'https://schema.org/InStock'
@@ -143,13 +166,17 @@ export function buildProductMeta(product) {
   const canonical = getProductUrl(product)
   const title = `${product.name} | ${STORE_NAME}`
   const description = getProductDescription(product)
+  const keywords = getProductKeywords(product)
   const ogImage = images[0]
   const price = Number(product.price).toFixed(2)
 
   return {
     title,
     description,
+    keywords,
     canonical,
+    robots: 'index, follow',
+    publisher: STORE_NAME,
     og: {
       title: product.name,
       description,

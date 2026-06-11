@@ -9,7 +9,7 @@ const META_ATTR = 'data-product-seo'
 const JSON_LD_ATTR = 'data-product-jsonld'
 
 function upsertMetaName(name, content) {
-  let el = document.head.querySelector(`meta[name="${name}"][${META_ATTR}]`)
+  let el = document.head.querySelector(`meta[name="${name}"][${META_ATTR}]`) || document.head.querySelector(`meta[name="${name}"]`)
   if (!el) {
     el = document.createElement('meta')
     el.setAttribute('name', name)
@@ -20,7 +20,7 @@ function upsertMetaName(name, content) {
 }
 
 function upsertMetaProperty(property, content) {
-  let el = document.head.querySelector(`meta[property="${property}"][${META_ATTR}]`)
+  let el = document.head.querySelector(`meta[property="${property}"][${META_ATTR}]`) || document.head.querySelector(`meta[property="${property}"]`)
   if (!el) {
     el = document.createElement('meta')
     el.setAttribute('property', property)
@@ -31,7 +31,7 @@ function upsertMetaProperty(property, content) {
 }
 
 function upsertLink(rel, href) {
-  let el = document.head.querySelector(`link[rel="${rel}"][${META_ATTR}]`)
+  let el = document.head.querySelector(`link[rel="${rel}"][${META_ATTR}]`) || document.head.querySelector(`link[rel="${rel}"]`)
   if (!el) {
     el = document.createElement('link')
     el.setAttribute('rel', rel)
@@ -71,6 +71,9 @@ export default function ProductSEO({ product }) {
 
     document.title = meta.title
     upsertMetaName('description', meta.description)
+    upsertMetaName('keywords', meta.keywords.join(', '))
+    upsertMetaName('robots', meta.robots)
+    upsertMetaName('publisher', meta.publisher)
     upsertLink('canonical', meta.canonical)
 
     upsertMetaProperty('og:title', meta.og.title)

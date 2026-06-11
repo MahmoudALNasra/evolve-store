@@ -49,6 +49,9 @@ function buildHeadInjection(meta, product) {
 
   return `
     <meta name="description" content="${escapeHtml(meta.description)}" data-bot-seo="true" />
+    <meta name="keywords" content="${escapeHtml(meta.keywords.join(', '))}" data-bot-seo="true" />
+    <meta name="robots" content="${escapeHtml(meta.robots)}" data-bot-seo="true" />
+    <meta name="publisher" content="${escapeHtml(meta.publisher)}" data-bot-seo="true" />
     <link rel="canonical" href="${escapeHtml(meta.canonical)}" data-bot-seo="true" />
     <meta property="og:title" content="${escapeHtml(meta.og.title)}" data-bot-seo="true" />
     <meta property="og:description" content="${escapeHtml(meta.og.description)}" data-bot-seo="true" />
@@ -85,12 +88,20 @@ function buildBodySnapshot(product) {
   `
 }
 
+function stripDefaultSeoTags(html) {
+  return html
+    .replace(/\s*<meta\s+name="(?:description|keywords|robots|publisher|twitter:card|twitter:title|twitter:description|twitter:image)"[^>]*>\s*/gi, '\n')
+    .replace(/\s*<meta\s+property="(?:og:title|og:description|og:image|og:type|og:url)"[^>]*>\s*/gi, '\n')
+    .replace(/\s*<link\s+rel="canonical"[^>]*>\s*/gi, '\n')
+}
+
 function injectProductHtml(template, product) {
   const meta = buildProductMeta(product)
   const headInjection = buildHeadInjection(meta, product)
   const bodySnapshot = buildBodySnapshot(product)
 
-  let html = template.replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(meta.title)}</title>`)
+  let html = stripDefaultSeoTags(template)
+  html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(meta.title)}</title>`)
   html = html.replace('</head>', `${headInjection}\n  </head>`)
   html = html.replace(
     /<div id="root"><\/div>/i,
