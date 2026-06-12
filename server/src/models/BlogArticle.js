@@ -46,17 +46,17 @@ async function generateUniqueBlogSlug(BlogArticle, title, category, excludeId) {
   }
 }
 
-blogArticleSchema.pre('save', async function () {
+blogArticleSchema.pre('validate', async function () {
   if (!this.share_id) {
     this.share_id = await generateShareId(this.constructor)
   }
 
-  if (!this.slug && this.title) {
-    this.slug = await generateUniqueBlogSlug(this.constructor, this.title, this.category, this._id)
-  }
-
   if (this.category) {
     this.category = slugifyCategory(this.category)
+  }
+
+  if (!this.slug && this.title) {
+    this.slug = await generateUniqueBlogSlug(this.constructor, this.title, this.category, this._id)
   }
 
   if (this.status === 'published' && !this.published_at) {
