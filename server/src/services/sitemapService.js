@@ -1,6 +1,8 @@
 const Product = require('../models/Product')
+const BlogArticle = require('../models/BlogArticle')
 const escapeXml = require('../utils/escapeXml')
 const { getSiteOrigin, getProductUrl } = require('../utils/productSeoServer')
+const { getArticleUrl, getBlogBasePath } = require('../utils/blogSeo')
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -13,6 +15,7 @@ const cache = {
 const STATIC_PATHS = [
   { path: '/', changefreq: 'daily', priority: '1.0' },
   { path: '/shop', changefreq: 'daily', priority: '0.9' },
+  { path: getBlogBasePath(), changefreq: 'daily', priority: '0.85' },
 ]
 
 function formatLastmod(date) {
@@ -43,10 +46,20 @@ async function fetchPublishedProducts() {
     .lean()
 }
 
+async function fetchPublishedArticles() {
+  return BlogArticle.find({ status: 'published' })
+    .select('slug category updatedAt published_at')
+    .sort({ published_at: -1 })
+    .lean()
+}
+
 async function buildSitemapXml() {
   const origin = getSiteOrigin()
   const now = formatLastmod(new Date())
-  const products = await fetchPublishedProducts()
+  const [products, articles] = await Promise.all([
+    fetchPublishedProducts(),
+    fetchPublishedArticles(),
+  ])
   const entries = []
 
   for (const { path, changefreq, priority } of STATIC_PATHS) {
@@ -57,6 +70,12 @@ async function buildSitemapXml() {
     const loc = getProductUrl(product)
     const lastmod = formatLastmod(product.updatedAt)
     entries.push(buildUrlEntry(loc, lastmod, 'weekly', '0.8'))
+  }
+
+  for (const article of articles) {
+    const loc = getArticleUrl(article)
+    const lastmod = formatLastmod(article.updatedAt || article.published_at)
+    entries.push(buildUrlEntry(loc, lastmod, 'weekly', '0.75'))
   }
 
   return [

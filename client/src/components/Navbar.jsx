@@ -43,6 +43,7 @@ export default function Navbar() {
 
         <div className="navbar-actions">
           <Link to="/shop" className="navbar-link">Shop</Link>
+          <Link to="/blog" className="navbar-link">Blog</Link>
           <Link to="/about" className="navbar-link">About</Link>
           <Link to="/contact" className="navbar-link">Contact</Link>
 

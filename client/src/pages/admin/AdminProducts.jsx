@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Edit2, Trash2, PackagePlus, Download, Upload, X, Search, Image, Link as LinkIcon } from 'lucide-react'
+import { Plus, Edit2, Trash2, PackagePlus, Download, Upload, X, Search, Image, Link as LinkIcon, Sparkles, FileText } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { getArticlePath } from '../../lib/blogSeo'
 import api from '../../lib/api'
 import { formatPrice } from '../../lib/utils'
 import toast from 'react-hot-toast'
@@ -26,6 +28,8 @@ export default function AdminProducts() {
   const [form, setForm] = useState(EMPTY)
   const [restockQty, setRestockQty] = useState(1)
   const [deleteId, setDeleteId] = useState(null)
+  const [blogStatus, setBlogStatus] = useState({})
+  const [generatingBlogFor, setGeneratingBlogFor] = useState(null)
 
   // Image inputs
   const [imgUrl, setImgUrl] = useState('')
@@ -51,6 +55,11 @@ export default function AdminProducts() {
 
   useEffect(() => { load() }, [page, search])
   useEffect(() => { loadCategories() }, [])
+  useEffect(() => {
+    api.get('/admin/blog/product-status')
+      .then(({ data }) => setBlogStatus(data.statusByProduct || {}))
+      .catch(() => setBlogStatus({}))
+  }, [products.length, page])
 
   const openAdd = () => { setForm(EMPTY); setEditProduct(null); setModal('add') }
   const openEdit = (p) => {
@@ -186,6 +195,28 @@ export default function AdminProducts() {
     }
   }
 
+  const handleGenerateBlog = async (product) => {
+    setGeneratingBlogFor(product._id)
+    try {
+      const { data } = await api.post(`/admin/blog/generate/product/${product._id}`)
+      toast.success('Blog draft generated')
+      api.get('/admin/blog/product-status')
+        .then(({ data: statusData }) => setBlogStatus(statusData.statusByProduct || {}))
+      window.open(`${getArticlePath(data)}?preview=1`, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Blog generation failed')
+    } finally {
+      setGeneratingBlogFor(null)
+    }
+  }
+
+  const getBlogLabel = (productId) => {
+    const status = blogStatus[productId]
+    if (!status?.hasArticle) return { text: 'No article', className: 'gray' }
+    if (status.hasPublished) return { text: `${status.publishedCount} published`, className: 'green' }
+    return { text: `${status.draftCount} draft`, className: 'indigo' }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -219,13 +250,14 @@ export default function AdminProducts() {
                 <th>Category</th>
                 <th style={{ textAlign: 'right' }}>Price</th>
                 <th style={{ textAlign: 'right' }}>Stock</th>
+                <th style={{ textAlign: 'center' }}>Blog</th>
                 <th style={{ textAlign: 'center' }}>Status</th>
                 <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
-                <tr><td colSpan={6} className="admin-empty">No products found</td></tr>
+                <tr><td colSpan={7} className="admin-empty">No products found</td></tr>
               ) : products.map((p) => (
                 <tr key={p._id}>
                   <td>
@@ -244,6 +276,12 @@ export default function AdminProducts() {
                     <span style={{ fontWeight: 600, color: p.stock === 0 ? '#dc2626' : p.stock <= 5 ? '#f59e0b' : '#1c2b1c' }}>{p.stock}</span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
+                    {(() => {
+                      const label = getBlogLabel(p._id)
+                      return <span className={`admin-badge ${label.className}`}>{label.text}</span>
+                    })()}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
                       <span className={`admin-badge ${p.isPublished ? 'green' : 'gray'}`}>{p.isPublished ? 'Live' : 'Draft'}</span>
                       {p.isFeatured && <span className="admin-badge indigo">Featured</span>}
@@ -251,6 +289,17 @@ export default function AdminProducts() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <button
+                        onClick={() => handleGenerateBlog(p)}
+                        disabled={generatingBlogFor === p._id}
+                        title="Generate blog draft"
+                        className="btn-admin btn-admin-sm btn-admin-secondary"
+                      >
+                        <Sparkles size={14} />
+                      </button>
+                      <Link to="/admin/blog" title="Manage blog articles" className="btn-admin btn-admin-sm btn-admin-secondary">
+                        <FileText size={14} />
+                      </Link>
                       <button onClick={() => { setEditProduct(p); setRestockQty(1); setModal('restock') }} title="Restock" className="btn-admin btn-admin-sm btn-admin-secondary">
                         <PackagePlus size={14} />
                       </button>

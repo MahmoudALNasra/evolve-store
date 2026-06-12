@@ -11,6 +11,9 @@
     "migrate:skus": "node src/scripts/migrateEmptySkus.js",
     "cleanup:categories": "node src/scripts/cleanupEmptyCategories.js",
     "setup:analytics": "node src/scripts/setupAnalyticsTable.js",
+    "blog:generate": "node src/scripts/blogGenerate.js",
+    "blog:generate:missing": "node src/scripts/blogGenerateMissing.js",
+    "blog:audit-images": "node src/scripts/blogAuditImages.js",
     "build:client": "npm run build --prefix ../client",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

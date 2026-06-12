@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Pill } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Pill, FileText } from 'lucide-react'
 import Logo from '../Logo'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/products', label: 'Products', icon: Package },
+  { to: '/admin/blog', label: 'Blog', icon: FileText },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/prescriptions', label: 'Prescriptions', icon: Pill },

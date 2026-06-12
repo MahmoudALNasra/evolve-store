@@ -44,8 +44,9 @@ function createPrerenderMiddleware() {
     try {
       const pathname = new URL(url).pathname
       if (isBlacklistedPath(pathname)) return false
-      // Product pages use faster server-side HTML injection
+      // Product and blog pages use faster server-side HTML injection
       if (/^\/product\/[^/]+\/?$/.test(pathname)) return false
+      if (/^\/blog\/[^/]+\/[^/]+\/?$/.test(pathname)) return false
       return true
     } catch {
       return false

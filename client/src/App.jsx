@@ -30,7 +30,8 @@ import AboutPage from './pages/AboutPage'
 import ContactPage from './pages/ContactPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import RefillPrescriptionPage from './pages/RefillPrescriptionPage'
-import TransferPrescriptionPage from './pages/TransferPrescriptionPage'
+import BlogListPage from './pages/BlogListPage'
+import BlogArticlePage from './pages/BlogArticlePage'
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -39,6 +40,7 @@ import AdminOrders from './pages/admin/AdminOrders'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminPrescriptions from './pages/admin/AdminPrescriptions'
+import AdminBlog from './pages/admin/AdminBlog'
 
 function StorefrontLayout({ children }) {
   return (
@@ -76,6 +78,7 @@ export default function App() {
           <Route path="orders" element={<AdminOrders />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="prescriptions" element={<AdminPrescriptions />} />
+          <Route path="blog" element={<AdminBlog />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 
@@ -88,6 +91,9 @@ export default function App() {
         <Route path="/orders" element={<StorefrontLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/orders/:id" element={<StorefrontLayout><ProtectedRoute><OrderDetailsPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/account" element={<StorefrontLayout><ProtectedRoute><AccountPage /></ProtectedRoute></StorefrontLayout>} />
+        <Route path="/blog" element={<StorefrontLayout><BlogListPage /></StorefrontLayout>} />
+        <Route path="/blog/:category" element={<StorefrontLayout><BlogListPage /></StorefrontLayout>} />
+        <Route path="/blog/:category/:slug" element={<StorefrontLayout><BlogArticlePage /></StorefrontLayout>} />
         <Route path="/about" element={<StorefrontLayout><AboutPage /></StorefrontLayout>} />
         <Route path="/contact" element={<StorefrontLayout><ContactPage /></StorefrontLayout>} />
         <Route path="/privacy-policy" element={<StorefrontLayout><PrivacyPolicyPage /></StorefrontLayout>} />
