@@ -30,6 +30,7 @@ import AboutPage from './pages/AboutPage'
 import ContactPage from './pages/ContactPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import RefillPrescriptionPage from './pages/RefillPrescriptionPage'
+import TransferPrescriptionPage from './pages/TransferPrescriptionPage'
 import BlogListPage from './pages/BlogListPage'
 import BlogArticlePage from './pages/BlogArticlePage'
 
