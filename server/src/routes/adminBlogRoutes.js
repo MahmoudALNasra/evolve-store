@@ -68,6 +68,10 @@ router.get('/product-status', async (req, res) => {
       },
     },
   ])
+  const latestArticles = await BlogArticle.find({ product: { $ne: null } })
+    .sort('-updatedAt')
+    .select('title slug category status product updatedAt published_at')
+    .lean()
 
   const map = {}
   for (const row of rows) {
@@ -77,6 +81,18 @@ router.get('/product-status', async (req, res) => {
       totalCount: row.totalCount,
       hasArticle: row.totalCount > 0,
       hasPublished: row.publishedCount > 0,
+    }
+  }
+
+  for (const article of latestArticles) {
+    const productId = String(article.product)
+    if (!map[productId]) continue
+    if (!map[productId].latestArticle) map[productId].latestArticle = article
+    if (article.status === 'draft' && !map[productId].latestDraft) {
+      map[productId].latestDraft = article
+    }
+    if (article.status === 'published' && !map[productId].latestPublished) {
+      map[productId].latestPublished = article
     }
   }
 

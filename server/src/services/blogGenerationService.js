@@ -2,10 +2,11 @@ const axios = require('axios')
 const BlogArticle = require('../models/BlogArticle')
 const { generateUniqueBlogSlug } = require('../models/BlogArticle')
 const { slugifyCategory } = require('../utils/blogSeo')
-const { findArticleSources, findHeroImage } = require('./serperService')
-const { auditProductImages } = require('./productImageAuditService')
+const { findArticleSources, findHeroImage, searchImages } = require('./serperService')
+const { auditProductImages, filterWorkingImageUrls } = require('./productImageAuditService')
 
 const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
+const MAX_PRODUCT_BLOG_IMAGES = 3
 
 function getOpenAiConfig() {
   const apiKey = process.env.OPENAI_API_KEY
@@ -168,6 +169,50 @@ async function pickHeroImage({ query, product }) {
   }
 }
 
+function dedupeUrls(urls = []) {
+  return [...new Set(urls.map((url) => String(url || '').trim()).filter(Boolean))]
+}
+
+function insertProductImagesIntoMarkdown(content, productName, imageUrls = []) {
+  const images = dedupeUrls(imageUrls).slice(0, MAX_PRODUCT_BLOG_IMAGES)
+  if (!images.length) return content
+
+  const imageMarkdown = [
+    '',
+    '## Product Images',
+    '',
+    ...images.map((url, index) => `![${productName} product image ${index + 1}](${url})`),
+    '',
+  ].join('\n')
+
+  if (/##\s*FAQ/i.test(content)) {
+    return content.replace(/\n##\s*FAQ/i, `${imageMarkdown}\n## FAQ`)
+  }
+
+  const sourceMatch = content.match(/\nSource:/i)
+  if (sourceMatch?.index) {
+    return `${content.slice(0, sourceMatch.index)}${imageMarkdown}${content.slice(sourceMatch.index)}`
+  }
+
+  return `${content.trim()}\n${imageMarkdown}`
+}
+
+async function collectProductBlogImages({ query, product }) {
+  const productImageUrls = product?.images?.map((img) => img.url).filter(Boolean) || []
+  let searchImageUrls = []
+
+  try {
+    const images = await searchImages(`${product.name} ${product.category} product`, { num: 6 })
+    searchImageUrls = images.map((image) => image.imageUrl).filter(Boolean)
+  } catch (err) {
+    console.warn('Serper image search failed:', err.message)
+  }
+
+  const candidates = dedupeUrls([...productImageUrls, ...searchImageUrls]).slice(0, 8)
+  const working = await filterWorkingImageUrls(candidates)
+  return working.slice(0, MAX_PRODUCT_BLOG_IMAGES)
+}
+
 async function createDraftFromPayload({
   payload,
   category,
@@ -181,11 +226,17 @@ async function createDraftFromPayload({
 }) {
   const normalized = normalizeGeneratedPayload(payload)
   const cat = slugifyCategory(category || product?.category || 'wellness')
+  const productImages = product
+    ? await collectProductBlogImages({ query: normalized.title, product })
+    : []
+  const content = product
+    ? insertProductImagesIntoMarkdown(normalized.content, product.name, productImages)
+    : normalized.content
 
   const article = new BlogArticle({
     title: normalized.title,
     slug: await generateUniqueBlogSlug(BlogArticle, normalized.title, cat),
-    content: normalized.content,
+    content,
     meta_description: normalized.meta_description,
     key_takeaways: normalized.key_takeaways,
     category: cat,
@@ -201,17 +252,15 @@ async function createDraftFromPayload({
     seo_keywords: normalized.seo_keywords,
   })
 
-  article.image_url = await pickHeroImage({
-    query: normalized.title,
-    product,
-  })
+  article.image_url = productImages[0] || await pickHeroImage({ query: normalized.title, product })
 
   await article.save()
 
-  if (product && article.image_url) {
+  if (product && productImages.length) {
     try {
       await auditProductImages(product, {
-        replacementUrls: [article.image_url],
+        replacementUrls: productImages,
+        maxImages: MAX_PRODUCT_BLOG_IMAGES,
         save: true,
       })
     } catch (err) {

@@ -57,6 +57,7 @@ async function filterWorkingImageUrls(urls) {
 async function auditProductImages(product, options = {}) {
   const save = options.save !== false
   const replacementUrls = dedupeUrls(options.replacementUrls || [])
+  const maxImages = Number(options.maxImages || 0)
   const existingUrls = (product.images || []).map((img) => img.url).filter(Boolean)
 
   const workingExisting = []
@@ -76,15 +77,17 @@ async function auditProductImages(product, options = {}) {
     }
   }
 
+  const finalImages = maxImages > 0 ? workingExisting.slice(0, maxImages) : workingExisting
+
   const removed = existingUrls.filter(
-    (url) => !workingExisting.some((img) => img.url === url)
+    (url) => !finalImages.some((img) => img.url === url)
   )
-  const added = workingExisting
+  const added = finalImages
     .map((img) => img.url)
     .filter((url) => !existingUrls.includes(url))
 
   if (save) {
-    product.images = workingExisting
+    product.images = finalImages
     await product.save()
   }
 
@@ -92,10 +95,10 @@ async function auditProductImages(product, options = {}) {
     productId: product._id,
     productName: product.name,
     beforeCount: existingUrls.length,
-    afterCount: workingExisting.length,
+    afterCount: finalImages.length,
     removed,
     added,
-    images: workingExisting,
+    images: finalImages,
   }
 }
 

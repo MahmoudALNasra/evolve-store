@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Plus, RefreshCw, Eye, Trash2, CheckCircle, XCircle, ExternalLink, Sparkles, ImageIcon,
+  RefreshCw, Eye, Trash2, CheckCircle, XCircle, ExternalLink, Sparkles, ImageIcon, Search,
 } from 'lucide-react'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -22,7 +22,11 @@ export default function AdminBlog() {
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [generatingProductId, setGeneratingProductId] = useState(null)
   const [topicForm, setTopicForm] = useState(EMPTY_TOPIC)
+  const [products, setProducts] = useState([])
+  const [productSearch, setProductSearch] = useState('')
+  const [blogStatus, setBlogStatus] = useState({})
   const [selected, setSelected] = useState(null)
   const [editForm, setEditForm] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -41,6 +45,36 @@ export default function AdminBlog() {
   }
 
   useEffect(() => { load() }, [page, statusFilter])
+
+  const refreshProductStatus = () => {
+    api.get('/admin/blog/product-status')
+      .then(({ data }) => setBlogStatus(data.statusByProduct || {}))
+      .catch(() => setBlogStatus({}))
+  }
+
+  useEffect(() => {
+    api.get('/products/admin/all', { params: { limit: 500, sort: 'name' } })
+      .then(({ data }) => setProducts(data.products || []))
+      .catch(() => setProducts([]))
+    refreshProductStatus()
+  }, [])
+
+  const filteredProducts = products.filter((product) => {
+    const term = productSearch.trim().toLowerCase()
+    if (!term) return true
+    return [product.name, product.category, product.sku, product.barcode]
+      .some((value) => String(value || '').toLowerCase().includes(term))
+  })
+
+  const getProductBlogStatus = (productId) => (
+    blogStatus[productId] || {
+      draftCount: 0,
+      publishedCount: 0,
+      totalCount: 0,
+      hasArticle: false,
+      hasPublished: false,
+    }
+  )
 
   const openEdit = (article) => {
     setSelected(article)
@@ -89,6 +123,7 @@ export default function AdminBlog() {
     try {
       await api.post(`/admin/blog/${article._id}/publish`)
       toast.success('Article published')
+      refreshProductStatus()
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Publish failed')
@@ -99,6 +134,7 @@ export default function AdminBlog() {
     try {
       await api.post(`/admin/blog/${article._id}/unpublish`)
       toast.success('Article moved to draft')
+      refreshProductStatus()
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Unpublish failed')
@@ -111,6 +147,7 @@ export default function AdminBlog() {
       const { data } = await api.post(`/admin/blog/${article._id}/regenerate`)
       toast.success('New draft generated')
       openEdit(data)
+      refreshProductStatus()
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Regeneration failed')
@@ -147,6 +184,21 @@ export default function AdminBlog() {
     }
   }
 
+  const handleProductGenerate = async (product) => {
+    setGeneratingProductId(product._id)
+    try {
+      const { data } = await api.post(`/admin/blog/generate/product/${product._id}`)
+      toast.success('Product blog draft generated')
+      openEdit(data)
+      refreshProductStatus()
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Product blog generation failed')
+    } finally {
+      setGeneratingProductId(null)
+    }
+  }
+
   const handleAuditImages = async () => {
     setGenerating(true)
     try {
@@ -175,7 +227,91 @@ export default function AdminBlog() {
       </div>
 
       <div className="admin-card" style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Generate from topic</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Generate by product</h2>
+            <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+              Product articles are tied to existing store products only. Each row shows total drafts/published posts.
+            </p>
+          </div>
+          <div style={{ position: 'relative', minWidth: 260 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: 12, color: '#9ca3af' }} />
+            <input
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Search products..."
+              className="admin-input"
+              style={{ paddingLeft: 32 }}
+            />
+          </div>
+        </div>
+
+        <div className="admin-product-blog-list">
+          {filteredProducts.length === 0 ? (
+            <div className="admin-empty">No products found</div>
+          ) : filteredProducts.slice(0, 80).map((product) => {
+            const status = getProductBlogStatus(product._id)
+            const draft = status.latestDraft
+            const published = status.latestPublished
+            return (
+              <div key={product._id} className="admin-product-blog-row">
+                <div className="admin-product-blog-info">
+                  <img
+                    src={product.images?.[0]?.url || 'https://placehold.co/48x48?text=?'}
+                    alt={product.name}
+                  />
+                  <div>
+                    <div className="admin-product-blog-name">{product.name}</div>
+                    <div className="admin-product-blog-meta">
+                      {product.category || 'No category'}
+                      {product.sku ? ` · SKU: ${product.sku}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="admin-product-blog-counts">
+                  <span className="admin-badge gray">{status.totalCount || 0} total</span>
+                  <span className="admin-badge indigo">{status.draftCount || 0} draft</span>
+                  <span className="admin-badge green">{status.publishedCount || 0} published</span>
+                </div>
+                <div className="admin-product-blog-actions">
+                  <button
+                    type="button"
+                    onClick={() => handleProductGenerate(product)}
+                    disabled={generatingProductId === product._id}
+                    className="btn-admin btn-admin-sm btn-admin-primary"
+                  >
+                    <Sparkles size={14} /> Generate now
+                  </button>
+                  {draft && (
+                    <>
+                      <Link to={previewPath(draft)} target="_blank" className="btn-admin btn-admin-sm btn-admin-secondary">
+                        <Eye size={14} /> Review
+                      </Link>
+                      <button type="button" onClick={() => handlePublish(draft)} className="btn-admin btn-admin-sm btn-admin-primary">
+                        <CheckCircle size={14} /> Publish
+                      </button>
+                    </>
+                  )}
+                  {published && (
+                    <Link to={getArticlePath(published)} target="_blank" className="btn-admin btn-admin-sm btn-admin-secondary">
+                      Live post
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {filteredProducts.length > 80 && (
+          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 10 }}>
+            Showing first 80 matches. Search by product name, SKU, barcode, or category to narrow the list.
+          </p>
+        )}
+      </div>
+
+      <div className="admin-card" style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Topics not tied to store products</h2>
         <form onSubmit={handleTopicGenerate} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 12 }}>
           <input
             value={topicForm.topic}
@@ -200,7 +336,8 @@ export default function AdminBlog() {
           </button>
         </form>
         <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>
-          Articles are saved as drafts. Review, edit, then publish explicitly.
+          Use this only for pharmacy education topics that are not about a product in your store.
+          Articles are saved as drafts until you review and publish them.
         </p>
       </div>
 
