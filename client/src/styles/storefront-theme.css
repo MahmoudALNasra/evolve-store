@@ -361,6 +361,25 @@
 .storefront-shell .product-card-img-wrap {
   background: #14120e;
 }
+.storefront-shell .product-card-img-wrap img,
+.storefront-shell .product-card-img {
+  object-fit: contain;
+}
+.storefront-shell .product-img-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+}
+.storefront-shell .product-img-fallback-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  opacity: 0.75;
+}
 .storefront-shell .product-card-category {
   color: var(--brand-primary-light);
 }
@@ -1094,15 +1113,95 @@
 
 /* ── Grids (responsive) ── */
 .storefront-shell .products-grid {
-  grid-template-columns: 1fr;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.storefront-shell .products-grid__item {
+  min-width: 0;
+  height: 100%;
+}
+.storefront-shell .products-grid__item > .product-card,
+.storefront-shell .products-grid__item > a.product-card {
+  height: 100%;
+}
+.storefront-shell .products-grid--home {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .storefront-shell .category-grid {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .storefront-shell .blog-grid {
   display: grid;
   gap: 20px;
   grid-template-columns: 1fr;
+}
+
+/* Shop layout — mobile */
+.storefront-shell .shop-topbar {
+  position: sticky;
+  top: var(--navbar-height);
+  z-index: 25;
+  background: var(--color-bg);
+  padding: 12px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.08);
+}
+.storefront-shell .shop-body {
+  padding: 16px;
+}
+.storefront-shell .shop-header-inner {
+  padding: 20px 16px 12px;
+}
+.storefront-shell .btn-mobile-filters {
+  background: var(--color-surface);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  color: var(--color-gold);
+  border-radius: var(--ev-radius-sm);
+  font-weight: 600;
+}
+.storefront-shell .shop-sidebar.open {
+  background: var(--color-surface);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  border-radius: var(--ev-radius-card);
+  margin-bottom: 16px;
+}
+
+/* Product detail — mobile */
+.storefront-shell .product-page {
+  padding: 16px;
+}
+.storefront-shell .product-page-grid {
+  gap: 24px;
+}
+.storefront-shell .product-img-main--framed,
+.storefront-shell .product-img-main {
+  aspect-ratio: 1 / 1;
+  max-height: min(72vw, 420px);
+  margin: 0 auto;
+}
+.storefront-shell .product-img-main picture,
+.storefront-shell .product-img-main--framed picture {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.storefront-shell .product-img-main img,
+.storefront-shell .product-img-main-el {
+  object-fit: contain;
+  max-height: 100%;
+}
+.storefront-shell .product-details-name {
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+}
+.storefront-shell .product-qty-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+.storefront-shell .btn-add-to-cart-lg {
+  width: 100%;
 }
 
 @media (min-width: 640px) {
@@ -1135,14 +1234,27 @@
 }
 
 @media (min-width: 768px) {
-  .storefront-shell .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .storefront-shell .products-grid,
+  .storefront-shell .products-grid--home {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
   }
   .storefront-shell .category-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .storefront-shell .blog-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .storefront-shell .shop-body {
+    padding: 24px;
+  }
+  .storefront-shell .product-page-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  .storefront-shell .product-qty-row {
+    flex-direction: row;
+    align-items: center;
   }
   .hero-section--aurora .hero-inner {
     max-width: 700px;
@@ -1150,8 +1262,9 @@
 }
 
 @media (min-width: 1280px) {
-  .storefront-shell .products-grid {
-    grid-template-columns: repeat(4, 1fr);
+  .storefront-shell .products-grid,
+  .storefront-shell .products-grid--home {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .storefront-shell .category-grid {
     grid-template-columns: repeat(6, 1fr);

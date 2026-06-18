@@ -14,8 +14,7 @@ const CATEGORY_ICONS = {
 }
 
 export default function CategoryGrid({ categories = [], loading = false }) {
-  const showSkeletons = loading || categories.length === 0
-  const items = showSkeletons ? [] : categories
+  const hasCategories = categories.length > 0
 
   return (
     <>
@@ -27,7 +26,7 @@ export default function CategoryGrid({ categories = [], loading = false }) {
             title="Shop by Category"
             subtitle="Find exactly what your body needs"
           />
-          {!showSkeletons && (
+          {!loading && hasCategories && (
             <FadeContent delay={0.1}>
               <Link to="/shop" className="section-link">
                 View all <ArrowRight size={14} aria-hidden="true" />
@@ -36,18 +35,11 @@ export default function CategoryGrid({ categories = [], loading = false }) {
           )}
         </div>
 
-        {showSkeletons ? (
-          <>
-            <SkeletonCategoryGrid count={6} />
-            {categories.length === 0 && !loading && (
-              <p className="ev-section-placeholder-caption">
-                Categories coming soon — we&apos;re stocking the shelves.
-              </p>
-            )}
-          </>
-        ) : (
+        {loading ? (
+          <SkeletonCategoryGrid count={6} />
+        ) : hasCategories ? (
           <div className="category-grid">
-            {items.map((cat, i) => {
+            {categories.map((cat, i) => {
               const Icon = CATEGORY_ICONS[cat] ?? Leaf
               return (
                 <FadeContent key={cat} delay={i * 0.06}>
@@ -64,6 +56,13 @@ export default function CategoryGrid({ categories = [], loading = false }) {
               )
             })}
           </div>
+        ) : (
+          <>
+            <SkeletonCategoryGrid count={6} />
+            <p className="ev-section-placeholder-caption">
+              Categories coming soon — we&apos;re stocking the shelves.
+            </p>
+          </>
         )}
       </div>
     </section>

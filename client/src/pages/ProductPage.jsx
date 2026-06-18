@@ -20,13 +20,12 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [selectedImg, setSelectedImg] = useState(0)
   const [qty, setQty] = useState(1)
-  const [mainImgError, setMainImgError] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
   const viewItemFired = useRef(null)
 
   useEffect(() => {
     api.get(`/products/${slug}`)
-      .then(({ data }) => { setProduct(data); setSelectedImg(0); setMainImgError(false) })
+      .then(({ data }) => { setProduct(data); setSelectedImg(0) })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false))
   }, [slug])
@@ -113,22 +112,15 @@ export default function ProductPage() {
           <section className="product-gallery" aria-labelledby="product-gallery-heading">
             <h2 id="product-gallery-heading" className="sr-only">Product images</h2>
             <div className="product-img-main product-img-main--framed">
-              {mainImgError ? (
-                <div className="product-img-fallback" role="img" aria-label={product.name}>
-                  <img src="/logo.png" alt="" className="product-img-fallback-logo" />
-                </div>
-              ) : (
-                <ProductImage
-                  src={images[selectedImg]?.url || images[0]?.url}
-                  alt={`${product.name} — main product image`}
-                  variant="galleryMain"
-                  className="product-img-main-el"
-                  width={IMG_SIZE}
-                  height={IMG_SIZE}
-                  priority
-                  onError={() => setMainImgError(true)}
-                />
-              )}
+              <ProductImage
+                src={images[selectedImg]?.url || images[0]?.url}
+                alt={`${product.name} — main product image`}
+                variant="galleryMain"
+                className="product-img-main-el"
+                width={IMG_SIZE}
+                height={IMG_SIZE}
+                priority
+              />
             </div>
             {images.length > 1 && (
               <div className="product-img-thumbs" role="list">

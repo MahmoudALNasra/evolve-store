@@ -126,9 +126,16 @@ export const IMAGE_PRESETS = {
 }
 
 export function resolveProductImageUrl(src, images) {
-  if (src) return src
-  if (images?.length > 0 && images[0]?.url) return images[0].url
+  if (src) return normalizeImageUrl(src)
+  if (images?.length > 0 && images[0]?.url) return normalizeImageUrl(images[0].url)
   return PLACEHOLDER
+}
+
+function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return PLACEHOLDER
+  const trimmed = url.trim()
+  if (trimmed.startsWith('//')) return `https:${trimmed}`
+  return trimmed
 }
 
 export function getOptimizedImageUrl(src, images, width = 400) {

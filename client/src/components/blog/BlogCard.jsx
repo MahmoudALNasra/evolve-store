@@ -27,7 +27,7 @@ export default function BlogCard({ article, index = 0, featured = false }) {
       <FadeContent delay={0} className="blog-card-featured-wrap">
         <article className="blog-card blog-card--featured">
           <Link to={path} className="blog-card-featured-media">
-            <img src={imageSrc} alt={article.title} loading="lazy" />
+            <img src={imageSrc} alt={article.title} loading="lazy" referrerPolicy="no-referrer" />
             <div className="blog-card-featured-overlay" aria-hidden="true" />
             <div className="blog-card-featured-content">
               <CategoryPill category={article.category} />

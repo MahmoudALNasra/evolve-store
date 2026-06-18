@@ -6,21 +6,47 @@ import BestSellers from '../components/home/BestSellers'
 import CategoryGrid from '../components/home/CategoryGrid'
 import TrustSection from '../components/home/TrustSection'
 
+async function fetchBestSellers() {
+  const featuredRes = await api.get('/products', {
+    params: { featured: true, limit: 8 },
+  })
+  if (featuredRes.data.products?.length > 0) {
+    return featuredRes.data.products
+  }
+  const recentRes = await api.get('/products', {
+    params: { limit: 8, sort: '-createdAt' },
+  })
+  return recentRes.data.products || []
+}
+
 export default function HomePage() {
   const [featured, setFeatured] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+
     Promise.all([
-      api.get('/products?featured=true&limit=8'),
+      fetchBestSellers(),
       api.get('/products/categories'),
     ])
-      .then(([p, c]) => {
-        setFeatured(p.data.products)
-        setCategories(c.data.slice(0, 6))
+      .then(([products, categoriesRes]) => {
+        if (cancelled) return
+        setFeatured(products)
+        setCategories(categoriesRes.data.slice(0, 6))
       })
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (!cancelled) {
+          setFeatured([])
+          setCategories([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
   }, [])
 
   return (
