@@ -1,3 +1,11 @@
+import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+/** Merge Tailwind class names (used by shadcn / ReactBits components). */
+export function cn(...inputs) {
+  return twMerge(clsx(inputs))
+}
+
 export const formatPrice = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 

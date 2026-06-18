@@ -25,6 +25,7 @@ export default function ProductImage({
   priority = false,
   loading,
   style,
+  onError,
 }) {
   const preset = IMAGE_PRESETS[variant] || IMAGE_PRESETS.card
   const rawUrl = resolveProductImageUrl(src, images)
@@ -65,6 +66,7 @@ export default function ProductImage({
         loading={imgLoading}
         decoding="async"
         fetchPriority={priority ? 'high' : undefined}
+        onError={onError}
       />
     </picture>
   )

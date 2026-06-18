@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import api from '../lib/api'
-import ProductCard from '../components/ProductCard'
+import ProductGrid from '../components/shop/ProductGrid'
 import Spinner from '../components/ui/Spinner'
 
 export default function ShopPage() {
@@ -148,9 +148,7 @@ export default function ShopPage() {
                 {hasFilters && <button onClick={clearFilters}>Clear all filters</button>}
               </div>
             ) : (
-              <div className="products-grid">
-                {products.map((p) => <ProductCard key={p._id} product={p} />)}
-              </div>
+              <ProductGrid products={products} />
             )}
 
             {pages > 1 && (

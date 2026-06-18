@@ -1,45 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Calendar, Clock, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
+import BlogCard from '../components/blog/BlogCard'
 import api from '../lib/api'
 import SEO from '../components/SEO'
 import Spinner from '../components/ui/Spinner'
-import { getArticlePath, getBlogBasePath, slugifyCategory } from '../lib/blogSeo'
-
-function formatDate(value) {
-  if (!value) return ''
-  return new Date(value).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
-function ArticleCard({ article }) {
-  const path = getArticlePath(article)
-  return (
-    <article className="blog-card">
-      <Link to={path} className="blog-card-image-wrap">
-        <img
-          src={article.image_url || 'https://placehold.co/800x450?text=Blog'}
-          alt={article.title}
-          loading="lazy"
-        />
-      </Link>
-      <div className="blog-card-body">
-        <div className="blog-card-meta">
-          <span className="blog-card-category">{article.category}</span>
-          <span>{formatDate(article.published_at)}</span>
-        </div>
-        <h2 className="blog-card-title">
-          <Link to={path}>{article.title}</Link>
-        </h2>
-        <p className="blog-card-excerpt">{article.meta_description}</p>
-        <Link to={path} className="blog-card-link">Read article →</Link>
-      </div>
-    </article>
-  )
-}
+import { getBlogBasePath, slugifyCategory } from '../lib/blogSeo'
 
 export default function BlogListPage() {
   const { category: routeCategory } = useParams()
@@ -143,8 +109,13 @@ export default function BlogListPage() {
             <div className="blog-empty">No published articles yet.</div>
           ) : (
             <div className="blog-grid">
-              {articles.map((article) => (
-                <ArticleCard key={article._id} article={article} />
+              {articles.map((article, i) => (
+                <BlogCard
+                  key={article._id}
+                  article={article}
+                  index={i}
+                  featured={i === 0 && page === 1 && !category && !search}
+                />
               ))}
             </div>
           )}

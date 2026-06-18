@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ShoppingCart, ArrowLeft, Star, Package } from 'lucide-react'
+import { ShoppingCart, ArrowLeft, Star } from 'lucide-react'
 import api from '../lib/api'
 import useCartStore from '../store/useCartStore'
 import { formatPrice } from '../lib/utils'
@@ -20,12 +20,13 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [selectedImg, setSelectedImg] = useState(0)
   const [qty, setQty] = useState(1)
+  const [mainImgError, setMainImgError] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
   const viewItemFired = useRef(null)
 
   useEffect(() => {
     api.get(`/products/${slug}`)
-      .then(({ data }) => { setProduct(data); setSelectedImg(0) })
+      .then(({ data }) => { setProduct(data); setSelectedImg(0); setMainImgError(false) })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false))
   }, [slug])
@@ -73,7 +74,6 @@ export default function ProductPage() {
   }
 
   const breadcrumbItems = [
-    { label: 'Home', to: '/' },
     { label: 'Shop', to: '/shop' },
     ...(product.category
       ? [{ label: product.category, to: `/shop?category=${encodeURIComponent(product.category)}` }]
@@ -112,16 +112,23 @@ export default function ProductPage() {
           {/* Product images — LCP: fetchpriority=high; thumbs: lazy + dimensions for CLS */}
           <section className="product-gallery" aria-labelledby="product-gallery-heading">
             <h2 id="product-gallery-heading" className="sr-only">Product images</h2>
-            <div className="product-img-main">
-              <ProductImage
-                src={images[selectedImg]?.url || images[0]?.url}
-                alt={`${product.name} — main product image`}
-                variant="galleryMain"
-                className="product-img-main-el"
-                width={IMG_SIZE}
-                height={IMG_SIZE}
-                priority
-              />
+            <div className="product-img-main product-img-main--framed">
+              {mainImgError ? (
+                <div className="product-img-fallback" role="img" aria-label={product.name}>
+                  <img src="/logo.png" alt="" className="product-img-fallback-logo" />
+                </div>
+              ) : (
+                <ProductImage
+                  src={images[selectedImg]?.url || images[0]?.url}
+                  alt={`${product.name} — main product image`}
+                  variant="galleryMain"
+                  className="product-img-main-el"
+                  width={IMG_SIZE}
+                  height={IMG_SIZE}
+                  priority
+                  onError={() => setMainImgError(true)}
+                />
+              )}
             </div>
             {images.length > 1 && (
               <div className="product-img-thumbs" role="list">
@@ -166,8 +173,8 @@ export default function ProductPage() {
                         key={s}
                         size={16}
                         style={{
-                          fill: s <= Math.round(product.rating) ? '#f59e0b' : '#e5e7eb',
-                          color: s <= Math.round(product.rating) ? '#f59e0b' : '#e5e7eb',
+                          fill: s <= Math.round(product.rating) ? '#C9A84C' : 'rgba(255,255,255,0.15)',
+                          color: s <= Math.round(product.rating) ? '#C9A84C' : 'rgba(255,255,255,0.15)',
                         }}
                       />
                     ))}
@@ -191,20 +198,29 @@ export default function ProductPage() {
                 )}
               </div>
 
-              <div className="product-details-stock">
-                <Package size={15} className={!isOutOfStock ? 'stock-in' : 'stock-out'} aria-hidden="true" />
-                <span className={!isOutOfStock ? 'stock-in' : 'stock-out'}>
-                  {!isOutOfStock ? `${stock} in stock` : 'Out of stock'}
-                </span>
+              <div className="product-stock-indicator">
+                {!isOutOfStock ? (
+                  <>
+                    <span className="product-stock-dot product-stock-dot--in" aria-hidden="true" />
+                    <span>In Stock</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="product-stock-dot product-stock-dot--out" aria-hidden="true" />
+                    <Link to="/contact" className="product-stock-notify">Notify Me</Link>
+                  </>
+                )}
               </div>
             </section>
 
+            <div className="product-detail-panel">
             {product.description && (
               <section aria-labelledby="product-description-heading">
                 <h2 id="product-description-heading" className="product-section-heading">Description</h2>
                 <p className="product-details-desc">{product.description}</p>
               </section>
             )}
+            </div>
 
             {product.sku && (
               <p className="product-details-sku">

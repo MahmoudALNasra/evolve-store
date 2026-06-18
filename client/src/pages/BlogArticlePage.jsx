@@ -5,7 +5,7 @@ import api from '../lib/api'
 import BlogSEO from '../components/BlogSEO'
 import BlogTldrCard from '../components/BlogTldrCard'
 import ShareButtons from '../components/ShareButtons'
-import MarkdownContent from '../components/MarkdownContent'
+import PostContent from '../components/blog/PostContent'
 import Spinner from '../components/ui/Spinner'
 import {
   getArticleUrl,
@@ -122,7 +122,7 @@ export default function BlogArticlePage() {
           </nav>
         )}
 
-        <MarkdownContent content={article.content} />
+        <PostContent content={article.content} />
 
         {product && (
           <section className="blog-related-product">

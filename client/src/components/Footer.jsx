@@ -49,7 +49,9 @@ export default function Footer() {
       <div className="footer-main">
         <div>
           <Logo size={48} className="footer-brand" />
-          <p className="footer-brand-desc">Premium health supplements and vitamins for your everyday wellness journey.</p>
+          <p className="footer-brand-desc">
+            Premium specialty pharmacy, wellness products, and expert care for your everyday health journey.
+          </p>
           <a href="mailto:support@evolvepharmacy.com" className="footer-brand-email">
             <Mail size={13} /> support@evolvepharmacy.com
           </a>
@@ -71,6 +73,7 @@ export default function Footer() {
             <li><Link to="/shop?featured=true">Best Sellers</Link></li>
             <li><Link to="/shop?category=Vitamins">Vitamins</Link></li>
             <li><Link to="/shop?category=Supplements">Supplements</Link></li>
+            <li><Link to="/blog">Blog</Link></li>
           </ul>
         </div>
 
@@ -122,7 +125,7 @@ export default function Footer() {
                 padding: '11px 14px',
                 borderRadius: 9,
                 border: 0,
-                background: '#c9a227',
+                background: '#C9A84C',
                 color: '#0d0d0d',
                 fontWeight: 800,
                 cursor: newsletterLoading ? 'not-allowed' : 'pointer',
