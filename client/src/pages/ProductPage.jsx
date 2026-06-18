@@ -14,6 +14,10 @@ import toast from 'react-hot-toast'
 /** LCP / gallery dimensions (1:1 layout in CSS) — reduces CLS */
 const IMG_SIZE = 600
 
+function getCategoryShopPath(category) {
+  return `/shop?category=${encodeURIComponent(category)}`
+}
+
 export default function ProductPage() {
   const { slug } = useParams()
   const [product, setProduct] = useState(null)
@@ -75,7 +79,7 @@ export default function ProductPage() {
   const breadcrumbItems = [
     { label: 'Shop', to: '/shop' },
     ...(product.category
-      ? [{ label: product.category, to: `/shop?category=${encodeURIComponent(product.category)}` }]
+      ? [{ label: product.category, to: getCategoryShopPath(product.category) }]
       : []),
     { label: product.name, to: null },
   ]
@@ -151,7 +155,11 @@ export default function ProductPage() {
           <section className="product-details" aria-labelledby="product-title">
             <header className="product-details-header">
               {product.category && (
-                <Link to={`/shop?category=${product.category}`} className="product-details-cat">
+                <Link
+                  to={getCategoryShopPath(product.category)}
+                  className="product-details-cat"
+                  aria-label={`Browse ${product.category} products`}
+                >
                   {product.category}
                 </Link>
               )}
@@ -254,10 +262,16 @@ export default function ProductPage() {
 
             {product.tags?.length > 0 && (
               <section aria-labelledby="product-tags-heading">
-                <h2 id="product-tags-heading" className="sr-only">Product tags</h2>
+                <h2 id="product-tags-heading" className="product-section-heading">Related topics</h2>
                 <div className="product-tags">
                   {product.tags.map((tag) => (
-                    <span key={tag} className="product-tag">{tag}</span>
+                    <Link
+                      key={tag}
+                      to={`/shop?search=${encodeURIComponent(tag)}`}
+                      className="product-tag product-tag--link"
+                    >
+                      {tag}
+                    </Link>
                   ))}
                 </div>
               </section>
