@@ -1,51 +1,76 @@
 import { useEffect, useState } from 'react'
 import { MapPin, Package, Store } from 'lucide-react'
+import api from '../../lib/api'
 import useAuthStore from '../../store/useAuthStore'
-
-const ZIP_KEY = 'evolve_ship_zip'
-const CITY_KEY = 'evolve_ship_city'
-
-function readStoredLocation() {
-  try {
-    return {
-      zip: localStorage.getItem(ZIP_KEY) || '',
-      city: localStorage.getItem(CITY_KEY) || '',
-    }
-  } catch {
-    return { zip: '', city: '' }
-  }
-}
+import {
+  readStoredLocation,
+  saveStoredLocation,
+  getDefaultUserAddress,
+  formatShipLabel,
+} from '../../lib/shipLocation'
 
 export default function FulfillmentBlock() {
   const user = useAuthStore((s) => s.user)
+  const initialized = useAuthStore((s) => s.initialized)
   const [location, setLocation] = useState(readStoredLocation)
   const [editing, setEditing] = useState(false)
   const [zipInput, setZipInput] = useState(location.zip)
   const [selected, setSelected] = useState('shipping')
+  const [loading, setLoading] = useState(!location.zip)
 
   useEffect(() => {
-    if (user?.address?.zip) {
-      setLocation({
-        zip: user.address.zip,
-        city: user.address.city || user.address.state || '',
-      })
+    if (!initialized) return undefined
+
+    let cancelled = false
+
+    async function resolveLocation() {
+      const account = getDefaultUserAddress(user)
+      if (account) {
+        if (!cancelled) {
+          setLocation(account)
+          saveStoredLocation(account)
+          setLoading(false)
+        }
+        return
+      }
+
+      const stored = readStoredLocation()
+      if (stored.zip) {
+        if (!cancelled) {
+          setLocation(stored)
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const { data } = await api.get('/shipping/guess-location')
+        const guessed = data?.location
+        if (!cancelled && guessed?.zip) {
+          setLocation(guessed)
+          saveStoredLocation(guessed)
+        }
+      } catch {
+        /* keep manual fallback */
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }, [user])
+
+    resolveLocation()
+    return () => { cancelled = true }
+  }, [user, initialized])
 
   const saveZip = () => {
     const zip = zipInput.trim().slice(0, 10)
     if (!/^\d{5}(-\d{4})?$/.test(zip)) return
-    try {
-      localStorage.setItem(ZIP_KEY, zip)
-      localStorage.setItem(CITY_KEY, 'your area')
-    } catch { /* ignore */ }
-    setLocation({ zip, city: 'your area' })
+    const next = { zip: zip.slice(0, 5), city: '', state: '', source: 'manual' }
+    saveStoredLocation(next)
+    setLocation(next)
     setEditing(false)
   }
 
-  const shipLabel = location.zip
-    ? `${location.city ? `${location.city}, ` : ''}${location.zip}`
-    : 'Enter ZIP to check'
+  const shipLabel = loading ? 'Detecting location…' : formatShipLabel(location)
 
   return (
     <section className="product-fulfillment" aria-labelledby="product-fulfillment-heading">
@@ -54,7 +79,7 @@ export default function FulfillmentBlock() {
       <div className="product-ships-to">
         <MapPin size={15} aria-hidden="true" />
         <span>
-          Ships to: <strong>{shipLabel}</strong>
+          Ships to: <strong>{shipLabel || 'Enter ZIP to check'}</strong>
         </span>
         {!editing ? (
           <button type="button" className="product-ships-to-change" onClick={() => setEditing(true)}>

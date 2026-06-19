@@ -1,7 +1,8 @@
 const express = require('express')
-const { protect } = require('../middleware/auth')
+const { protect, optionalAuth } = require('../middleware/auth')
 const Product = require('../models/Product')
 const { getLiveShippingRates } = require('../services/shipping')
+const { guessShipLocation } = require('../services/geoLocationService')
 
 const router = express.Router()
 
@@ -96,6 +97,15 @@ function normalizeShippoError(err) {
     ],
   }
 }
+
+// GET /api/shipping/guess-location — account address or IP-based city/ZIP (US only)
+router.get('/guess-location', optionalAuth, async (req, res) => {
+  const location = await guessShipLocation(req)
+  if (!location) {
+    return res.json({ location: null })
+  }
+  res.json({ location })
+})
 
 // POST /api/shipping/rates
 router.post('/rates', protect, async (req, res) => {
