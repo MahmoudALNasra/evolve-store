@@ -5,6 +5,7 @@
 const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 const STORE_BRAND = 'Evolve Specialty Pharmacy & Wellness'
 const DEFAULT_CURRENCY = 'USD'
+const { toAbsoluteMediaUrl } = require('./productMediaPaths')
 
 function getSiteOrigin() {
   const url = process.env.SITE_URL || process.env.CLIENT_URL || 'http://localhost:5173'
@@ -24,7 +25,7 @@ function getProductUrl(product) {
 }
 
 function getProductImages(product) {
-  const urls = product.images?.map((img) => img.url).filter(Boolean) || []
+  const urls = product.images?.map((img) => toAbsoluteMediaUrl(img.url)).filter(Boolean) || []
   if (urls.length) return urls
   return ['https://placehold.co/600x600?text=No+Image']
 }

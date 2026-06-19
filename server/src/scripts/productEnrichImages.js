@@ -42,7 +42,8 @@ async function main() {
   await connectDB()
 
   console.log(`Media root: ${getMediaRoot()}`)
-  console.log(`Public base: ${getSiteOrigin()}/media/products/...`)
+  console.log(`Stored as relative paths like: /media/products/{slug}/...`)
+  console.log(`Absolute URLs for feeds use SITE_URL: ${getSiteOrigin()}`)
   console.log(`Batch: limit=${args.limit} skip=${args.skip} dryRun=${args.dryRun} force=${args.force}`)
 
   const result = await enrichProductsBatch(args)
