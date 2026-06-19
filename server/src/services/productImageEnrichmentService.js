@@ -9,7 +9,7 @@ const {
   sanitizeSlug,
 } = require('../utils/productMediaPaths')
 
-const MIN_IMAGES = Number(process.env.PRODUCT_IMAGE_MIN_COUNT || 3)
+const MIN_IMAGES = Number(process.env.PRODUCT_IMAGE_MIN_COUNT || 5)
 const MAX_IMAGES = Number(process.env.PRODUCT_IMAGE_MAX_COUNT || 8)
 const SERPER_DELAY_MS = Number(process.env.PRODUCT_IMAGE_SERPER_DELAY_MS || 600)
 
@@ -85,7 +85,7 @@ async function mirrorImageLocally(product, imageEntry, index) {
 
 async function fetchSerperCandidates(product, needed) {
   const query = buildSerperQuery(product)
-  const num = Math.min(Math.max(needed * 3, 6), 12)
+  const num = Math.min(Math.max(needed * 4, 10), 20)
   const results = await searchImages(query, { num })
   const seen = new Set()
 
@@ -260,8 +260,50 @@ async function enrichProductsBatch(options = {}) {
     updated,
     dryRun,
     minImages: MIN_IMAGES,
+    maxImages: MAX_IMAGES,
     results,
   }
+}
+
+/** Process every published product in batches until the catalog is exhausted. */
+async function enrichAllProducts(options = {}) {
+  const batchSize = Number(options.limit || process.env.PRODUCT_IMAGE_BATCH_LIMIT || 25)
+  let skip = 0
+  const totals = {
+    batches: 0,
+    scanned: 0,
+    skipped: 0,
+    updated: 0,
+    errors: 0,
+    dryRun: options.dryRun === true,
+    minImages: MIN_IMAGES,
+    maxImages: MAX_IMAGES,
+  }
+
+  while (true) {
+    const result = await enrichProductsBatch({
+      ...options,
+      limit: batchSize,
+      skip,
+    })
+
+    if (result.scanned === 0) break
+
+    totals.batches += 1
+    totals.scanned += result.scanned
+    totals.skipped += result.skipped
+    totals.updated += result.updated
+    totals.errors += result.results.filter((r) => r.status === 'error').length
+
+    console.log(
+      `[batch ${totals.batches}] scanned=${result.scanned} skip=${skip} ` +
+      `updated=${result.updated} skipped=${result.skipped} (running total: ${totals.scanned})`
+    )
+
+    skip += result.scanned
+  }
+
+  return totals
 }
 
 module.exports = {
@@ -272,4 +314,5 @@ module.exports = {
   classifyProductImages,
   enrichProductImages,
   enrichProductsBatch,
+  enrichAllProducts,
 }

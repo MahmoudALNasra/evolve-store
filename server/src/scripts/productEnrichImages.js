@@ -1,6 +1,12 @@
 require('dotenv').config()
 const connectDB = require('../config/db')
-const { enrichProductsBatch } = require('../services/productImageEnrichmentService')
+const Product = require('../models/Product')
+const {
+  enrichProductsBatch,
+  enrichAllProducts,
+  MIN_IMAGES,
+  MAX_IMAGES,
+} = require('../services/productImageEnrichmentService')
 const { getMediaRoot, getSiteOrigin } = require('../utils/productMediaPaths')
 
 function parseArgs(argv) {
@@ -10,6 +16,7 @@ function parseArgs(argv) {
     dryRun: false,
     force: false,
     onlyNeedsWork: true,
+    all: false,
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -25,11 +32,30 @@ function parseArgs(argv) {
     } else if (arg === '--force') {
       args.force = true
     } else if (arg === '--all') {
-      args.onlyNeedsWork = false
+      args.all = true
     }
   }
 
   return args
+}
+
+async function printStats() {
+  const total = await Product.countDocuments({ isPublished: true })
+  const withLocal = await Product.countDocuments({
+    isPublished: true,
+    'images.url': /^\/media\/products\//,
+  })
+  const withMin = await Product.countDocuments({
+    isPublished: true,
+    $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
+  })
+
+  console.log('--- Catalog stats ---')
+  console.log(`Min images required: ${MIN_IMAGES}`)
+  console.log(`Published products: ${total}`)
+  console.log(`With ${MIN_IMAGES}+ images: ${withMin} / ${total}`)
+  console.log(`With local /media/ paths: ${withLocal}`)
+  console.log(`Still under ${MIN_IMAGES}: ${total - withMin}`)
 }
 
 async function main() {
@@ -44,10 +70,24 @@ async function main() {
   console.log(`Media root: ${getMediaRoot()}`)
   console.log(`Stored as relative paths like: /media/products/{slug}/...`)
   console.log(`Absolute URLs for feeds use SITE_URL: ${getSiteOrigin()}`)
-  console.log(`Batch: limit=${args.limit} skip=${args.skip} dryRun=${args.dryRun} force=${args.force}`)
+  console.log(`Target: ${MIN_IMAGES}-${MAX_IMAGES} images per product`)
 
-  const result = await enrichProductsBatch(args)
-  console.log(JSON.stringify(result, null, 2))
+  await printStats()
+
+  if (args.all) {
+    console.log(`\nProcessing ALL published products (batch size ${args.limit})...\n`)
+    const result = await enrichAllProducts(args)
+    console.log('\n--- Finished ---')
+    console.log(JSON.stringify(result, null, 2))
+  } else {
+    console.log(
+      `\nBatch: limit=${args.limit} skip=${args.skip} dryRun=${args.dryRun} force=${args.force}\n`
+    )
+    const result = await enrichProductsBatch(args)
+    console.log(JSON.stringify(result, null, 2))
+  }
+
+  await printStats()
   process.exit(0)
 }
 

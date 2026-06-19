@@ -15,6 +15,8 @@
     "blog:generate:missing": "node src/scripts/blogGenerateMissing.js",
     "blog:audit-images": "node src/scripts/blogAuditImages.js",
     "product:enrich-images": "node src/scripts/productEnrichImages.js",
+    "product:enrich-images:all": "node src/scripts/productEnrichImages.js --all",
+    "product:image-stats": "node src/scripts/productImageStats.js",
     "product:migrate-media-urls": "node src/scripts/productMigrateMediaUrls.js",
     "build:client": "npm run build --prefix ../client",
     "test": "echo \"Error: no test specified\" && exit 1"
