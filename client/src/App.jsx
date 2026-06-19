@@ -7,7 +7,7 @@ import useAuthStore from './store/useAuthStore'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import FloatingPrescriptionCtas from './components/FloatingPrescriptionCtas'
-import CartDrawer from './components/CartDrawer'
+import EmailCaptureModal from './components/EmailCaptureModal'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import ScrollToTop from './components/ScrollToTop'
 import AnalyticsTracker from './components/AnalyticsTracker'
@@ -50,6 +50,7 @@ function StorefrontLayout({ children }) {
       <main className="storefront-main flex-1">{children}</main>
       <FloatingPrescriptionCtas />
       <CartDrawer />
+      <EmailCaptureModal />
       <Footer />
     </div>
   )

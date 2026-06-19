@@ -22,6 +22,7 @@ const contactRoutes = require('./routes/contactRoutes')
 const newsletterRoutes = require('./routes/newsletterRoutes')
 const shippingRoutes = require('./routes/shippingRoutes')
 const sitemapRoutes = require('./routes/sitemapRoutes')
+const robotsRoutes = require('./routes/robotsRoutes')
 const inventorySyncRoutes = require('./routes/inventorySyncRoutes')
 const blogRoutes = require('./routes/blogRoutes')
 const adminBlogRoutes = require('./routes/adminBlogRoutes')
@@ -82,7 +83,8 @@ app.use('/media', express.static(mediaRoot, {
   fallthrough: true,
 }))
 
-// SEO sitemap (before SPA fallback; 24h in-memory cache)
+// SEO sitemap + robots (before SPA fallback; 24h in-memory cache)
+app.use(robotsRoutes)
 app.use(sitemapRoutes)
 
 // Storefront: crawlers get prerendered HTML; humans get Vite SPA (production / SERVE_SPA)

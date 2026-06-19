@@ -4,6 +4,7 @@ const Product = require('../models/Product')
 const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
 const { enrichProductsBatch, enrichProductImages } = require('../services/productImageEnrichmentService')
+const { suggestProductSeo } = require('../services/productDescriptionOptimizationService')
 
 const router = express.Router()
 
@@ -95,6 +96,33 @@ router.post('/products/enrich-images', protect, admin, async (req, res) => {
     force: !!force,
   })
   res.json(result)
+})
+
+// POST /api/admin/products/:id/suggest-seo — Serper + OpenAI SEO rewrite (draft only)
+router.post('/products/:id/suggest-seo', protect, admin, async (req, res) => {
+  const product = await Product.findById(req.params.id)
+  if (!product) return res.status(404).json({ message: 'Product not found' })
+  try {
+    const suggestion = await suggestProductSeo(product)
+    res.json(suggestion)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'SEO suggestion failed' })
+  }
+})
+
+// POST /api/admin/products/:id/apply-seo — apply approved SEO fields to live product
+router.post('/products/:id/apply-seo', protect, admin, async (req, res) => {
+  const product = await Product.findById(req.params.id)
+  if (!product) return res.status(404).json({ message: 'Product not found' })
+
+  const { description, seoTitle, seoMetaDescription, seoFaqs } = req.body || {}
+  if (description) product.description = description
+  if (seoTitle) product.seoTitle = seoTitle
+  if (seoMetaDescription) product.seoMetaDescription = seoMetaDescription
+  if (Array.isArray(seoFaqs)) product.seoFaqs = seoFaqs
+  product.descriptionDraft = ''
+  await product.save()
+  res.json({ message: 'SEO fields applied', product })
 })
 
 module.exports = router

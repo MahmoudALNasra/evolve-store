@@ -2,6 +2,13 @@
  * Product page SEO: meta tags, Open Graph, Twitter Cards, JSON-LD.
  */
 
+import {
+  generateSEOTitle,
+  generateMetaDescription,
+  getProductBrand,
+  hasProductReviews,
+} from './seoUtils'
+
 export const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 export const STORE_BRAND = 'Evolve Specialty Pharmacy & Wellness'
 export const DEFAULT_CURRENCY = 'USD'
@@ -14,7 +21,6 @@ export function getSiteOrigin() {
   return ''
 }
 
-/** Storefront path segment for a product (slug preferred). */
 export function getProductPath(product) {
   const slug = product?.slug || product?._id
   return `/product/${slug}`
@@ -34,9 +40,31 @@ export function getProductImages(product) {
 }
 
 export function getProductDescription(product) {
-  const raw = product.description?.trim()
-  if (raw) return raw.slice(0, 320)
-  return `Shop ${product.name} at ${STORE_NAME}. Premium health and wellness products.`
+  const raw = product.seoMetaDescription?.trim()
+    || product.description?.trim()
+  if (raw) return generateMetaDescription(raw, 320)
+  return generateMetaDescription(
+    `Shop ${product.name} at ${STORE_NAME}. Premium health and wellness products.`,
+    155
+  )
+}
+
+export function getProductMetaDescription(product) {
+  if (product.seoMetaDescription?.trim()) {
+    return generateMetaDescription(product.seoMetaDescription, 155)
+  }
+  return generateMetaDescription(product.description, 155)
+    || generateMetaDescription(
+      `Shop ${product.name} — ${product.category || 'wellness'} at Evolve Pharmacy.`,
+      155
+    )
+}
+
+export function getProductTitle(product) {
+  if (product.seoTitle?.trim()) {
+    return generateSEOTitle(product.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim(), 60)
+  }
+  return generateSEOTitle(product.name, 60)
 }
 
 function normalizeKeyword(value) {
@@ -45,18 +73,17 @@ function normalizeKeyword(value) {
 
 export function getProductKeywords(product) {
   const tags = Array.isArray(product.tags) ? product.tags : []
+  const brand = getProductBrand(product)
   const keywords = [
     product.name,
     product.category,
-    product.brand,
+    brand,
     product.sku,
     product.barcode,
     ...tags,
-    `${product.name} ${STORE_NAME}`,
-    `${product.category || 'wellness products'} online`,
+    `${product.category || 'wellness'} supplements`,
     'specialty pharmacy',
-    'wellness products',
-    'vitamins and supplements',
+    'Evolve Pharmacy',
   ]
 
   return [...new Set(keywords.map(normalizeKeyword).filter(Boolean))].slice(0, 14)
@@ -74,13 +101,11 @@ function priceValidUntilDate() {
   return d.toISOString().split('T')[0]
 }
 
-/**
- * Schema.org Product JSON-LD (Google Merchant / rich results).
- */
 export function buildProductJsonLd(product) {
   const images = getProductImages(product)
   const url = getProductUrl(product)
-  const description = getProductDescription(product)
+  const description = getProductMetaDescription(product)
+  const brandName = getProductBrand(product) || STORE_BRAND
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -88,11 +113,10 @@ export function buildProductJsonLd(product) {
     name: product.name,
     image: images,
     description,
-    sku: product.sku || product._id,
-    mpn: product.barcode || product.sku || product._id,
+    sku: product.sku || String(product._id),
     brand: {
       '@type': 'Brand',
-      name: STORE_BRAND,
+      name: brandName,
     },
     offers: {
       '@type': 'Offer',
@@ -109,10 +133,10 @@ export function buildProductJsonLd(product) {
     },
   }
 
-  if (product.rating > 0 && product.numReviews > 0) {
+  if (hasProductReviews(product)) {
     jsonLd.aggregateRating = {
       '@type': 'AggregateRating',
-      ratingValue: Number(product.rating.toFixed(1)),
+      ratingValue: Number(Number(product.rating).toFixed(1)),
       reviewCount: product.numReviews,
       bestRating: 5,
       worstRating: 1,
@@ -122,9 +146,6 @@ export function buildProductJsonLd(product) {
   return jsonLd
 }
 
-/**
- * Schema.org BreadcrumbList JSON-LD.
- */
 export function buildBreadcrumbJsonLd(product) {
   const origin = getSiteOrigin()
   const items = [
@@ -161,11 +182,45 @@ export function buildBreadcrumbJsonLd(product) {
   }
 }
 
+export function buildProductFaqJsonLd(product) {
+  const faqs = (product.seoFaqs || []).filter((f) => f?.question && f?.answer)
+  if (!faqs.length) return null
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer,
+      },
+    })),
+  }
+}
+
+export function buildSpeakableJsonLd(product) {
+  const text = getProductMetaDescription(product)
+  if (!text) return null
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['#product-speakable-summary'],
+    },
+    name: product.name,
+    description: text,
+  }
+}
+
 export function buildProductMeta(product) {
   const images = getProductImages(product)
   const canonical = getProductUrl(product)
-  const title = `${product.name} | ${STORE_NAME}`
-  const description = getProductDescription(product)
+  const title = getProductTitle(product)
+  const description = getProductMetaDescription(product)
   const keywords = getProductKeywords(product)
   const ogImage = images[0]
   const price = Number(product.price).toFixed(2)
@@ -194,3 +249,5 @@ export function buildProductMeta(product) {
     },
   }
 }
+
+export { hasProductReviews, getProductBrand, generateSEOTitle, generateMetaDescription }

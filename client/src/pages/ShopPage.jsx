@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import api from '../lib/api'
 import ProductGrid from '../components/shop/ProductGrid'
 import Spinner from '../components/ui/Spinner'
+import SEO from '../components/SEO'
+import { generateSEOTitle, generateMetaDescription } from '../lib/seoUtils'
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -55,8 +57,33 @@ export default function ShopPage() {
 
   const hasFilters = search || category || minPrice || maxPrice || featured
 
+  const shopPath = `/shop${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+  const pageTitle = category
+    ? generateSEOTitle(`Shop ${category}`)
+    : search
+      ? generateSEOTitle(`Search ${search}`)
+      : generateSEOTitle('Shop Vitamins & Wellness')
+  const pageDescription = category
+    ? generateMetaDescription(`Browse ${category} at Evolve Pharmacy. Trusted vitamins, supplements, and wellness products with expert pharmacy support.`)
+    : generateMetaDescription('Shop vitamins, supplements, personal care, and wellness products at Evolve Specialty Pharmacy & Wellness.')
+
   return (
     <div>
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        path={shopPath}
+        keywords={[category, search, 'shop', 'vitamins', 'supplements', 'Evolve Pharmacy'].filter(Boolean)}
+      />
+
+      <nav className="product-breadcrumb shop-breadcrumb" aria-label="Breadcrumb">
+        <ol className="product-breadcrumb-list">
+          <li><Link to="/">Home</Link><span className="product-breadcrumb-sep"> / </span></li>
+          <li><Link to="/shop">Shop</Link>{category && <span className="product-breadcrumb-sep"> / </span>}</li>
+          {category && <li><span aria-current="page">{category}</span></li>}
+        </ol>
+      </nav>
+
       <div className="shop-header">
         <div className="shop-header-inner">
           <div className="shop-header-title">

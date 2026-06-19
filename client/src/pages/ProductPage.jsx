@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ShoppingCart, ArrowLeft, Star } from 'lucide-react'
+import { ShoppingCart, ArrowLeft } from 'lucide-react'
 import api from '../lib/api'
 import useCartStore from '../store/useCartStore'
 import { formatPrice } from '../lib/utils'
 import { pushAddToCart, pushViewItem } from '../lib/gtm'
-import { getProductImages } from '../lib/productSeo'
-import ProductImage from '../components/ProductImage'
+import { getProductMetaDescription } from '../lib/productSeo'
 import ProductSEO from '../components/ProductSEO'
+import ProductGallery from '../components/product/ProductGallery'
+import FulfillmentBlock from '../components/product/FulfillmentBlock'
+import RelatedSearchChips from '../components/product/RelatedSearchChips'
+import ProductReviews, { ProductReviewLink } from '../components/product/ProductReviews'
 import RelatedProducts from '../components/RelatedProducts'
 import toast from 'react-hot-toast'
-
-/** LCP / gallery dimensions (1:1 layout in CSS) — reduces CLS */
-const IMG_SIZE = 600
 
 function getCategoryShopPath(category) {
   return `/shop?category=${encodeURIComponent(category)}`
@@ -22,19 +22,17 @@ export default function ProductPage() {
   const { slug } = useParams()
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedImg, setSelectedImg] = useState(0)
   const [qty, setQty] = useState(1)
   const addItem = useCartStore((s) => s.addItem)
   const viewItemFired = useRef(null)
 
   useEffect(() => {
     api.get(`/products/${slug}`)
-      .then(({ data }) => { setProduct(data); setSelectedImg(0) })
+      .then(({ data }) => setProduct(data))
       .catch(() => setProduct(null))
       .finally(() => setLoading(false))
   }, [slug])
 
-  /* GA4 view_item — fires once per product when data is ready (GTM dataLayer) */
   useEffect(() => {
     if (!product?._id || viewItemFired.current === product._id) return
     viewItemFired.current = product._id
@@ -65,10 +63,9 @@ export default function ProductPage() {
     : 0
   const stock = Number(product.stock) || 0
   const isOutOfStock = stock <= 0
+  const images = (product.images?.length ? product.images : [{ url: '' }]).filter((img) => img.url)
+  const speakableSummary = getProductMetaDescription(product)
 
-  const images = getProductImages(product).map((url) => ({ url }))
-
-  /** GA4 add_to_cart — same items[] structure as view_item; call before cart update */
   const handleAdd = () => {
     if (isOutOfStock) return toast.error('Out of stock')
     pushAddToCart(product, qty)
@@ -86,12 +83,15 @@ export default function ProductPage() {
 
   return (
     <>
-      {/* On-page SEO: title, meta, OG, Twitter, JSON-LD (Product + BreadcrumbList) */}
       <ProductSEO product={product} />
 
       <article className="product-page" aria-labelledby="product-title">
         <nav className="product-breadcrumb" aria-label="Breadcrumb">
           <ol className="product-breadcrumb-list">
+            <li>
+              <Link to="/">Home</Link>
+              <span className="product-breadcrumb-sep" aria-hidden="true"> / </span>
+            </li>
             {breadcrumbItems.map((crumb, i) => (
               <li key={`${crumb.label}-${i}`}>
                 {crumb.to ? (
@@ -112,45 +112,7 @@ export default function ProductPage() {
         </Link>
 
         <div className="product-page-grid">
-          {/* Product images — LCP: fetchpriority=high; thumbs: lazy + dimensions for CLS */}
-          <section className="product-gallery" aria-labelledby="product-gallery-heading">
-            <h2 id="product-gallery-heading" className="sr-only">Product images</h2>
-            <div className="product-img-main product-img-main--framed">
-              <ProductImage
-                src={images[selectedImg]?.url || images[0]?.url}
-                alt={`${product.name} — main product image`}
-                variant="galleryMain"
-                className="product-img-main-el"
-                width={IMG_SIZE}
-                height={IMG_SIZE}
-                priority
-              />
-            </div>
-            {images.length > 1 && (
-              <div className="product-img-thumbs" role="list">
-                {images.map((img, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    role="listitem"
-                    onClick={() => setSelectedImg(i)}
-                    className={`product-img-thumb${selectedImg === i ? ' active' : ''}`}
-                    aria-label={`View image ${i + 1} of ${images.length}`}
-                    aria-pressed={selectedImg === i}
-                  >
-                    <ProductImage
-                      src={img.url}
-                      alt={`${product.name} — view ${i + 1}`}
-                      variant="galleryThumb"
-                      width={68}
-                      height={68}
-                      loading="lazy"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
+          <ProductGallery product={product} images={images} />
 
           <section className="product-details" aria-labelledby="product-title">
             <header className="product-details-header">
@@ -165,25 +127,7 @@ export default function ProductPage() {
               )}
               <h1 id="product-title" className="product-details-name">{product.name}</h1>
 
-              {product.rating > 0 && (
-                <div className="product-details-stars" aria-label={`Rated ${product.rating.toFixed(1)} out of 5`}>
-                  <div className="product-details-stars-row" aria-hidden="true">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        size={16}
-                        style={{
-                          fill: s <= Math.round(product.rating) ? '#C9A84C' : 'rgba(255,255,255,0.15)',
-                          color: s <= Math.round(product.rating) ? '#C9A84C' : 'rgba(255,255,255,0.15)',
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="product-details-stars-text">
-                    {product.rating.toFixed(1)} ({product.numReviews} reviews)
-                  </span>
-                </div>
-              )}
+              <ProductReviewLink product={product} />
             </header>
 
             <section aria-labelledby="product-pricing-heading">
@@ -198,36 +142,36 @@ export default function ProductPage() {
                 )}
               </div>
 
-              <div className="product-stock-indicator">
-                {!isOutOfStock ? (
-                  <>
-                    <span className="product-stock-dot product-stock-dot--in" aria-hidden="true" />
-                    <span>In Stock</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="product-stock-dot product-stock-dot--out" aria-hidden="true" />
-                    <Link to="/contact" className="product-stock-notify">Notify Me</Link>
-                  </>
+              <div className="product-meta-row">
+                {product.sku && (
+                  <p className="product-details-sku">
+                    <span className="sr-only">SKU: </span>
+                    SKU: {product.sku}
+                  </p>
                 )}
+                <div className="product-stock-indicator">
+                  {!isOutOfStock ? (
+                    <>
+                      <span className="product-stock-dot product-stock-dot--in" aria-hidden="true" />
+                      <span>In Stock ({stock} available)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="product-stock-dot product-stock-dot--out" aria-hidden="true" />
+                      <Link to="/contact" className="product-stock-notify">Notify Me</Link>
+                    </>
+                  )}
+                </div>
               </div>
             </section>
 
-            <div className="product-detail-panel">
-            {product.description && (
-              <section aria-labelledby="product-description-heading">
-                <h2 id="product-description-heading" className="product-section-heading">Description</h2>
-                <p className="product-details-desc">{product.description}</p>
-              </section>
-            )}
-            </div>
-
-            {product.sku && (
-              <p className="product-details-sku">
-                <span className="sr-only">SKU: </span>
-                SKU: {product.sku}
+            {speakableSummary && (
+              <p id="product-speakable-summary" className="product-speakable-summary">
+                {speakableSummary}
               </p>
             )}
+
+            <FulfillmentBlock />
 
             {!isOutOfStock && (
               <section aria-labelledby="product-purchase-heading">
@@ -252,7 +196,6 @@ export default function ProductPage() {
                       +
                     </button>
                   </div>
-                  {/* add_to_cart: pushAddToCart() in handleAdd — GTM/GA4 ecommerce */}
                   <button type="button" className="btn-add-to-cart-lg" onClick={handleAdd}>
                     <ShoppingCart size={18} aria-hidden="true" /> Add to Cart
                   </button>
@@ -260,25 +203,34 @@ export default function ProductPage() {
               </section>
             )}
 
-            {product.tags?.length > 0 && (
-              <section aria-labelledby="product-tags-heading">
-                <h2 id="product-tags-heading" className="product-section-heading">Related topics</h2>
-                <div className="product-tags">
-                  {product.tags.map((tag) => (
-                    <Link
-                      key={tag}
-                      to={`/shop?search=${encodeURIComponent(tag)}`}
-                      className="product-tag product-tag--link"
-                    >
-                      {tag}
-                    </Link>
-                  ))}
-                </div>
-              </section>
+            {product.description && (
+              <div className="product-detail-panel">
+                <section aria-labelledby="product-description-heading">
+                  <h2 id="product-description-heading" className="product-section-heading">Description</h2>
+                  <p className="product-details-desc">{product.description}</p>
+                </section>
+
+                {product.seoFaqs?.length > 0 && (
+                  <section aria-labelledby="product-faq-heading">
+                    <h2 id="product-faq-heading" className="product-section-heading">Common Questions</h2>
+                    <div className="product-faq-list">
+                      {product.seoFaqs.map((faq) => (
+                        <article key={faq.question} className="product-faq-item">
+                          <h3>{faq.question}</h3>
+                          <p>{faq.answer}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             )}
+
+            <RelatedSearchChips product={product} />
           </section>
         </div>
 
+        <ProductReviews slug={product.slug || slug} product={product} />
         <RelatedProducts slug={product.slug || slug} />
       </article>
     </>

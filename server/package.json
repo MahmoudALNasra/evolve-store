@@ -16,6 +16,7 @@
     "blog:audit-images": "node src/scripts/blogAuditImages.js",
     "product:enrich-images": "node src/scripts/productEnrichImages.js",
     "product:enrich-images:all": "node src/scripts/productEnrichImages.js --all",
+    "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",
     "product:image-stats": "node src/scripts/productImageStats.js",
     "product:migrate-media-urls": "node src/scripts/productMigrateMediaUrls.js",
     "build:client": "npm run build --prefix ../client",

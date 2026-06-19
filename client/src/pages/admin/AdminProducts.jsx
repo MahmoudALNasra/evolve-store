@@ -30,6 +30,8 @@ export default function AdminProducts() {
   const [deleteId, setDeleteId] = useState(null)
   const [blogStatus, setBlogStatus] = useState({})
   const [generatingBlogFor, setGeneratingBlogFor] = useState(null)
+  const [seoSuggestion, setSeoSuggestion] = useState(null)
+  const [loadingSeo, setLoadingSeo] = useState(false)
 
   // Image inputs
   const [imgUrl, setImgUrl] = useState('')
@@ -61,9 +63,10 @@ export default function AdminProducts() {
       .catch(() => setBlogStatus({}))
   }, [products.length, page])
 
-  const openAdd = () => { setForm(EMPTY); setEditProduct(null); setModal('add') }
+  const openAdd = () => { setForm(EMPTY); setEditProduct(null); setSeoSuggestion(null); setModal('add') }
   const openEdit = (p) => {
     setEditProduct(p)
+    setSeoSuggestion(null)
     setForm({
       name: p.name, description: p.description, price: p.price, comparePrice: p.comparePrice || '',
       category: p.category, tags: p.tags?.join(', ') || '', sku: p.sku || '', barcode: p.barcode || '',
@@ -139,6 +142,42 @@ export default function AdminProducts() {
   }
 
   const removeImage = (idx) => setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))
+
+  const handleSuggestSeo = async () => {
+    if (!editProduct?._id) return
+    setLoadingSeo(true)
+    try {
+      const { data } = await api.post(`/admin/products/${editProduct._id}/suggest-seo`)
+      setSeoSuggestion(data)
+      toast.success('SEO suggestion ready')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'SEO suggestion failed')
+    } finally {
+      setLoadingSeo(false)
+    }
+  }
+
+  const handleApplySeo = async () => {
+    if (!editProduct?._id || !seoSuggestion?.suggested) return
+    setSaving(true)
+    try {
+      const { suggested } = seoSuggestion
+      await api.post(`/admin/products/${editProduct._id}/apply-seo`, {
+        description: suggested.descriptionDraft,
+        seoTitle: suggested.seoTitle,
+        seoMetaDescription: suggested.seoMetaDescription,
+        seoFaqs: suggested.seoFaqs,
+      })
+      setForm((f) => ({ ...f, description: suggested.descriptionDraft }))
+      setSeoSuggestion(null)
+      toast.success('SEO fields applied')
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Apply failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // Bulk add via Excel
   const handleBulkUpload = async (file) => {
@@ -341,6 +380,25 @@ export default function AdminProducts() {
               <div style={{ gridColumn: '1 / -1' }} className="auth-field">
                 <label>Description</label>
                 <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} style={{ resize: 'none' }} />
+                {modal === 'edit' && (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <button type="button" onClick={handleSuggestSeo} disabled={loadingSeo} className="btn-admin btn-admin-secondary" style={{ width: 'fit-content', fontSize: 12 }}>
+                      <Sparkles size={14} /> {loadingSeo ? 'Generating…' : 'Suggest SEO Description'}
+                    </button>
+                    {seoSuggestion && (
+                      <div style={{ background: '#f7faf7', border: '1px solid #e0e7e0', borderRadius: 10, padding: 14, fontSize: 13 }}>
+                        <p style={{ fontWeight: 700, marginBottom: 8 }}>Before / After</p>
+                        <p><strong>Title:</strong> {seoSuggestion.original?.seoTitle} → {seoSuggestion.suggested?.seoTitle}</p>
+                        <p><strong>Meta:</strong> {seoSuggestion.original?.seoMetaDescription} → {seoSuggestion.suggested?.seoMetaDescription}</p>
+                        <p style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}><strong>Description:</strong><br />{seoSuggestion.suggested?.descriptionDraft}</p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <button type="button" onClick={handleApplySeo} className="btn-admin btn-admin-primary" style={{ fontSize: 12 }}>Use This</button>
+                          <button type="button" onClick={() => setSeoSuggestion(null)} className="btn-admin btn-admin-secondary" style={{ fontSize: 12 }}>Discard</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="auth-field">
                 <label>Price ($) *</label>

@@ -26,6 +26,7 @@ function upsertLink(rel, href) {
 }
 
 function upsertJsonLd(id, data) {
+  if (!data) return
   let el = document.getElementById(id)
   if (!el) {
     el = document.createElement('script')
@@ -50,6 +51,7 @@ export default function SEO({
   keywords = [],
   image = '/logo.png',
   type = 'website',
+  includeWebSiteSchema = false,
 }) {
   useEffect(() => {
     const origin = getOrigin()
@@ -72,6 +74,7 @@ export default function SEO({
     upsertMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: description })
     upsertMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: imageUrl })
     upsertLink('canonical', canonical)
+
     upsertJsonLd('jsonld-organization', {
       '@context': 'https://schema.org',
       '@type': 'Organization',
@@ -84,7 +87,26 @@ export default function SEO({
         email: 'support@evolvepharmacy.com',
       },
     })
-  }, [description, image, keywords, path, title, type])
+
+    if (includeWebSiteSchema) {
+      upsertJsonLd('jsonld-website', {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Evolve Specialty Pharmacy & Wellness',
+        url: origin,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${origin}/shop?search={search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
+      })
+    } else {
+      document.getElementById('jsonld-website')?.remove()
+    }
+  }, [description, image, includeWebSiteSchema, keywords, path, title, type])
 
   return null
 }

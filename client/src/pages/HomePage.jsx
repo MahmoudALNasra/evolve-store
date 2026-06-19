@@ -55,6 +55,7 @@ export default function HomePage() {
         title="Evolve Specialty Pharmacy & Wellness"
         description="Shop Evolve Specialty Pharmacy & Wellness for trusted vitamins, supplements, personal care, medical supplies, prescription refills, and wellness products with expert pharmacy support."
         path="/"
+        includeWebSiteSchema
         keywords={[
           'specialty pharmacy',
           'wellness pharmacy',

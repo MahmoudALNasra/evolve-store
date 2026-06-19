@@ -3,6 +3,7 @@ const BlogArticle = require('../models/BlogArticle')
 const escapeXml = require('../utils/escapeXml')
 const { getSiteOrigin, getProductUrl } = require('../utils/productSeoServer')
 const { getArticleUrl, getBlogBasePath } = require('../utils/blogSeo')
+const { getStorefrontCategoryNames } = require('./categoryListService')
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -56,14 +57,20 @@ async function fetchPublishedArticles() {
 async function buildSitemapXml() {
   const origin = getSiteOrigin()
   const now = formatLastmod(new Date())
-  const [products, articles] = await Promise.all([
+  const [products, articles, categories] = await Promise.all([
     fetchPublishedProducts(),
     fetchPublishedArticles(),
+    getStorefrontCategoryNames(),
   ])
   const entries = []
 
   for (const { path, changefreq, priority } of STATIC_PATHS) {
     entries.push(buildUrlEntry(`${origin}${path}`, now, changefreq, priority))
+  }
+
+  for (const category of categories) {
+    const loc = `${origin}/shop?category=${encodeURIComponent(category)}`
+    entries.push(buildUrlEntry(loc, now, 'weekly', '0.75'))
   }
 
   for (const product of products) {

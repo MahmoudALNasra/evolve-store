@@ -3,6 +3,8 @@ import {
   buildBreadcrumbJsonLd,
   buildProductJsonLd,
   buildProductMeta,
+  buildProductFaqJsonLd,
+  buildSpeakableJsonLd,
 } from '../lib/productSeo'
 
 const META_ATTR = 'data-product-seo'
@@ -42,6 +44,10 @@ function upsertLink(rel, href) {
 }
 
 function upsertJsonLd(id, data) {
+  if (!data) {
+    document.getElementById(id)?.remove()
+    return
+  }
   let el = document.getElementById(id)
   if (!el) {
     el = document.createElement('script')
@@ -56,13 +62,11 @@ function upsertJsonLd(id, data) {
 function removeProductSeoArtifacts() {
   document.querySelectorAll(`[${META_ATTR}]`).forEach((n) => n.remove())
   document.querySelectorAll(`[${JSON_LD_ATTR}]`).forEach((n) => n.remove())
-  document.getElementById('jsonld-product')?.remove()
-  document.getElementById('jsonld-breadcrumb')?.remove()
+  ;['jsonld-product', 'jsonld-breadcrumb', 'jsonld-product-faq', 'jsonld-speakable'].forEach((id) => {
+    document.getElementById(id)?.remove()
+  })
 }
 
-/**
- * Injects on-page SEO meta, Open Graph, Twitter Cards, and JSON-LD for product pages.
- */
 export default function ProductSEO({ product }) {
   useEffect(() => {
     if (!product) return
@@ -91,6 +95,8 @@ export default function ProductSEO({ product }) {
 
     upsertJsonLd('jsonld-product', buildProductJsonLd(product))
     upsertJsonLd('jsonld-breadcrumb', buildBreadcrumbJsonLd(product))
+    upsertJsonLd('jsonld-product-faq', buildProductFaqJsonLd(product))
+    upsertJsonLd('jsonld-speakable', buildSpeakableJsonLd(product))
 
     return () => {
       removeProductSeoArtifacts()

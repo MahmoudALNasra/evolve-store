@@ -13,6 +13,8 @@ const { getStorefrontCategoryNames } = require('../services/categoryListService'
 const { protect, admin } = require('../middleware/auth')
 const { upload, uploadExcel } = require('../config/cloudinary')
 
+const reviewRoutes = require('./reviewRoutes')
+
 const router = express.Router()
 
 function normalizeCategoryName(category) {
@@ -94,6 +96,9 @@ router.get('/categories', async (req, res) => {
   const cats = await getStorefrontCategoryNames()
   res.json(cats)
 })
+
+// GET /api/products/:slug/reviews
+router.use('/:slug/reviews', reviewRoutes)
 
 // GET /api/products/:slug/recommendations — random related products (category + tags)
 router.get('/:slug/recommendations', async (req, res) => {

@@ -42,6 +42,7 @@ router.post('/subscribe', async (req, res) => {
 
   res.status(201).json({
     message: 'You are subscribed to our newsletter.',
+    discountCode: process.env.WELCOME_DISCOUNT_CODE || 'WELCOME15',
     subscriber: {
       email: subscriber.email,
       status: subscriber.status,

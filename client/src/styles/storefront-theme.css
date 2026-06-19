@@ -1332,6 +1332,329 @@
   }
 }
 
+/* ── Product gallery (side thumbs) ── */
+.storefront-shell .product-gallery-layout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.storefront-shell .product-img-thumbs--vertical {
+  flex-direction: column;
+  margin-top: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.storefront-shell .product-img-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-surface);
+  padding: 0;
+}
+.storefront-shell .product-img-thumb.active {
+  border-color: var(--color-gold);
+}
+.storefront-shell .product-img-main--zoom {
+  flex: 1;
+  border: none;
+  padding: 0;
+  cursor: zoom-in;
+  background: transparent;
+  text-align: left;
+}
+.storefront-shell .product-img-main--zoom.is-zoomed {
+  cursor: zoom-out;
+}
+.storefront-shell .product-img-main--zoom.is-zoomed .product-img-main-el {
+  transform: scale(1.35);
+}
+.storefront-shell .product-img-main-inner {
+  width: 100%;
+  height: 100%;
+}
+.storefront-shell .product-page-grid {
+  grid-template-columns: 1.1fr 0.9fr;
+}
+.storefront-shell .product-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  margin: 8px 0 16px;
+}
+.storefront-shell .product-speakable-summary {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+.storefront-shell .product-details-stars-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  margin-top: 8px;
+}
+.storefront-shell .product-details-stars-link:hover .product-details-stars-text {
+  color: var(--color-gold);
+}
+.storefront-shell .star-rating {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* Fulfillment block */
+.storefront-shell .product-fulfillment {
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(201, 168, 76, 0.12);
+}
+.storefront-shell .product-ships-to {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 14px;
+}
+.storefront-shell .product-ships-to-change,
+.storefront-shell .product-ships-to-edit button {
+  background: none;
+  border: none;
+  color: var(--color-gold);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.storefront-shell .product-ships-to-edit input {
+  width: 90px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  background: var(--color-bg);
+  color: var(--color-white);
+}
+.storefront-shell .product-fulfillment-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.storefront-shell .product-fulfillment-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-bg);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+}
+.storefront-shell .product-fulfillment-card.is-selected {
+  border-color: var(--color-gold);
+  background: rgba(201, 168, 76, 0.08);
+}
+.storefront-shell .product-fulfillment-card-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+.storefront-shell .product-fulfillment-card-detail {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Related search chips */
+.storefront-shell .product-related-search {
+  margin-top: 28px;
+}
+.storefront-shell .product-related-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.storefront-shell .product-search-chip {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 100px;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: var(--color-surface);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.storefront-shell .product-search-chip:hover {
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+  color: var(--color-bg);
+}
+
+/* Reviews */
+.storefront-shell .product-reviews {
+  margin-top: 48px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(201, 168, 76, 0.15);
+}
+.storefront-shell .product-reviews-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: var(--color-text-muted);
+}
+.storefront-shell .product-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(201, 168, 76, 0.12);
+}
+.storefront-shell .product-review-form input,
+.storefront-shell .product-review-form textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-bg);
+  color: var(--color-white);
+  font-family: var(--font-body);
+}
+.storefront-shell .product-review-stars-input {
+  border: none;
+  padding: 0;
+  display: flex;
+  gap: 4px;
+}
+.storefront-shell .product-review-star-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+.storefront-shell .product-review-star-btn.active {
+  color: var(--color-gold);
+}
+.storefront-shell .product-review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.storefront-shell .product-review-card {
+  padding: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.storefront-shell .product-review-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.storefront-shell .product-review-card footer {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.storefront-shell .product-faq-item h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--color-white);
+  margin: 0 0 6px;
+}
+.storefront-shell .product-faq-item {
+  margin-bottom: 16px;
+}
+.storefront-shell .shop-breadcrumb {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px 0;
+}
+
+/* Email capture popup */
+.email-capture-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.email-capture-modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+  background: var(--color-surface);
+  border: 1.5px solid rgba(201, 168, 76, 0.4);
+  border-radius: var(--ev-radius-card, 16px);
+  text-align: center;
+}
+.email-capture-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-white);
+  margin: 0 0 10px;
+}
+.email-capture-sub {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+.email-capture-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.email-capture-form input {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--color-bg);
+  color: var(--color-white);
+}
+.email-capture-btn {
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-gold);
+  color: var(--color-bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+.email-capture-dismiss {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.email-capture-code {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-gold);
+  letter-spacing: 0.08em;
+  margin: 12px 0 20px;
+}
+
 @media (max-width: 768px) {
   :root {
     --navbar-height: 60px;
@@ -1345,6 +1668,22 @@
   .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 14px;
+  }
+  .storefront-shell .product-gallery-layout {
+    flex-direction: column-reverse;
+  }
+  .storefront-shell .product-img-thumbs--vertical {
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+  }
+  .storefront-shell .product-fulfillment-cards {
+    grid-template-columns: 1fr;
+  }
+  .storefront-shell .product-page-grid {
+    grid-template-columns: 1fr;
   }
 }
 

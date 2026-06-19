@@ -2,6 +2,13 @@
  * Server-side product SEO (mirrors client/src/lib/productSeo.js for bot HTML).
  */
 
+const {
+  generateSEOTitle,
+  generateMetaDescription,
+  getProductBrand,
+  hasProductReviews,
+} = require('./seoUtils')
+
 const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 const STORE_BRAND = 'Evolve Specialty Pharmacy & Wellness'
 const DEFAULT_CURRENCY = 'USD'
@@ -30,10 +37,22 @@ function getProductImages(product) {
   return ['https://placehold.co/600x600?text=No+Image']
 }
 
-function getProductDescription(product) {
-  const raw = product.description?.trim()
-  if (raw) return raw.slice(0, 320)
-  return `Shop ${product.name} at ${STORE_NAME}. Premium health and wellness products.`
+function getProductMetaDescription(product) {
+  if (product.seoMetaDescription?.trim()) {
+    return generateMetaDescription(product.seoMetaDescription, 155)
+  }
+  return generateMetaDescription(product.description, 155)
+    || generateMetaDescription(
+      `Shop ${product.name} — ${product.category || 'wellness'} at Evolve Pharmacy.`,
+      155
+    )
+}
+
+function getProductTitle(product) {
+  if (product.seoTitle?.trim()) {
+    return generateSEOTitle(product.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim(), 60)
+  }
+  return generateSEOTitle(product.name, 60)
 }
 
 function normalizeKeyword(value) {
@@ -42,18 +61,17 @@ function normalizeKeyword(value) {
 
 function getProductKeywords(product) {
   const tags = Array.isArray(product.tags) ? product.tags : []
+  const brand = getProductBrand(product)
   const keywords = [
     product.name,
     product.category,
-    product.brand,
+    brand,
     product.sku,
     product.barcode,
     ...tags,
-    `${product.name} ${STORE_NAME}`,
-    `${product.category || 'wellness products'} online`,
+    `${product.category || 'wellness'} supplements`,
     'specialty pharmacy',
-    'wellness products',
-    'vitamins and supplements',
+    'Evolve Pharmacy',
   ]
 
   return [...new Set(keywords.map(normalizeKeyword).filter(Boolean))].slice(0, 14)
@@ -72,7 +90,8 @@ function priceValidUntilDate() {
 function buildProductJsonLd(product) {
   const images = getProductImages(product)
   const url = getProductUrl(product)
-  const description = getProductDescription(product)
+  const description = getProductMetaDescription(product)
+  const brandName = getProductBrand(product) || STORE_BRAND
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -80,9 +99,8 @@ function buildProductJsonLd(product) {
     name: product.name,
     image: images,
     description,
-    sku: product.sku || product._id,
-    mpn: product.barcode || product.sku || product._id,
-    brand: { '@type': 'Brand', name: STORE_BRAND },
+    sku: product.sku || String(product._id),
+    brand: { '@type': 'Brand', name: brandName },
     offers: {
       '@type': 'Offer',
       url,
@@ -95,10 +113,10 @@ function buildProductJsonLd(product) {
     },
   }
 
-  if (product.rating > 0 && product.numReviews > 0) {
+  if (hasProductReviews(product)) {
     jsonLd.aggregateRating = {
       '@type': 'AggregateRating',
-      ratingValue: Number(product.rating.toFixed(1)),
+      ratingValue: Number(Number(product.rating).toFixed(1)),
       reviewCount: product.numReviews,
       bestRating: 5,
       worstRating: 1,
@@ -144,11 +162,26 @@ function buildBreadcrumbJsonLd(product) {
   }
 }
 
+function buildProductFaqJsonLd(product) {
+  const faqs = (product.seoFaqs || []).filter((f) => f?.question && f?.answer)
+  if (!faqs.length) return null
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+    })),
+  }
+}
+
 function buildProductMeta(product) {
   const images = getProductImages(product)
   const canonical = getProductUrl(product)
-  const title = `${product.name} | ${STORE_NAME}`
-  const description = getProductDescription(product)
+  const title = getProductTitle(product)
+  const description = getProductMetaDescription(product)
   const keywords = getProductKeywords(product)
   const ogImage = images[0]
   const price = Number(product.price).toFixed(2)
@@ -184,7 +217,9 @@ module.exports = {
   buildProductMeta,
   buildProductJsonLd,
   buildBreadcrumbJsonLd,
+  buildProductFaqJsonLd,
   getProductImages,
-  getProductDescription,
+  getProductMetaDescription,
+  getProductTitle,
   getProductKeywords,
 }

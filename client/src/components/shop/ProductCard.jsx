@@ -3,6 +3,7 @@ import { ShoppingCart, Star } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import ProductImage from '@/components/ProductImage'
 import { getProductPath } from '@/lib/productSeo'
+import { hasProductReviews, getProductImageAlt } from '@/lib/seoUtils'
 import useCartStore from '@/store/useCartStore'
 import toast from 'react-hot-toast'
 
@@ -30,7 +31,7 @@ export default function ProductCard({ product }) {
       <div className="product-card-img-wrap">
         <ProductImage
           images={product.images}
-          alt={product.name}
+          alt={getProductImageAlt(product)}
           variant="card"
           className="product-card-img"
           width={400}
@@ -56,7 +57,7 @@ export default function ProductCard({ product }) {
         )}
         <h3 className="product-card-name">{product.name}</h3>
 
-        {product.rating > 0 && (
+        {hasProductReviews(product) && (
           <div className="product-card-stars">
             <div className="product-card-stars-row">
               {[1, 2, 3, 4, 5].map((s) => (
