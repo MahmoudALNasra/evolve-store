@@ -444,6 +444,8 @@ img { display: block; max-width: 100%; height: auto; }
   transition: box-shadow 0.22s, transform 0.22s;
   text-decoration: none;
   color: inherit;
+  min-width: 0;
+  max-width: 100%;
 }
 .product-card:hover {
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
@@ -463,6 +465,7 @@ img { display: block; max-width: 100%; height: auto; }
 .product-card-img-wrap img {
   width: 100%;
   height: 100%;
+  max-width: 100%;
   object-fit: cover;
   transition: transform 0.35s;
 }
@@ -2399,6 +2402,9 @@ img { display: block; max-width: 100%; height: auto; }
   .products-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+  }
+  .products-grid--shop {
+    grid-template-columns: 1fr;
   }
   .product-card-body { padding: 10px 12px 12px; gap: 4px; }
   .product-card-name { font-size: 13px; }

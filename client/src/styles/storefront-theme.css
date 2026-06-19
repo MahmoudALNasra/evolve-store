@@ -401,6 +401,8 @@
   border: 1px solid rgba(201, 168, 76, 0.12);
   border-radius: var(--ev-radius-card);
   box-shadow: var(--ev-glow);
+  min-width: 0;
+  max-width: 100%;
 }
 .storefront-shell .product-card:hover {
   box-shadow: 0 8px 32px rgba(201, 168, 76, 0.18);
@@ -413,6 +415,7 @@
 .storefront-shell .product-card-img-wrap img,
 .storefront-shell .product-card-img {
   object-fit: contain;
+  max-width: 100%;
 }
 .storefront-shell .product-img-fallback {
   width: 100%;
@@ -856,6 +859,12 @@
 
 .storefront-shell .shop-body {
   background: var(--color-bg);
+  overflow-x: clip;
+  max-width: 100%;
+}
+.storefront-shell .shop-main {
+  min-width: 0;
+  max-width: 100%;
 }
 .storefront-shell .shop-empty h3 {
   color: var(--color-white);
@@ -1235,6 +1244,12 @@
 .storefront-shell .products-grid--home {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+/* Shop: one full-width card per row on phones (avoids img intrinsic width overflow) */
+.storefront-shell .products-grid--shop {
+  width: 100%;
+  max-width: 100%;
+  grid-template-columns: 1fr;
+}
 .storefront-shell .category-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1340,11 +1355,20 @@
   }
 }
 
+@media (min-width: 640px) {
+  .storefront-shell .products-grid--shop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 768px) {
   .storefront-shell .products-grid,
   .storefront-shell .products-grid--home {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
+  }
+  .storefront-shell .products-grid--shop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .storefront-shell .category-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1371,6 +1395,9 @@
 @media (min-width: 1280px) {
   .storefront-shell .products-grid,
   .storefront-shell .products-grid--home {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .storefront-shell .products-grid--shop {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .storefront-shell .category-grid {
