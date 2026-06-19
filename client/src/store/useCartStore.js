@@ -7,9 +7,16 @@ const useCartStore = create(
       items: [],
       _hasHydrated: false,
       isCartOpen: false,
+      preferredFulfillment: 'shipping',
 
       setHasHydrated: (state) => {
         set({ _hasHydrated: state })
+      },
+
+      setPreferredFulfillment: (method) => {
+        if (method === 'pickup' || method === 'shipping') {
+          set({ preferredFulfillment: method })
+        }
       },
 
       openCart: () => set({ isCartOpen: true }),
@@ -97,7 +104,10 @@ const useCartStore = create(
     { 
       name: 'estore-cart',
       // Ensure cart persists across sessions
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({
+        items: state.items,
+        preferredFulfillment: state.preferredFulfillment,
+      }),
       onRehydrateStorage: () => (state) => {
         console.log('💧 Cart rehydrated from localStorage')
         state?.setHasHydrated(true)

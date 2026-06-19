@@ -3,6 +3,7 @@ const { protect, optionalAuth } = require('../middleware/auth')
 const Product = require('../models/Product')
 const { getLiveShippingRates } = require('../services/shipping')
 const { guessShipLocation } = require('../services/geoLocationService')
+const { getDeliveryEstimate } = require('../services/deliveryEstimateService')
 
 const router = express.Router()
 
@@ -106,6 +107,36 @@ router.get('/guess-location', optionalAuth, async (req, res) => {
   }
   res.json({ location })
 })
+
+// GET /api/shipping/estimate?zip=78230&city=San+Antonio&state=TX
+router.get('/estimate', async (req, res) => {
+  const zip = String(req.query.zip || '').trim()
+  const city = String(req.query.city || '').trim()
+  const state = String(req.query.state || '').trim().toUpperCase().slice(0, 2)
+
+  if (!zip) {
+    const guessed = await guessShipLocation(req)
+    if (!guessed?.zip) {
+      return res.json(buildFallbackOnly())
+    }
+    const estimate = await getDeliveryEstimate({
+      zip: guessed.zip,
+      city: guessed.city,
+      state: guessed.state,
+    })
+    return res.json(estimate)
+  }
+
+  const estimate = await getDeliveryEstimate({ zip, city, state })
+  res.json(estimate)
+})
+
+function buildFallbackOnly() {
+  return {
+    fallback: true,
+    message: 'Free shipping over $150 · Estimated delivery 2–4 business days',
+  }
+}
 
 // POST /api/shipping/rates
 router.post('/rates', protect, async (req, res) => {

@@ -1457,11 +1457,60 @@
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 .storefront-shell .product-fulfillment-card.is-selected {
   border-color: var(--color-gold);
-  background: rgba(201, 168, 76, 0.08);
+  background: rgba(201, 168, 76, 0.06);
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.15);
+}
+.storefront-shell .product-fulfillment-card:not(.is-selected):hover {
+  border-color: rgba(201, 168, 76, 0.25);
+}
+.storefront-shell .product-fulfillment-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(201, 168, 76, 0.12);
+}
+.storefront-shell .product-delivery-range {
+  margin: 10px 0 6px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.storefront-shell .product-delivery-range strong {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-white);
+}
+.storefront-shell .product-delivery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-radius: 100px;
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--color-gold);
+  font-size: 12px;
+  font-weight: 600;
+}
+.storefront-shell .product-fulfillment-secondary {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.storefront-shell .product-pickup-line {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+}
+.storefront-shell .product-pickup-address {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 .storefront-shell .product-fulfillment-card-label {
   font-weight: 600;
@@ -1690,7 +1739,8 @@
 @media (prefers-reduced-motion: reduce) {
   .ev-btn,
   .storefront-shell .product-card,
-  .storefront-shell .category-card {
+  .storefront-shell .category-card,
+  .storefront-shell .product-fulfillment-card {
     transition-duration: 0.01ms !important;
   }
 }

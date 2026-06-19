@@ -75,6 +75,14 @@ export default function CheckoutPage() {
     country: 'United States',
   })
   const [fulfillmentMethod, setFulfillmentMethod] = useState('shipping')
+  const preferredFulfillment = useCartStore((s) => s.preferredFulfillment)
+
+  useEffect(() => {
+    if (preferredFulfillment === 'pickup' || preferredFulfillment === 'shipping') {
+      setFulfillmentMethod(preferredFulfillment)
+    }
+  }, [preferredFulfillment])
+
   const pickupDefaults = useMemo(() => getPickupDefaults(), [])
   const pickupDateBounds = useMemo(() => getPickupDateBounds(), [])
   const [pickupDate, setPickupDate] = useState(pickupDefaults.date)
