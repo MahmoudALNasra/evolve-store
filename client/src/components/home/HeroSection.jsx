@@ -5,6 +5,7 @@ import Aurora from '@/components/ui/Aurora'
 import BlurIn from '@/components/ui/BlurIn'
 import Button from '@/components/ui/Button'
 import Logo from '@/components/Logo'
+import ShipToBar from '@/components/ShipToBar'
 
 const TRUST_ITEMS = [
   'Free shipping over $100',
@@ -37,6 +38,10 @@ export default function HeroSection() {
       <div className="hero-bottom-fade" aria-hidden="true" />
 
       <div className="hero-inner">
+        <BlurIn delay={0.02}>
+          <ShipToBar />
+        </BlurIn>
+
         <BlurIn delay={0.05}>
           <Logo size={120} showText={false} to="/" className="hero-logo" />
         </BlurIn>

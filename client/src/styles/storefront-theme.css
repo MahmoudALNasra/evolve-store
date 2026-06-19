@@ -236,6 +236,55 @@
   max-width: 700px;
   width: 100%;
 }
+.home-ship-to-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(13, 13, 13, 0.55);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 100px;
+  backdrop-filter: blur(8px);
+}
+.home-ship-to-bar svg {
+  color: var(--brand-primary-light);
+  flex-shrink: 0;
+}
+.home-ship-to-label strong {
+  color: var(--brand-primary-light);
+  font-weight: 700;
+}
+.home-ship-to-change,
+.home-ship-to-edit button {
+  background: none;
+  border: none;
+  color: var(--brand-primary-light);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+.home-ship-to-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-ship-to-edit input {
+  width: 88px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: rgba(13, 13, 13, 0.8);
+  color: #fff;
+  font-size: 13px;
+}
 .hero-section--aurora .hero-badge {
   display: inline-flex;
   align-items: center;
@@ -574,7 +623,10 @@
   border-radius: var(--ev-radius-sm);
 }
 .storefront-shell .floating-rx-note {
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba(13, 13, 13, 0.94);
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  color: var(--brand-primary-light);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Blog (dark theme) ── */

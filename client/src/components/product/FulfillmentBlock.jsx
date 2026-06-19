@@ -1,14 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { MapPin, Package, Store } from 'lucide-react'
 import api from '../../lib/api'
-import useAuthStore from '../../store/useAuthStore'
 import useCartStore from '../../store/useCartStore'
-import {
-  readStoredLocation,
-  saveStoredLocation,
-  getDefaultUserAddress,
-  formatShipLabel,
-} from '../../lib/shipLocation'
+import { useShipLocation } from '../../hooks/useShipLocation'
+import { formatShipLabel } from '../../lib/shipLocation'
 import { PICKUP_ADDRESS } from '../../lib/pickupTimes'
 import { formatDateRange, formatCutoffCountdown } from '../../lib/deliveryEstimate'
 import { prefersReducedMotion } from '../../lib/animation'
@@ -16,16 +11,13 @@ import { prefersReducedMotion } from '../../lib/animation'
 const STATIC_SHIPPING_DETAIL = 'Free shipping over $150 · Estimated delivery 2–4 business days'
 
 export default function FulfillmentBlock() {
-  const user = useAuthStore((s) => s.user)
-  const initialized = useAuthStore((s) => s.initialized)
   const preferredFulfillment = useCartStore((s) => s.preferredFulfillment)
   const setPreferredFulfillment = useCartStore((s) => s.setPreferredFulfillment)
 
-  const [location, setLocation] = useState(readStoredLocation)
+  const { location, loadingLocation, updateZip } = useShipLocation()
   const [editing, setEditing] = useState(false)
   const [zipInput, setZipInput] = useState(location.zip)
   const [selected, setSelected] = useState(preferredFulfillment || 'shipping')
-  const [loadingLocation, setLoadingLocation] = useState(!location.zip)
   const [estimate, setEstimate] = useState(null)
   const [loadingEstimate, setLoadingEstimate] = useState(false)
   const [countdown, setCountdown] = useState(null)
@@ -56,49 +48,6 @@ export default function FulfillmentBlock() {
       setLoadingEstimate(false)
     }
   }, [])
-
-  useEffect(() => {
-    if (!initialized) return undefined
-
-    let cancelled = false
-
-    async function resolveLocation() {
-      const account = getDefaultUserAddress(user)
-      if (account) {
-        if (!cancelled) {
-          setLocation(account)
-          saveStoredLocation(account)
-          setLoadingLocation(false)
-        }
-        return
-      }
-
-      const stored = readStoredLocation()
-      if (stored.zip) {
-        if (!cancelled) {
-          setLocation(stored)
-          setLoadingLocation(false)
-        }
-        return
-      }
-
-      try {
-        const { data } = await api.get('/shipping/guess-location')
-        const guessed = data?.location
-        if (!cancelled && guessed?.zip) {
-          setLocation(guessed)
-          saveStoredLocation(guessed)
-        }
-      } catch {
-        /* manual fallback */
-      } finally {
-        if (!cancelled) setLoadingLocation(false)
-      }
-    }
-
-    resolveLocation()
-    return () => { cancelled = true }
-  }, [user, initialized])
 
   useEffect(() => {
     if (selected === 'shipping' && location.zip) {
@@ -137,12 +86,9 @@ export default function FulfillmentBlock() {
   }
 
   const saveZip = () => {
-    const zip = zipInput.trim().slice(0, 10)
-    if (!/^\d{5}(-\d{4})?$/.test(zip)) return
-    const next = { zip: zip.slice(0, 5), city: '', state: '', source: 'manual' }
-    saveStoredLocation(next)
-    setLocation(next)
-    setEditing(false)
+    if (updateZip(zipInput)) {
+      setEditing(false)
+    }
   }
 
   const shipLabel = loadingLocation ? 'Detecting location…' : formatShipLabel(location)

@@ -153,7 +153,7 @@ export default function ProductPage() {
                   {!isOutOfStock ? (
                     <>
                       <span className="product-stock-dot product-stock-dot--in" aria-hidden="true" />
-                      <span>In Stock ({stock} available)</span>
+                      <span>In Stock</span>
                     </>
                   ) : (
                     <>
