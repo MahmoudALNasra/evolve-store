@@ -134,7 +134,9 @@ router.get('/estimate', async (req, res) => {
 function buildFallbackOnly() {
   return {
     fallback: true,
-    message: 'Free shipping over $150 · Estimated delivery 2–4 business days',
+    message: 'Enter your ZIP code for a delivery estimate from our San Antonio pharmacy.',
+    shipsFrom: 'San Antonio, TX',
+    originZip: '78258',
   }
 }
 

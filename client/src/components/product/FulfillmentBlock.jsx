@@ -8,7 +8,7 @@ import { PICKUP_ADDRESS } from '../../lib/pickupTimes'
 import { formatDateRange, formatCutoffCountdown } from '../../lib/deliveryEstimate'
 import { prefersReducedMotion } from '../../lib/animation'
 
-const STATIC_SHIPPING_DETAIL = 'Free shipping over $150 · Estimated delivery 2–4 business days'
+const STATIC_SHIPPING_DETAIL = 'Enter ZIP for delivery estimate'
 
 export default function FulfillmentBlock() {
   const preferredFulfillment = useCartStore((s) => s.preferredFulfillment)
@@ -174,7 +174,9 @@ export default function FulfillmentBlock() {
           )}
 
           <p className="product-fulfillment-secondary">
-            {estimate?.fallback ? estimate.message : 'Free shipping over $150'}
+            {estimate?.fallback
+              ? estimate.message
+              : `Ships from ${estimate?.shipsFrom || 'San Antonio, TX'} · Free shipping over $150`}
           </p>
         </div>
       )}

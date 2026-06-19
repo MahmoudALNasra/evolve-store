@@ -1,10 +1,21 @@
 const shippo = require('./shipping/shippoProvider')
+const { resolveDestination } = require('./zipLookupService')
+const { SHIP_FROM } = require('../config/shipFrom')
+const { getShippingZone } = require('../utils/shippingRates')
 const { TZ, CUTOFF_HOUR, CUTOFF_MINUTE } = require('../utils/shippingCutoff')
 
 const CACHE_TTL_MS = 5 * 60 * 1000
 const cache = new Map()
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const ZONE_DELIVERY_DAYS = {
+  local: { min: 1, max: 2 },
+  nearby: { min: 2, max: 3 },
+  contiguous: { min: 3, max: 5 },
+  remote: { min: 5, max: 7 },
+  unknown: { min: 3, max: 5 },
+}
 
 function getChicagoParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -104,12 +115,12 @@ function formatCutoffLabel() {
   return `${hour12}${minute} ${ampm} CT`
 }
 
-function buildEstimateAddress({ zip, city, state }) {
+function buildEstimateAddress(destination) {
   return {
-    line1: '1 Delivery Estimate Ln',
-    city: city || 'San Antonio',
-    state: state || 'TX',
-    zip: String(zip).slice(0, 5),
+    line1: '100 Main St',
+    city: destination.city || 'San Antonio',
+    state: destination.state || 'TX',
+    zip: destination.zip,
     country: 'United States',
   }
 }
@@ -120,32 +131,72 @@ function isUpsGroundRate(rate) {
   return provider.includes('ups') && service.includes('ground')
 }
 
-async function fetchUpsGroundBusinessDays({ zip, city, state }) {
-  if (!shippo.isConfigured()) {
-    return { businessDays: 3, source: 'estimate' }
+function pickBestRate(rates = []) {
+  if (!rates.length) return null
+
+  const upsGround = rates.find(isUpsGroundRate)
+  if (upsGround?.estimatedDays != null) return upsGround
+
+  const upsWithDays = rates.find((rate) => {
+    const provider = String(rate.provider || '').toLowerCase()
+    const days = Number(rate.estimatedDays)
+    return provider.includes('ups') && Number.isFinite(days) && days > 0
+  })
+  if (upsWithDays) return upsWithDays
+
+  const withDays = rates
+    .filter((rate) => {
+      const days = Number(rate.estimatedDays)
+      return Number.isFinite(days) && days > 0
+    })
+    .sort((a, b) => Number(a.estimatedDays) - Number(b.estimatedDays))
+
+  return withDays[0] || null
+}
+
+function getZoneDeliveryDays(destination) {
+  const originPrefix = String(SHIP_FROM.zip || '').slice(0, 3)
+  const destPrefix = String(destination.zip || '').slice(0, 3)
+
+  if (destination.state === 'TX') {
+    if (destination.zip === SHIP_FROM.zip || destPrefix === originPrefix) {
+      return { min: 1, max: 1, zone: 'local-metro' }
+    }
+    return { ...ZONE_DELIVERY_DAYS.local, zone: 'local' }
   }
 
+  const zone = getShippingZone({ state: destination.state })
+  return { ...(ZONE_DELIVERY_DAYS[zone] || ZONE_DELIVERY_DAYS.unknown), zone }
+}
+
+async function fetchCarrierBusinessDays(destination) {
+  if (!shippo.isConfigured()) return null
+
   const { rates } = await shippo.createShipmentWithRates({
-    toAddress: buildEstimateAddress({ zip, city, state }),
+    toAddress: buildEstimateAddress(destination),
     user: { name: 'Estimate Guest', email: 'estimate@example.com' },
   })
 
-  const upsGround = rates.find(isUpsGroundRate)
-  if (!upsGround) return null
+  const bestRate = pickBestRate(rates)
+  if (!bestRate) return null
 
-  const days = Number(upsGround.estimatedDays)
-  if (Number.isFinite(days) && days > 0) {
-    return { businessDays: Math.round(days), source: 'shippo', estimatedDays: upsGround.estimatedDays }
+  const days = Math.round(Number(bestRate.estimatedDays))
+  if (!Number.isFinite(days) || days <= 0) return null
+
+  return {
+    min: days,
+    max: days,
+    source: isUpsGroundRate(bestRate) ? 'shippo-ups-ground' : 'shippo',
+    carrier: bestRate.provider,
+    service: bestRate.service,
   }
-
-  return { businessDays: 3, source: 'shippo-default' }
 }
 
-function buildEstimatePayload(businessDays, now = new Date()) {
+function buildEstimatePayload({ minBusinessDays, maxBusinessDays, source, zone }, now = new Date()) {
   const parts = getChicagoParts(now)
   const shipParts = getShipDateParts(now)
-  const minParts = addBusinessDaysFromParts(shipParts, businessDays)
-  const maxParts = minParts
+  const minParts = addBusinessDaysFromParts(shipParts, minBusinessDays)
+  const maxParts = addBusinessDaysFromParts(shipParts, maxBusinessDays)
 
   const todayParts = { year: parts.year, month: parts.month, day: parts.day }
   const nextBusiness = getNextBusinessDayParts(todayParts)
@@ -154,7 +205,8 @@ function buildEstimatePayload(businessDays, now = new Date()) {
   return {
     minDate: dateKeyFromParts(minParts),
     maxDate: dateKeyFromParts(maxParts),
-    businessDays,
+    businessDays: minBusinessDays,
+    businessDaysMax: maxBusinessDays,
     isNextDay,
     cutoffTime: formatCutoffLabel(),
     cutoffHour: CUTOFF_HOUR,
@@ -162,49 +214,80 @@ function buildEstimatePayload(businessDays, now = new Date()) {
     timezone: TZ,
     minutesUntilCutoff: minutesUntilCutoff(now),
     fallback: false,
+    source,
+    zone,
+    shipsFrom: `${SHIP_FROM.city}, ${SHIP_FROM.state}`,
+    originZip: SHIP_FROM.zip,
   }
 }
 
 function buildFallbackPayload() {
   return {
     fallback: true,
-    message: 'Free shipping over $150 · Estimated delivery 2–4 business days',
+    message: 'Enter your ZIP code for a delivery estimate from our San Antonio pharmacy.',
     cutoffTime: formatCutoffLabel(),
     timezone: TZ,
     minutesUntilCutoff: minutesUntilCutoff(),
+    shipsFrom: `${SHIP_FROM.city}, ${SHIP_FROM.state}`,
+    originZip: SHIP_FROM.zip,
   }
 }
 
 async function getDeliveryEstimate({ zip, city, state }) {
-  const cleanZip = String(zip || '').trim().slice(0, 5)
-  if (!/^\d{5}$/.test(cleanZip)) {
+  const destination = await resolveDestination({ zip, city, state })
+  if (!destination) {
     return buildFallbackPayload()
   }
 
-  const cacheKey = `${cleanZip}:${city || ''}:${state || ''}`
+  const cacheKey = `${destination.zip}:${destination.city}:${destination.state}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() < cached.expiresAt) {
     return { ...cached.value, minutesUntilCutoff: minutesUntilCutoff() }
   }
 
-  try {
-    const rateInfo = await fetchUpsGroundBusinessDays({ zip: cleanZip, city, state })
-    if (!rateInfo) {
-      return buildFallbackPayload()
-    }
+  let minBusinessDays
+  let maxBusinessDays
+  let source
+  let zone
 
-    const payload = buildEstimatePayload(rateInfo.businessDays)
-    cache.set(cacheKey, { value: payload, expiresAt: Date.now() + CACHE_TTL_MS })
-    return payload
+  try {
+    const carrier = await fetchCarrierBusinessDays(destination)
+    if (carrier) {
+      minBusinessDays = carrier.min
+      maxBusinessDays = carrier.max
+      source = carrier.source
+      zone = 'carrier'
+    } else {
+      const zoneDays = getZoneDeliveryDays(destination)
+      minBusinessDays = zoneDays.min
+      maxBusinessDays = zoneDays.max
+      source = shippo.isConfigured() ? 'zone-fallback' : 'zone'
+      zone = zoneDays.zone
+    }
   } catch {
-    return buildFallbackPayload()
+    const zoneDays = getZoneDeliveryDays(destination)
+    minBusinessDays = zoneDays.min
+    maxBusinessDays = zoneDays.max
+    source = 'zone-fallback'
+    zone = zoneDays.zone
   }
+
+  const payload = buildEstimatePayload({
+    minBusinessDays,
+    maxBusinessDays,
+    source,
+    zone,
+  })
+
+  cache.set(cacheKey, { value: payload, expiresAt: Date.now() + CACHE_TTL_MS })
+  return payload
 }
 
 module.exports = {
   getDeliveryEstimate,
   formatCutoffLabel,
   minutesUntilCutoff,
+  getZoneDeliveryDays,
   TZ,
   CUTOFF_HOUR,
   CUTOFF_MINUTE,
