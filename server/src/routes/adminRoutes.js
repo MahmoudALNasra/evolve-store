@@ -3,6 +3,7 @@ const Order = require('../models/Order')
 const Product = require('../models/Product')
 const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
+const { enrichProductsBatch, enrichProductImages } = require('../services/productImageEnrichmentService')
 
 const router = express.Router()
 
@@ -74,6 +75,26 @@ router.get('/stats', protect, admin, async (req, res) => {
     ordersByStatus,
     revenueChart,
   })
+})
+
+// POST /api/admin/products/enrich-images — Serper + local /media product images
+router.post('/products/enrich-images', protect, admin, async (req, res) => {
+  const { limit = 10, skip = 0, dryRun = false, force = false, productId } = req.body || {}
+
+  if (productId) {
+    const product = await Product.findById(productId)
+    if (!product) return res.status(404).json({ message: 'Product not found' })
+    const result = await enrichProductImages(product, { dryRun: !!dryRun, force: !!force, save: !dryRun })
+    return res.json(result)
+  }
+
+  const result = await enrichProductsBatch({
+    limit: Number(limit) || 10,
+    skip: Number(skip) || 0,
+    dryRun: !!dryRun,
+    force: !!force,
+  })
+  res.json(result)
 })
 
 module.exports = router

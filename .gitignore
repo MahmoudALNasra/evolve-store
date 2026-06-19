@@ -57,6 +57,7 @@ Desktop.ini
 uploads/
 temp/
 tmp/
+server/media/products/
 
 # Database dumps / local Mongo data
 *.dump

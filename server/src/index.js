@@ -1,5 +1,6 @@
 require('express-async-errors')
 require('dotenv').config()
+const path = require('path')
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
@@ -73,6 +74,13 @@ app.use('/api/blog', blogRoutes)
 app.use('/api/admin/blog', adminBlogRoutes)
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
+
+// Locally hosted product media — e.g. https://yoursite.com/media/products/{slug}/...
+const mediaRoot = process.env.MEDIA_ROOT || path.join(__dirname, '../media')
+app.use('/media', express.static(mediaRoot, {
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+  fallthrough: true,
+}))
 
 // SEO sitemap (before SPA fallback; 24h in-memory cache)
 app.use(sitemapRoutes)

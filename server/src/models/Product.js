@@ -5,7 +5,7 @@ const { normalizeSku } = require('../utils/normalizeProductFields')
 
 const imageSchema = new mongoose.Schema({
   url: { type: String, required: true },
-  source: { type: String, enum: ['upload', 'link'], default: 'link' },
+  source: { type: String, enum: ['upload', 'link', 'local', 'serper'], default: 'link' },
   publicId: { type: String, default: '' },
 })
 
