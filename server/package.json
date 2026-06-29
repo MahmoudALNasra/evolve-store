@@ -9,6 +9,7 @@
     "migrate:slugs": "node src/scripts/migrateProductSlugs.js",
     "migrate:tags": "node src/scripts/migrateProductTags.js",
     "migrate:skus": "node src/scripts/migrateEmptySkus.js",
+    "migrate:taxable": "node src/scripts/migrateProductTaxable.js",
     "cleanup:categories": "node src/scripts/cleanupEmptyCategories.js",
     "setup:analytics": "node src/scripts/setupAnalyticsTable.js",
     "blog:generate": "node src/scripts/blogGenerate.js",
