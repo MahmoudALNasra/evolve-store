@@ -2177,6 +2177,89 @@ img { display: block; max-width: 100%; height: auto; }
 .admin-badge.gray { background: #f3f4f6; color: #374151; }
 .admin-badge.indigo { background: #e0e7ff; color: #3730a3; }
 .admin-badge.purple { background: #f3e8ff; color: #6b21a8; }
+
+/* Admin field hints (? tooltips) */
+.admin-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.admin-checkbox-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.admin-checkbox-option__input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2d7a3a;
+  flex-shrink: 0;
+}
+.admin-checkbox-option__label {
+  font-size: 14px;
+  color: #374151;
+}
+.field-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.field-hint__icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  user-select: none;
+}
+.field-hint__tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 60;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+.field-hint__tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+.field-hint:hover .field-hint__tooltip,
+.field-hint:focus-within .field-hint__tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .btn-admin {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,9 @@ import { getArticlePath } from '../../lib/blogSeo'
 import api from '../../lib/api'
 import { formatPrice } from '../../lib/utils'
 import toast from 'react-hot-toast'
+import AdminFieldLabel from '../../components/admin/AdminFieldLabel'
+import AdminCheckboxOption from '../../components/admin/AdminCheckboxOption'
+import FieldHint from '../../components/admin/FieldHint'
 
 const EMPTY = {
   name: '', description: '', price: '', comparePrice: '', category: '',
@@ -380,11 +383,18 @@ export default function AdminProducts() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ gridColumn: '1 / -1' }} className="auth-field">
-                <label>Name *</label>
+                <AdminFieldLabel
+                  hint="Customer-facing product title shown on the shop, product page, cart, and checkout."
+                  required
+                >
+                  Name
+                </AdminFieldLabel>
                 <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               </div>
               <div style={{ gridColumn: '1 / -1' }} className="auth-field">
-                <label>Description</label>
+                <AdminFieldLabel hint="Full product details for the product page. Used for SEO and the AI description tool when editing.">
+                  Description
+                </AdminFieldLabel>
                 <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} style={{ resize: 'none' }} />
                 {modal === 'edit' && (
                   <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -407,15 +417,21 @@ export default function AdminProducts() {
                 )}
               </div>
               <div className="auth-field">
-                <label>Price ($) *</label>
+                <AdminFieldLabel hint="Selling price in USD. This is what customers pay before tax and shipping." required>
+                  Price ($)
+                </AdminFieldLabel>
                 <input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} onWheel={(e) => e.target.blur()} />
               </div>
               <div className="auth-field">
-                <label>Compare Price ($)</label>
+                <AdminFieldLabel hint="Optional “was” price for showing a sale. Leave blank or 0 if not on sale.">
+                  Compare Price ($)
+                </AdminFieldLabel>
                 <input type="number" min="0" step="0.01" value={form.comparePrice} onChange={(e) => setForm((f) => ({ ...f, comparePrice: e.target.value }))} onWheel={(e) => e.target.blur()} />
               </div>
               <div className="auth-field">
-                <label>Category</label>
+                <AdminFieldLabel hint="Shop category for browsing and filters. New categories are created automatically if needed.">
+                  Category
+                </AdminFieldLabel>
                 <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
                   <option value="">Select a category</option>
                   {categories.map((cat) => (
@@ -424,45 +440,59 @@ export default function AdminProducts() {
                 </select>
               </div>
               <div className="auth-field">
-                <label>Tags (comma-separated)</label>
-                <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="Leave empty to auto-generate from name & description" />
-                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Optional. Empty = auto-tags from product name, description, and category.</p>
+                <AdminFieldLabel hint="Optional keywords for search and SEO. Leave empty to auto-generate from name, description, and category.">
+                  Tags (comma-separated)
+                </AdminFieldLabel>
+                <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="vitamins, wellness, supplement" />
               </div>
               <div className="auth-field">
-                <label>SKU</label>
+                <AdminFieldLabel hint="Internal stock-keeping ID. Must be unique if set. Used for inventory, restock imports, and order records.">
+                  SKU
+                </AdminFieldLabel>
                 <input value={form.sku} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} />
               </div>
               <div className="auth-field">
-                <label>Barcode</label>
+                <AdminFieldLabel hint="Product barcode (UPC/EAN) for scanning and inventory matching. Optional.">
+                  Barcode
+                </AdminFieldLabel>
                 <input value={form.barcode} onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))} />
               </div>
               <div className="auth-field">
-                <label>Stock</label>
+                <AdminFieldLabel hint="Units available to sell. Checkout is blocked when stock is 0. Restock adds to this number.">
+                  Stock
+                </AdminFieldLabel>
                 <input type="number" min="0" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} onWheel={(e) => e.target.blur()} />
               </div>
               <div className="auth-field">
-                <label>Weight (kg)</label>
+                <AdminFieldLabel hint="Product weight in kilograms. Used for shipping rate estimates when applicable.">
+                  Weight (kg)
+                </AdminFieldLabel>
                 <input type="number" min="0" step="0.1" value={form.weight} onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))} onWheel={(e) => e.target.blur()} />
               </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 24 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm((f) => ({ ...f, isPublished: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2d7a3a' }} />
-                  <span style={{ fontSize: 14, color: '#374151' }}>Published</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm((f) => ({ ...f, isFeatured: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2d7a3a' }} />
-                  <span style={{ fontSize: 14, color: '#374151' }}>Featured</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.isTaxable} onChange={(e) => setForm((f) => ({ ...f, isTaxable: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2d7a3a' }} />
-                  <span style={{ fontSize: 14, color: '#374151' }}>Taxable</span>
-                </label>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+                <AdminCheckboxOption
+                  checked={form.isPublished}
+                  onChange={(e) => setForm((f) => ({ ...f, isPublished: e.target.checked }))}
+                  label="Published"
+                  hint="When checked, the product is visible on the storefront. Unchecked saves as a draft."
+                />
+                <AdminCheckboxOption
+                  checked={form.isFeatured}
+                  onChange={(e) => setForm((f) => ({ ...f, isFeatured: e.target.checked }))}
+                  label="Featured"
+                  hint="Shows on the home page Best Sellers section and can display a Best Seller badge."
+                />
+                <AdminCheckboxOption
+                  checked={form.isTaxable}
+                  onChange={(e) => setForm((f) => ({ ...f, isTaxable: e.target.checked }))}
+                  label="Taxable"
+                  hint="When checked, sales tax is applied to this product at checkout. Unchecked items are tax-exempt."
+                />
               </div>
-              <p style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', margin: '-8px 0 0' }}>
-                When checked, sales tax applies to this product at checkout. Leave unchecked for tax-exempt items.
-              </p>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Images</label>
+              <div style={{ gridColumn: '1 / -1' }} className="auth-field">
+                <AdminFieldLabel hint="Product photos for the shop and product page. Upload files or paste image URLs. First image is the main thumbnail.">
+                  Images
+                </AdminFieldLabel>
                 {form.images.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                     {form.images.map((img, i) => (
@@ -512,7 +542,9 @@ export default function AdminProducts() {
             <p style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>{editProduct.name}</p>
             <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>Current stock: <span style={{ fontWeight: 600, color: '#1c2b1c' }}>{editProduct.stock}</span></p>
             <div className="auth-field">
-              <label>Quantity to Add</label>
+              <AdminFieldLabel hint="Number of units to add to current inventory. This increases stock immediately.">
+                Quantity to Add
+              </AdminFieldLabel>
               <input type="number" min="1" value={restockQty} onChange={(e) => setRestockQty(Number(e.target.value))} onWheel={(e) => e.target.blur()} />
             </div>
             <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
@@ -533,14 +565,20 @@ export default function AdminProducts() {
               <button onClick={() => setModal(null)} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
             </div>
             <div style={{ background: '#e0e7ff', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#3730a3', marginBottom: 4 }}>Template columns:</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#3730a3', marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Template columns
+                <FieldHint text="Download the template first. Each row is one product. Use true/false for isPublished, isFeatured, and isTaxable. Separate multiple image URLs with commas in imageUrls." />
+              </p>
               <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#4338ca' }}>name, description, price, comparePrice, category, tags, sku, barcode, stock, weight, isPublished, isFeatured, isTaxable, imageUrls</p>
             </div>
             <button onClick={() => downloadTemplate('bulk-add')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#2d7a3a', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16 }}>
               <Download size={14} /> Download Template
             </button>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>Upload Excel File (.xlsx)</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
+                Upload Excel File (.xlsx)
+                <FieldHint text="Select a filled .xlsx from the template. Products are created in bulk; new categories in the file are added automatically." />
+              </label>
               <button type="button" onClick={() => bulkFileRef.current?.click()}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '2px dashed #e0e7e0', borderRadius: 10, padding: '24px 16px', fontSize: 13, color: '#6b7280', background: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
                 onMouseEnter={(e) => e.currentTarget.style.background = '#f7faf7'}
@@ -562,14 +600,20 @@ export default function AdminProducts() {
               <button onClick={() => setModal(null)} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
             </div>
             <div style={{ background: '#d1fae5', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#065f46', marginBottom: 4 }}>Template columns:</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#065f46', marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                Template columns
+                <FieldHint text="Each row adds stock to an existing product matched by SKU. qty_to_add is added to the current stock level." />
+              </p>
               <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#047857' }}>sku, qty_to_add</p>
             </div>
             <button onClick={() => downloadTemplate('bulk-restock')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#2d7a3a', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16 }}>
               <Download size={14} /> Download Restock Template
             </button>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>Upload Excel File (.xlsx)</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
+                Upload Excel File (.xlsx)
+                <FieldHint text="Upload the restock template with SKU and quantity. Unknown SKUs are skipped and reported in the result." />
+              </label>
               <button type="button" onClick={() => bulkRestockFileRef.current?.click()}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '2px dashed #e0e7e0', borderRadius: 10, padding: '24px 16px', fontSize: 13, color: '#6b7280', background: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
                 onMouseEnter={(e) => e.currentTarget.style.background = '#f7faf7'}
