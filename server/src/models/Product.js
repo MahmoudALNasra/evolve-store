@@ -44,6 +44,7 @@ const productSchema = new mongoose.Schema(
     },
     isPublished: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
+    isTaxable: { type: Boolean, default: false },
     rating: { type: Number, default: 0 },
     numReviews: { type: Number, default: 0 },
   },

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 const EMPTY = {
   name: '', description: '', price: '', comparePrice: '', category: '',
   tags: '', sku: '', barcode: '', stock: '', weight: '',
-  isPublished: false, isFeatured: false, images: [],
+  isPublished: false, isFeatured: false, isTaxable: false, images: [],
 }
 
 export default function AdminProducts() {
@@ -71,7 +71,7 @@ export default function AdminProducts() {
       name: p.name, description: p.description, price: p.price, comparePrice: p.comparePrice || '',
       category: p.category, tags: p.tags?.join(', ') || '', sku: p.sku || '', barcode: p.barcode || '',
       stock: p.stock, weight: p.weight || '', isPublished: p.isPublished, isFeatured: p.isFeatured,
-      images: p.images || [],
+      isTaxable: Boolean(p.isTaxable), images: p.images || [],
     })
     setModal('edit')
   }
@@ -290,13 +290,14 @@ export default function AdminProducts() {
                 <th style={{ textAlign: 'right' }}>Price</th>
                 <th style={{ textAlign: 'right' }}>Stock</th>
                 <th style={{ textAlign: 'center' }}>Blog</th>
+                <th style={{ textAlign: 'center' }}>Tax</th>
                 <th style={{ textAlign: 'center' }}>Status</th>
                 <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
-                <tr><td colSpan={7} className="admin-empty">No products found</td></tr>
+                <tr><td colSpan={8} className="admin-empty">No products found</td></tr>
               ) : products.map((p) => (
                 <tr key={p._id}>
                   <td>
@@ -319,6 +320,11 @@ export default function AdminProducts() {
                       const label = getBlogLabel(p._id)
                       return <span className={`admin-badge ${label.className}`}>{label.text}</span>
                     })()}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span className={`admin-badge ${p.isTaxable ? 'green' : 'gray'}`}>
+                      {p.isTaxable ? 'Taxable' : 'Exempt'}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
@@ -447,7 +453,14 @@ export default function AdminProducts() {
                   <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm((f) => ({ ...f, isFeatured: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2d7a3a' }} />
                   <span style={{ fontSize: 14, color: '#374151' }}>Featured</span>
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.isTaxable} onChange={(e) => setForm((f) => ({ ...f, isTaxable: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2d7a3a' }} />
+                  <span style={{ fontSize: 14, color: '#374151' }}>Taxable</span>
+                </label>
               </div>
+              <p style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', margin: '-8px 0 0' }}>
+                When checked, sales tax applies to this product at checkout. Leave unchecked for tax-exempt items.
+              </p>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Images</label>
                 {form.images.length > 0 && (
@@ -521,7 +534,7 @@ export default function AdminProducts() {
             </div>
             <div style={{ background: '#e0e7ff', borderRadius: 10, padding: 16, marginBottom: 16 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#3730a3', marginBottom: 4 }}>Template columns:</p>
-              <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#4338ca' }}>name, description, price, comparePrice, category, tags, sku, barcode, stock, weight, isPublished, isFeatured, imageUrls</p>
+              <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#4338ca' }}>name, description, price, comparePrice, category, tags, sku, barcode, stock, weight, isPublished, isFeatured, isTaxable, imageUrls</p>
             </div>
             <button onClick={() => downloadTemplate('bulk-add')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#2d7a3a', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16 }}>
               <Download size={14} /> Download Template

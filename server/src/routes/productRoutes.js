@@ -170,12 +170,12 @@ router.post('/upload-image', protect, admin, upload.single('image'), (req, res) 
 router.get('/template/bulk-add', protect, admin, async (req, res) => {
   const headers = [
     'name', 'description', 'price', 'comparePrice', 'category', 'tags',
-    'sku', 'barcode', 'stock', 'weight', 'isPublished', 'isFeatured', 'imageUrls',
+    'sku', 'barcode', 'stock', 'weight', 'isPublished', 'isFeatured', 'isTaxable', 'imageUrls',
   ]
   const categories = await getStorefrontCategoryNames()
   const example = [
     'Sample Product', 'A great product', 29.99, 39.99, categories[0] || 'Uncategorized', 'tech,gadget',
-    'SKU-001', '1234567890', 100, 0.5, true, false, 'https://example.com/img.jpg',
+    'SKU-001', '1234567890', 100, 0.5, true, false, false, 'https://example.com/img.jpg',
   ]
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Products')
@@ -246,6 +246,7 @@ router.post('/bulk', protect, admin, uploadExcel.single('file'), async (req, res
     weight: Number(row.weight) || 0,
     isPublished: String(row.isPublished).toLowerCase() === 'true',
     isFeatured: String(row.isFeatured).toLowerCase() === 'true',
+    isTaxable: String(row.isTaxable).toLowerCase() === 'true',
     images: row.imageUrls
       ? String(row.imageUrls).split(',').map((u) => ({ url: u.trim(), source: 'link' }))
       : [],

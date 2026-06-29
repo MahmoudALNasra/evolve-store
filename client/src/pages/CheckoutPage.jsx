@@ -14,7 +14,7 @@ import {
   getPickupTimeOptionsForDate,
   PICKUP_ADDRESS,
 } from '../lib/pickupTimes'
-import { calculateSalesTax, formatSalesTaxRate } from '../lib/salesTax'
+import { calculateSalesTaxFromItems, formatSalesTaxRate } from '../lib/salesTax'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -113,7 +113,7 @@ export default function CheckoutPage() {
             : formatPrice(selectedRate.amount)
           : 'Select option'
   const totalLabel = !isPickup && !hasSelectedShippingRate ? 'Total before shipping' : 'Total'
-  const tax = calculateSalesTax(subtotal)
+  const tax = calculateSalesTaxFromItems(items)
   const total = subtotal + shipping + tax
 
   useEffect(() => {

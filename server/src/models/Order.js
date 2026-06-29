@@ -6,6 +6,7 @@ const orderItemSchema = new mongoose.Schema({
   image: { type: String, default: '' },
   price: { type: Number, required: true },
   quantity: { type: Number, required: true, min: 1 },
+  isTaxable: { type: Boolean, default: false },
 })
 
 const orderSchema = new mongoose.Schema(

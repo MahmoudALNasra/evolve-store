@@ -14,7 +14,7 @@ import {
 } from '../lib/utils'
 import ProductImage from '../components/ProductImage'
 import { getProductPath } from '../lib/productSeo'
-import { calculateSalesTax, formatSalesTaxRate } from '../lib/salesTax'
+import { calculateSalesTaxFromItems, formatSalesTaxRate } from '../lib/salesTax'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import Spinner from '../components/ui/Spinner'
@@ -27,7 +27,7 @@ export default function CartPage() {
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const shippingQuote = getShippingQuote(subtotal)
-  const tax = calculateSalesTax(subtotal)
+  const tax = calculateSalesTaxFromItems(items)
 
   useEffect(() => {
     console.log('📄 CartPage loaded. Items in cart:', items)
@@ -165,7 +165,9 @@ export default function CartPage() {
             </span>
           </div>
           <div className="cart-summary-line" style={{ marginTop: 8 }}>
-            <span className="cart-summary-line-label">Sales Tax ({formatSalesTaxRate()})</span>
+            <span className="cart-summary-line-label">
+              Sales Tax ({formatSalesTaxRate()}{items.some((i) => i.isTaxable) ? '' : ' — no taxable items'})
+            </span>
             <span className="cart-summary-line-val">{formatPrice(tax)}</span>
           </div>
           <div className="cart-free-shipping-note">

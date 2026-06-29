@@ -9,7 +9,7 @@ const { reserveStockForItems, releaseReservedStock } = require('../services/inve
 const { getClientIp } = require('../utils/ga4UserData')
 const { resolveShippingFromToken } = require('../services/shipping')
 const { PICKUP_ADDRESS, validatePickupTime, formatPickupTime } = require('../utils/pickupTimes')
-const { calculateSalesTax } = require('../utils/salesTax')
+const { calculateSalesTaxFromItems } = require('../utils/salesTax')
 
 const router = express.Router()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -81,6 +81,7 @@ router.post('/', protect, async (req, res) => {
   // Build order items
   const orderItems = []
   let subtotal = 0
+  const taxLineItems = []
 
   for (const cartItem of items) {
     const quantity = Number(cartItem.quantity)
@@ -101,7 +102,12 @@ router.post('/', protect, async (req, res) => {
       image: product.images[0]?.url || '',
       price: product.price,
       quantity,
+      isTaxable: Boolean(product.isTaxable),
     })
+
+    if (product.isTaxable) {
+      taxLineItems.push({ price: product.price, quantity, isTaxable: true })
+    }
   }
 
   let shipping = 0
@@ -118,7 +124,7 @@ router.post('/', protect, async (req, res) => {
     shippingLabel = resolved.label
     shippingMethod = resolved.method
   }
-  const tax = calculateSalesTax(subtotal)
+  const tax = calculateSalesTaxFromItems(taxLineItems)
   const total = subtotal + shipping + tax
 
   const reservation = await reserveStockForItems(orderItems)
