@@ -1,6 +1,5 @@
 const { google } = require('googleapis')
-
-const DEFAULT_SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+const { getGoogleAuthClient } = require('../utils/googleSheetsAuth')
 
 function getSheetId() {
   return process.env.GOOGLE_INVENTORY_SHEET_ID || '1LKXERqfQUOssj3WadUxIgwoPdcOyRcJGf8itFwTnhjk'
@@ -52,26 +51,8 @@ function columnNumberToName(columnNumber) {
   return name
 }
 
-function getGoogleAuth() {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_USE_APPLICATION_DEFAULT === 'true') {
-    return new google.auth.GoogleAuth({ scopes: DEFAULT_SCOPES })
-  }
-
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n')
-
-  if (!clientEmail || !privateKey) {
-    throw new Error('Google Sheets auth is not configured')
-  }
-
-  return new google.auth.GoogleAuth({
-    credentials: { client_email: clientEmail, private_key: privateKey },
-    scopes: DEFAULT_SCOPES,
-  })
-}
-
 async function getSheetsClient() {
-  const auth = await getGoogleAuth().getClient()
+  const auth = await getGoogleAuthClient()
   return google.sheets({ version: 'v4', auth })
 }
 
