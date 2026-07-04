@@ -71,6 +71,88 @@ async function mirrorImageLocally(product, imageEntry, index) {
   return { url: saved.url, source: saved.source }
 }
 
+function hasExternalWorkingImages(images) {
+  return (images || []).some((img) => img?.url && !isLocalProductMediaUrl(img.url))
+}
+
+/** Download working external images to /media/products/{slug}/ without Serper lookups. */
+async function mirrorProductImagesToLocal(product, options = {}) {
+  const dryRun = options.dryRun === true
+  const save = options.save !== false
+  const maxImages = Number(options.maxImages || MAX_IMAGES)
+
+  const { good, broken, beforeCount } = await classifyProductImages(product)
+
+  if (good.length === 0) {
+    return {
+      productId: product._id,
+      productName: product.name,
+      slug: product.slug,
+      status: 'no_images',
+      beforeCount,
+      afterCount: 0,
+      added: [],
+      removed: broken.map((img) => img.url),
+      images: [],
+      dryRun,
+    }
+  }
+
+  if (!hasExternalWorkingImages(good) && broken.length === 0) {
+    return {
+      productId: product._id,
+      productName: product.name,
+      slug: product.slug,
+      status: 'skipped',
+      reason: 'Already on local /media paths',
+      beforeCount,
+      afterCount: good.length,
+      added: [],
+      removed: [],
+      images: good,
+      dryRun,
+    }
+  }
+
+  const finalImages = []
+  const added = []
+  const removed = broken.map((img) => img.url)
+  let index = 1
+
+  for (const img of good.slice(0, maxImages)) {
+    try {
+      if (dryRun) {
+        finalImages.push(img)
+      } else {
+        const local = await mirrorImageLocally(product, img, index)
+        finalImages.push(local)
+        if (local.url !== img.url) added.push(local.url)
+      }
+      index += 1
+    } catch {
+      removed.push(img.url)
+    }
+  }
+
+  if (!dryRun && save && finalImages.length > 0) {
+    product.images = finalImages
+    await product.save()
+  }
+
+  return {
+    productId: product._id,
+    productName: product.name,
+    slug: product.slug,
+    status: added.length > 0 || broken.length > 0 ? 'updated' : 'unchanged',
+    beforeCount,
+    afterCount: finalImages.length,
+    added,
+    removed,
+    images: finalImages,
+    dryRun,
+  }
+}
+
 async function fetchSerperCandidates(product, needed) {
   const query = buildSerperQuery(product)
   const num = Math.min(Math.max(needed * 4, 10), 20)
@@ -93,13 +175,15 @@ async function enrichProductImages(product, options = {}) {
 
   const { good, broken, beforeCount } = await classifyProductImages(product)
 
-  if (!force && good.length >= MIN_IMAGES && broken.length === 0) {
+  const allLocal = good.length > 0 && !hasExternalWorkingImages(good)
+
+  if (!force && good.length >= MIN_IMAGES && broken.length === 0 && allLocal) {
     return {
       productId: product._id,
       productName: product.name,
       slug: product.slug,
       status: 'skipped',
-      reason: 'Already has enough working images',
+      reason: 'Already has enough local images',
       beforeCount,
       afterCount: good.length,
       goodCount: good.length,
@@ -213,13 +297,14 @@ async function enrichProductsBatch(options = {}) {
   for (const product of products) {
     if (onlyNeedsWork && !force) {
       const { good, broken } = await classifyProductImages(product)
-      if (good.length >= MIN_IMAGES && broken.length === 0) {
+      const allLocal = good.length > 0 && !hasExternalWorkingImages(good)
+      if (good.length >= MIN_IMAGES && broken.length === 0 && allLocal) {
         skipped += 1
         results.push({
           productId: product._id,
           productName: product.name,
           status: 'skipped',
-          reason: 'Already has enough working images',
+          reason: 'Already has enough local images',
           goodCount: good.length,
           brokenCount: broken.length,
         })
@@ -294,12 +379,98 @@ async function enrichAllProducts(options = {}) {
   return totals
 }
 
+function externalImageQuery() {
+  return {
+    isPublished: true,
+    'images.url': /^https?:\/\//,
+  }
+}
+
+async function mirrorProductsBatch(options = {}) {
+  const limit = Number(options.limit || 25)
+  const skip = Number(options.skip || 0)
+  const dryRun = options.dryRun === true
+  const onlyExternal = options.onlyExternal !== false
+
+  const query = onlyExternal ? externalImageQuery() : { isPublished: true, 'images.0': { $exists: true } }
+  const products = await Product.find(query).sort({ updatedAt: 1 }).skip(skip).limit(limit)
+
+  const results = []
+  let skipped = 0
+  let updated = 0
+
+  for (const product of products) {
+    if (onlyExternal) {
+      const { good } = await classifyProductImages(product)
+      if (!hasExternalWorkingImages(good)) {
+        skipped += 1
+        results.push({
+          productId: product._id,
+          productName: product.name,
+          status: 'skipped',
+          reason: 'Already on local /media paths',
+        })
+        continue
+      }
+    }
+
+    try {
+      const result = await mirrorProductImagesToLocal(product, { dryRun, save: !dryRun })
+      if (result.status === 'skipped') skipped += 1
+      else if (result.status === 'updated') updated += 1
+      results.push(result)
+    } catch (err) {
+      results.push({
+        productId: product._id,
+        productName: product.name,
+        status: 'error',
+        error: err.message,
+      })
+    }
+  }
+
+  return { scanned: products.length, skipped, updated, dryRun, results }
+}
+
+async function mirrorAllProducts(options = {}) {
+  const batchSize = Number(options.limit || process.env.PRODUCT_IMAGE_BATCH_LIMIT || 25)
+  const totals = { batches: 0, scanned: 0, skipped: 0, updated: 0, errors: 0, dryRun: options.dryRun === true }
+
+  while (true) {
+    const result = await mirrorProductsBatch({ ...options, limit: batchSize, skip: 0 })
+
+    if (result.scanned === 0) break
+
+    totals.batches += 1
+    totals.scanned += result.scanned
+    totals.skipped += result.skipped
+    totals.updated += result.updated
+    totals.errors += result.results.filter((r) => r.status === 'error').length
+
+    console.log(
+      `[mirror batch ${totals.batches}] scanned=${result.scanned} ` +
+      `updated=${result.updated} skipped=${result.skipped} (total: ${totals.scanned})`
+    )
+
+    if (result.updated === 0 && result.scanned > 0) {
+      console.warn('No progress this batch — stopping to avoid an infinite loop')
+      break
+    }
+  }
+
+  return totals
+}
+
 module.exports = {
   MIN_IMAGES,
   MAX_IMAGES,
   isPlaceholderImageUrl,
   isGoodProductImage,
   classifyProductImages,
+  hasExternalWorkingImages,
+  mirrorProductImagesToLocal,
+  mirrorProductsBatch,
+  mirrorAllProducts,
   enrichProductImages,
   enrichProductsBatch,
   enrichAllProducts,
