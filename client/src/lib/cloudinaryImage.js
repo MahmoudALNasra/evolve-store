@@ -131,10 +131,25 @@ export function resolveProductImageUrl(src, images) {
   return PLACEHOLDER
 }
 
+function getMediaOrigin() {
+  const api = import.meta.env.VITE_API_URL
+  if (api) return api.replace(/\/api\/?$/, '')
+  const site = import.meta.env.VITE_SITE_URL
+  if (site) return site.replace(/\/$/, '')
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  return ''
+}
+
 function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') return PLACEHOLDER
   const trimmed = url.trim()
   if (trimmed.startsWith('//')) return `https:${trimmed}`
+  if (trimmed.startsWith('/media/')) {
+    const origin = getMediaOrigin()
+    return origin ? `${origin}${trimmed}` : trimmed
+  }
   return trimmed
 }
 

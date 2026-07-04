@@ -5,6 +5,7 @@ import { getArticlePath } from '../../lib/blogSeo'
 import { getProductPath } from '../../lib/productSeo'
 import api from '../../lib/api'
 import { formatPrice } from '../../lib/utils'
+import { resolveProductImageUrl } from '../../lib/cloudinaryImage'
 import toast from 'react-hot-toast'
 import AdminFieldLabel from '../../components/admin/AdminFieldLabel'
 import AdminCheckboxOption from '../../components/admin/AdminCheckboxOption'
@@ -310,7 +311,7 @@ export default function AdminProducts() {
                       className="admin-product-cell-link"
                       title="View product page"
                     >
-                      <img src={p.images?.[0]?.url || 'https://placehold.co/40x40?text=?'} alt=""
+                      <img src={resolveProductImageUrl(null, p.images)} alt=""
                         style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8eee8' }} />
                       <div className="admin-product-cell-text">
                         <div className="admin-product-cell-name">{p.name}</div>
