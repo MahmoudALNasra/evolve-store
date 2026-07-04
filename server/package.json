@@ -18,6 +18,8 @@
     "product:enrich-images": "node src/scripts/productEnrichImages.js",
     "product:enrich-images:all": "node src/scripts/productEnrichImages.js --all",
     "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",
+    "product:optimize-descriptions:missing": "node src/scripts/optimizeProductDescriptions.js --only-missing",
+    "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
     "product:image-stats": "node src/scripts/productImageStats.js",
     "product:import-barcodes": "node src/scripts/importProductsFromBarcodes.js",
     "product:review-barcodes": "node src/scripts/reviewImportedBarcodes.js",

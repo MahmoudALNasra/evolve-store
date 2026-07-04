@@ -3,11 +3,12 @@ const connectDB = require('../config/db')
 const { optimizeAllProducts } = require('../services/productDescriptionOptimizationService')
 
 function parseArgs(argv) {
-  const args = { limit: 50, skip: 0, dryRun: false }
+  const args = { limit: 50, skip: 0, dryRun: false, onlyMissing: false }
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--limit' && argv[i + 1]) { args.limit = Number(argv[i + 1]); i += 1 }
     else if (argv[i] === '--skip' && argv[i + 1]) { args.skip = Number(argv[i + 1]); i += 1 }
     else if (argv[i] === '--dry-run') args.dryRun = true
+    else if (argv[i] === '--only-missing') args.onlyMissing = true
   }
   return args
 }
@@ -24,7 +25,7 @@ async function main() {
 
   await connectDB()
   const args = parseArgs(process.argv.slice(2))
-  console.log(`Optimizing product descriptions: limit=${args.limit} skip=${args.skip} dryRun=${args.dryRun}`)
+  console.log(`Optimizing product descriptions: limit=${args.limit} skip=${args.skip} dryRun=${args.dryRun} onlyMissing=${args.onlyMissing}`)
   const result = await optimizeAllProducts(args)
   console.log(JSON.stringify({ scanned: result.scanned, reportPath: result.reportPath }, null, 2))
   process.exit(0)

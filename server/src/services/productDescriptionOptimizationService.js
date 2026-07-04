@@ -116,9 +116,19 @@ async function optimizeAllProducts(options = {}) {
   const limit = Number(options.limit || 50)
   const skip = Number(options.skip || 0)
   const dryRun = options.dryRun === true
+  const onlyMissing = options.onlyMissing === true
   const delayMs = Number(process.env.PRODUCT_SEO_DELAY_MS || 1200)
 
-  const products = await Product.find({ isPublished: true })
+  const filter = { isPublished: true }
+  if (onlyMissing) {
+    filter.$or = [
+      { seoMetaDescription: { $in: [null, ''] } },
+      { description: { $in: [null, ''] } },
+      { seoTitle: { $in: [null, ''] } },
+    ]
+  }
+
+  const products = await Product.find(filter)
     .sort({ updatedAt: 1 })
     .skip(skip)
     .limit(limit)
@@ -129,6 +139,7 @@ async function optimizeAllProducts(options = {}) {
     try {
       const suggestion = await suggestProductSeo(product)
       if (!dryRun) {
+        product.description = suggestion.suggested.descriptionDraft || product.description
         product.descriptionDraft = suggestion.suggested.descriptionDraft
         product.seoTitle = suggestion.suggested.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim()
         product.seoMetaDescription = suggestion.suggested.seoMetaDescription

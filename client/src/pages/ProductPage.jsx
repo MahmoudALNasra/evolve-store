@@ -164,6 +164,12 @@ export default function ProductPage() {
                     SKU: {product.sku}
                   </p>
                 )}
+                {product.barcode && (
+                  <p className="product-details-sku">
+                    <span className="sr-only">UPC: </span>
+                    UPC: {product.barcode}
+                  </p>
+                )}
                 <div className="product-stock-indicator">
                   {!isOutOfStock ? (
                     <>

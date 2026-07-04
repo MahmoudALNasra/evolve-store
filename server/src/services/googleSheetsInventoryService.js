@@ -3,7 +3,7 @@ const { google } = require('googleapis')
 const DEFAULT_SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 function getSheetId() {
-  return process.env.GOOGLE_INVENTORY_SHEET_ID || '1xlDAlbKki5lwI91_Jw1pTe6mhyxIwEmp2_tJ6vOYMag'
+  return process.env.GOOGLE_INVENTORY_SHEET_ID || '1LKXERqfQUOssj3WadUxIgwoPdcOyRcJGf8itFwTnhjk'
 }
 
 function getSheetName() {
@@ -11,7 +11,7 @@ function getSheetName() {
 }
 
 function getMerchantFeedSheetId() {
-  return process.env.GOOGLE_MERCHANT_FEED_SHEET_ID || ''
+  return process.env.GOOGLE_MERCHANT_FEED_SHEET_ID || '1LKXERqfQUOssj3WadUxIgwoPdcOyRcJGf8itFwTnhjk'
 }
 
 function getMerchantFeedSheetName() {

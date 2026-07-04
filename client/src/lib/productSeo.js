@@ -8,6 +8,11 @@ import {
   getProductBrand,
   hasProductReviews,
 } from './seoUtils'
+import {
+  applyProductIdentifierSchema,
+  buildProductKeywordList,
+  buildProductTitleBase,
+} from './productIdentifierSeo'
 
 export const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 export const STORE_BRAND = 'Evolve Specialty Pharmacy & Wellness'
@@ -64,29 +69,11 @@ export function getProductTitle(product) {
   if (product.seoTitle?.trim()) {
     return generateSEOTitle(product.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim(), 60)
   }
-  return generateSEOTitle(product.name, 60)
-}
-
-function normalizeKeyword(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ')
+  return generateSEOTitle(buildProductTitleBase(product), 60)
 }
 
 export function getProductKeywords(product) {
-  const tags = Array.isArray(product.tags) ? product.tags : []
-  const brand = getProductBrand(product)
-  const keywords = [
-    product.name,
-    product.category,
-    brand,
-    product.sku,
-    product.barcode,
-    ...tags,
-    `${product.category || 'wellness'} supplements`,
-    'specialty pharmacy',
-    'Evolve Pharmacy',
-  ]
-
-  return [...new Set(keywords.map(normalizeKeyword).filter(Boolean))].slice(0, 14)
+  return buildProductKeywordList(product, []).slice(0, 16)
 }
 
 function schemaAvailability(stock) {
@@ -142,6 +129,8 @@ export function buildProductJsonLd(product) {
       worstRating: 1,
     }
   }
+
+  applyProductIdentifierSchema(jsonLd, product)
 
   return jsonLd
 }

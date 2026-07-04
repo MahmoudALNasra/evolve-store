@@ -43,6 +43,7 @@ import AdminUsers from './pages/admin/AdminUsers'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminPrescriptions from './pages/admin/AdminPrescriptions'
 import AdminBlog from './pages/admin/AdminBlog'
+import AdminAnalytics from './pages/admin/AdminAnalytics'
 
 function StorefrontLayout({ children }) {
   return (
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="prescriptions" element={<AdminPrescriptions />} />
           <Route path="blog" element={<AdminBlog />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 

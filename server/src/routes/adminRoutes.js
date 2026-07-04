@@ -5,6 +5,13 @@ const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
 const { enrichProductsBatch, enrichProductImages } = require('../services/productImageEnrichmentService')
 const { suggestProductSeo } = require('../services/productDescriptionOptimizationService')
+const {
+  getAnalyticsOverview,
+  getTopPages,
+  getUserJourneys,
+  getHeatmapData,
+} = require('../services/adminAnalyticsService')
+const { syncMasterSheetToProductsTab } = require('../services/masterSheetSyncService')
 
 const router = express.Router()
 
@@ -123,6 +130,47 @@ router.post('/products/:id/apply-seo', protect, admin, async (req, res) => {
   product.descriptionDraft = ''
   await product.save()
   res.json({ message: 'SEO fields applied', product })
+})
+
+router.get('/analytics/overview', protect, admin, async (req, res) => {
+  try {
+    res.json(await getAnalyticsOverview(req.query))
+  } catch (err) {
+    res.status(err.message.includes('not configured') ? 503 : 500).json({ message: err.message })
+  }
+})
+
+router.get('/analytics/pages', protect, admin, async (req, res) => {
+  try {
+    res.json(await getTopPages(req.query))
+  } catch (err) {
+    res.status(err.message.includes('not configured') ? 503 : 500).json({ message: err.message })
+  }
+})
+
+router.get('/analytics/journeys', protect, admin, async (req, res) => {
+  try {
+    res.json(await getUserJourneys(req.query))
+  } catch (err) {
+    res.status(err.message.includes('not configured') ? 503 : 500).json({ message: err.message })
+  }
+})
+
+router.get('/analytics/heatmap', protect, admin, async (req, res) => {
+  try {
+    res.json(await getHeatmapData(req.query))
+  } catch (err) {
+    res.status(err.message.includes('not configured') ? 503 : 500).json({ message: err.message })
+  }
+})
+
+router.post('/sheets/sync-master', protect, admin, async (req, res) => {
+  try {
+    const result = await syncMasterSheetToProductsTab()
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Master sheet sync failed' })
+  }
 })
 
 module.exports = router
