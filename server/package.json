@@ -22,6 +22,7 @@
     "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
     "inventory:sync": "node src/scripts/syncInventory.js",
     "product:dedupe-barcodes": "node src/scripts/dedupeBarcodeProducts.js",
+    "product:catalog-maintenance": "node src/scripts/productCatalogMaintenance.js",
     "google:oauth-token": "node src/scripts/googleOAuthRefreshToken.js",
     "product:image-stats": "node src/scripts/productImageStats.js",
     "product:import-barcodes": "node src/scripts/importProductsFromBarcodes.js",

@@ -8,30 +8,18 @@ const {
   localPathFromPublicUrl,
   sanitizeSlug,
 } = require('../utils/productMediaPaths')
+const { isPlaceholderImageUrl } = require('../utils/productImageUtils')
 
 const MIN_IMAGES = Number(process.env.PRODUCT_IMAGE_MIN_COUNT || 5)
 const MAX_IMAGES = Number(process.env.PRODUCT_IMAGE_MAX_COUNT || 8)
 const SERPER_DELAY_MS = Number(process.env.PRODUCT_IMAGE_SERPER_DELAY_MS || 600)
 
-const PLACEHOLDER_PATTERNS = [
-  /placehold\.co/i,
-  /placeholder/i,
-  /no\+image/i,
-  /logo\.png/i,
-  /\/logo\.png$/i,
-]
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function isPlaceholderUrl(url) {
-  if (!url) return true
-  return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(url))
-}
-
 async function isGoodProductImage(url) {
-  if (!url || isPlaceholderUrl(url)) return false
+  if (!url || isPlaceholderImageUrl(url)) return false
 
   if (isLocalProductMediaUrl(url)) {
     const filePath = localPathFromPublicUrl(url)
@@ -92,7 +80,7 @@ async function fetchSerperCandidates(product, needed) {
   return results
     .map((item) => item.imageUrl)
     .filter((url) => {
-      if (!url || seen.has(url) || isPlaceholderUrl(url)) return false
+      if (!url || seen.has(url) || isPlaceholderImageUrl(url)) return false
       seen.add(url)
       return true
     })
@@ -309,7 +297,7 @@ async function enrichAllProducts(options = {}) {
 module.exports = {
   MIN_IMAGES,
   MAX_IMAGES,
-  isPlaceholderUrl,
+  isPlaceholderImageUrl,
   isGoodProductImage,
   classifyProductImages,
   enrichProductImages,

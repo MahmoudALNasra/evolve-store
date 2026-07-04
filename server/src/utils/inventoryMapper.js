@@ -140,9 +140,18 @@ function mapSheetRowToWebsiteProduct(row = {}) {
     ...splitImageUrls(row['image (extra)']),
   ]).join(', ')
 
+  const ingredientParts = uniqueValues([
+    row.active_ingredient,
+    row.dosage_form,
+  ])
+  const packageNdc = cleanText(row.package_ndc)
+
   return {
     name: cleanText(row.Name),
     description: cleanText(row['Desc.']),
+    brand: cleanText(row.Brand),
+    ingredients: ingredientParts.join('; '),
+    moreInfo: packageNdc ? `Package NDC: ${packageNdc}` : '',
     price: pricing.price,
     comparePrice: pricing.comparePrice,
     category,

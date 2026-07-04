@@ -47,8 +47,19 @@ async function fetchSerpSnippets(product) {
   return results.slice(0, 5).map((r) => r.snippet || r.title || '').filter(Boolean)
 }
 
-function buildOptimizationPrompt(product, serpSnippets) {
+function buildOptimizationPrompt(product, serpSnippets, options = {}) {
   const serpBlock = serpSnippets.map((s, i) => `${i + 1}. ${s}`).join('\n')
+  const tabFields = options.includeTabs ? `
+Also generate product detail tabs (compliant, no medical claims):
+- ingredients: active ingredients / formula highlights from original data only
+- suggestedUse: general use directions if supported by source, otherwise "Follow package directions or your healthcare provider's guidance."
+- moreInfo: storage, count, form factor, NDC/SKU notes from source only
+
+Add to JSON:
+  "ingredients": "...",
+  "suggestedUse": "...",
+  "moreInfo": "..."
+` : ''
 
   return `You are a pharmacy SEO editor for ${STORE_NAME}.
 
@@ -57,7 +68,8 @@ Rewrite the product description for SEO while staying compliant with pharmacy re
 Product:
 - Name: ${product.name}
 - Category: ${product.category || 'Wellness'}
-- Brand: ${getProductBrand(product) || 'N/A'}
+- Brand: ${getProductBrand(product) || product.brand || 'N/A'}
+- Ingredients (source): ${product.ingredients || 'N/A'}
 - Original description (FACTUAL GROUND TRUTH — do not contradict or invent beyond this):
 ${product.description || 'No description provided.'}
 
@@ -71,19 +83,20 @@ Rules:
 - 150–200 words, short paragraphs, optional bullet list if source supports it.
 - Naturally include product name, category, and 1–2 relevant keywords without stuffing.
 - Generate 2–3 FAQ Q&As genuinely useful and grounded in the original description.
+${tabFields}
 
 Return ONLY valid JSON:
 {
   "descriptionDraft": "rewritten body",
   "seoTitle": "suggested title fragment without suffix",
   "seoMetaDescription": "150-155 char meta",
-  "seoFaqs": [{ "question": "...", "answer": "..." }]
+  "seoFaqs": [{ "question": "...", "answer": "..." }]${options.includeTabs ? ',\n  "ingredients": "...",\n  "suggestedUse": "...",\n  "moreInfo": "..."' : ''}
 }`
 }
 
-async function suggestProductSeo(product) {
+async function suggestProductSeo(product, options = {}) {
   const serpSnippets = await fetchSerpSnippets(product)
-  const prompt = buildOptimizationPrompt(product, serpSnippets)
+  const prompt = buildOptimizationPrompt(product, serpSnippets, options)
   const result = await callOpenAi([
     { role: 'system', content: 'You output strict JSON for regulated pharmacy product SEO.' },
     { role: 'user', content: prompt },
@@ -106,6 +119,9 @@ async function suggestProductSeo(product) {
       seoTitle,
       seoMetaDescription,
       seoFaqs: Array.isArray(result.seoFaqs) ? result.seoFaqs.slice(0, 3) : [],
+      ingredients: result.ingredients || '',
+      suggestedUse: result.suggestedUse || '',
+      moreInfo: result.moreInfo || '',
     },
     serpSnippets,
   }

@@ -10,7 +10,11 @@ import { getProductMetaDescription } from '../lib/productSeo'
 import ProductSEO from '../components/ProductSEO'
 import ProductGallery from '../components/product/ProductGallery'
 import FulfillmentBlock from '../components/product/FulfillmentBlock'
+import BrandRetailerBadge from '../components/product/BrandRetailerBadge'
+import ProductTrustStrip from '../components/product/ProductTrustStrip'
+import ProductDetailTabs from '../components/product/ProductDetailTabs'
 import RelatedSearchChips from '../components/product/RelatedSearchChips'
+import { filterProductImages } from '../lib/productImages'
 import ProductReviews, { ProductReviewLink } from '../components/product/ProductReviews'
 import RelatedProducts from '../components/RelatedProducts'
 import AdminProductQuickEdit from '../components/product/AdminProductQuickEdit'
@@ -74,7 +78,7 @@ export default function ProductPage() {
     : 0
   const stock = Number(product.stock) || 0
   const isOutOfStock = stock <= 0
-  const images = (product.images?.length ? product.images : [{ url: '' }]).filter((img) => img.url)
+  const images = filterProductImages(product.images?.length ? product.images : [])
   const speakableSummary = getProductMetaDescription(product)
 
   const handleAdd = () => {
@@ -127,7 +131,15 @@ export default function ProductPage() {
         )}
 
         <div className="product-page-grid">
-          <ProductGallery product={product} images={images} />
+          {images.length > 0 ? (
+            <ProductGallery product={product} images={images} />
+          ) : (
+            <div className="product-gallery product-gallery--empty" aria-hidden="true">
+              <div className="product-img-main product-img-main--framed product-img-main--empty">
+                No image available
+              </div>
+            </div>
+          )}
 
           <section className="product-details" aria-labelledby="product-title">
             <header className="product-details-header">
@@ -143,6 +155,7 @@ export default function ProductPage() {
               <h1 id="product-title" className="product-details-name">{product.name}</h1>
 
               <ProductReviewLink product={product} />
+              <BrandRetailerBadge product={product} />
             </header>
 
             <section aria-labelledby="product-pricing-heading">
@@ -192,6 +205,8 @@ export default function ProductPage() {
               </p>
             )}
 
+            <ProductTrustStrip />
+
             <FulfillmentBlock />
 
             {!isOutOfStock && (
@@ -224,32 +239,11 @@ export default function ProductPage() {
               </section>
             )}
 
-            {product.description && (
-              <div className="product-detail-panel">
-                <section aria-labelledby="product-description-heading">
-                  <h2 id="product-description-heading" className="product-section-heading">Description</h2>
-                  <p className="product-details-desc">{product.description}</p>
-                </section>
-
-                {product.seoFaqs?.length > 0 && (
-                  <section aria-labelledby="product-faq-heading">
-                    <h2 id="product-faq-heading" className="product-section-heading">Common Questions</h2>
-                    <div className="product-faq-list">
-                      {product.seoFaqs.map((faq) => (
-                        <article key={faq.question} className="product-faq-item">
-                          <h3>{faq.question}</h3>
-                          <p>{faq.answer}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
-            )}
-
             <RelatedSearchChips product={product} />
           </section>
         </div>
+
+        <ProductDetailTabs product={product} />
 
         <ProductReviews slug={product.slug || slug} product={product} />
         <RelatedProducts slug={product.slug || slug} />

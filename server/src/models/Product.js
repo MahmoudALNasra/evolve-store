@@ -21,6 +21,9 @@ const productSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     descriptionDraft: { type: String, default: '' },
     brand: { type: String, default: '', trim: true },
+    ingredients: { type: String, default: '' },
+    suggestedUse: { type: String, default: '' },
+    moreInfo: { type: String, default: '' },
     seoTitle: { type: String, default: '', trim: true },
     seoMetaDescription: { type: String, default: '', trim: true },
     seoFaqs: [{
