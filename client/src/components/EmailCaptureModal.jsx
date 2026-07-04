@@ -1,54 +1,56 @@
-import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import api from '../lib/api'
 import { prefersReducedMotion } from '../lib/animation'
 
-const DISMISS_KEY = 'evolve_email_popup_dismissed'
+const SEEN_KEY = 'evolve_email_popup_seen'
 const SUBSCRIBED_KEY = 'evolve_email_subscribed'
 const DISCOUNT_CODE = 'WELCOME15'
 
 const SHOW_PATHS = ['/', '/shop']
 
-function shouldShowOnPath(pathname) {
-  if (SHOW_PATHS.includes(pathname)) return true
-  return pathname.startsWith('/product/')
+function hasSeenPopup() {
+  try {
+    return Boolean(localStorage.getItem(SEEN_KEY) || localStorage.getItem(SUBSCRIBED_KEY))
+  } catch {
+    return false
+  }
+}
+
+function markPopupSeen() {
+  try {
+    localStorage.setItem(SEEN_KEY, '1')
+  } catch {
+    /* ignore */
+  }
 }
 
 export default function EmailCaptureModal() {
-  const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const shownRef = useRef(false)
   const reduceMotion = prefersReducedMotion()
 
   useEffect(() => {
-    if (!shouldShowOnPath(pathname)) return undefined
+    if (hasSeenPopup() || shownRef.current) return undefined
 
-    try {
-      if (sessionStorage.getItem(DISMISS_KEY) || localStorage.getItem(SUBSCRIBED_KEY)) return undefined
-    } catch { /* ignore */ }
+    const path = window.location.pathname
+    if (!SHOW_PATHS.includes(path) && !path.startsWith('/product/')) return undefined
 
-    let timer
-    const onMouseLeave = (e) => {
-      if (e.clientY <= 0) {
-        setOpen(true)
-        document.removeEventListener('mouseout', onMouseLeave)
-      }
-    }
+    const timer = window.setTimeout(() => {
+      if (hasSeenPopup() || shownRef.current) return
+      shownRef.current = true
+      markPopupSeen()
+      setOpen(true)
+    }, 9000)
 
-    document.addEventListener('mouseout', onMouseLeave)
-    timer = window.setTimeout(() => setOpen(true), 9000)
-
-    return () => {
-      clearTimeout(timer)
-      document.removeEventListener('mouseout', onMouseLeave)
-    }
-  }, [pathname])
+    return () => clearTimeout(timer)
+  }, [])
 
   const dismiss = () => {
-    try { sessionStorage.setItem(DISMISS_KEY, '1') } catch { /* ignore */ }
+    markPopupSeen()
     setOpen(false)
   }
 
@@ -68,7 +70,7 @@ export default function EmailCaptureModal() {
     }
   }
 
-  if (!open || !shouldShowOnPath(pathname)) return null
+  if (!open) return null
 
   return (
     <AnimatePresence>

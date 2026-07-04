@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams, Link, useNavigationType } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import api from '../lib/api'
 import ProductGrid from '../components/shop/ProductGrid'
@@ -27,7 +27,6 @@ export default function ShopPage() {
   const featured = searchParams.get('featured') || ''
   const page = Number(searchParams.get('page') || 1)
   const sort = searchParams.get('sort') || '-createdAt'
-  const navigationType = useNavigationType()
 
   const fetchProducts = useCallback(() => {
     setLoading(true)
@@ -44,12 +43,6 @@ export default function ShopPage() {
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
   useEffect(() => { api.get('/products/categories').then(({ data }) => setCategories(data)) }, [])
-
-  // Scroll to top on new filter/page navigation — not when returning via back button
-  useEffect(() => {
-    if (navigationType === 'POP') return
-    window.scrollTo({ top: 0, behavior: 'auto' })
-  }, [page, search, category, minPrice, maxPrice, featured, sort, navigationType])
 
   useEffect(() => {
     if (!loading) notifyScrollRestorationReady()
