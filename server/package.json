@@ -20,6 +20,7 @@
     "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",
     "product:optimize-descriptions:missing": "node src/scripts/optimizeProductDescriptions.js --only-missing",
     "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
+    "inventory:sync": "node src/scripts/syncInventory.js",
     "product:image-stats": "node src/scripts/productImageStats.js",
     "product:import-barcodes": "node src/scripts/importProductsFromBarcodes.js",
     "product:review-barcodes": "node src/scripts/reviewImportedBarcodes.js",
