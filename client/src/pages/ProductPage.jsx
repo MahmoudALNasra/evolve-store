@@ -14,6 +14,8 @@ import RelatedSearchChips from '../components/product/RelatedSearchChips'
 import ProductReviews, { ProductReviewLink } from '../components/product/ProductReviews'
 import RelatedProducts from '../components/RelatedProducts'
 import AdminProductQuickEdit from '../components/product/AdminProductQuickEdit'
+import { useSmartBack } from '../hooks/useSmartBack'
+import { notifyScrollRestorationReady } from '../lib/scrollRestoration'
 import toast from 'react-hot-toast'
 
 function getCategoryShopPath(category) {
@@ -28,6 +30,7 @@ export default function ProductPage() {
   const addItem = useCartStore((s) => s.addItem)
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'admin'
+  const goBack = useSmartBack('/shop')
   const viewItemFired = useRef(null)
 
   useEffect(() => {
@@ -36,6 +39,10 @@ export default function ProductPage() {
       .catch(() => setProduct(null))
       .finally(() => setLoading(false))
   }, [slug])
+
+  useEffect(() => {
+    if (!loading && product) notifyScrollRestorationReady()
+  }, [loading, product])
 
   useEffect(() => {
     if (!product?._id || viewItemFired.current === product._id) return
@@ -111,9 +118,9 @@ export default function ProductPage() {
           </ol>
         </nav>
 
-        <Link to="/shop" className="product-page-back">
+        <button type="button" className="product-page-back" onClick={goBack}>
           <ArrowLeft size={15} aria-hidden="true" /> Back to Shop
-        </Link>
+        </button>
 
         {isAdmin && (
           <AdminProductQuickEdit product={product} onUpdated={setProduct} />

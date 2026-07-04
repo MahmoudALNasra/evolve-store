@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, Link, useNavigationType } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import api from '../lib/api'
 import ProductGrid from '../components/shop/ProductGrid'
@@ -7,6 +7,7 @@ import Pagination from '../components/ui/Pagination'
 import SEO from '../components/SEO'
 import { generateSEOTitle, generateMetaDescription } from '../lib/seoUtils'
 import { getPageRange } from '../lib/pagination'
+import { notifyScrollRestorationReady } from '../lib/scrollRestoration'
 
 const PAGE_SIZE = 20
 
@@ -26,6 +27,7 @@ export default function ShopPage() {
   const featured = searchParams.get('featured') || ''
   const page = Number(searchParams.get('page') || 1)
   const sort = searchParams.get('sort') || '-createdAt'
+  const navigationType = useNavigationType()
 
   const fetchProducts = useCallback(() => {
     setLoading(true)
@@ -43,10 +45,15 @@ export default function ShopPage() {
   useEffect(() => { fetchProducts() }, [fetchProducts])
   useEffect(() => { api.get('/products/categories').then(({ data }) => setCategories(data)) }, [])
 
-  // Scroll to top whenever page changes so users see the new products
+  // Scroll to top on new filter/page navigation — not when returning via back button
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [page])
+    if (navigationType === 'POP') return
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [page, search, category, minPrice, maxPrice, featured, sort, navigationType])
+
+  useEffect(() => {
+    if (!loading) notifyScrollRestorationReady()
+  }, [loading, products.length])
 
   const setParam = (key, value) => {
     const next = new URLSearchParams(searchParams)

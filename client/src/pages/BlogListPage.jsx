@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import BlogCard from '../components/blog/BlogCard'
 import api from '../lib/api'
 import SEO from '../components/SEO'
-import Spinner from '../components/ui/Spinner'
+import { notifyScrollRestorationReady } from '../lib/scrollRestoration'
 import { getBlogBasePath, slugifyCategory } from '../lib/blogSeo'
 
 export default function BlogListPage() {
@@ -35,6 +35,10 @@ export default function BlogListPage() {
       })
       .finally(() => setLoading(false))
   }, [category, search, page])
+
+  useEffect(() => {
+    if (!loading) notifyScrollRestorationReady()
+  }, [loading, articles.length])
 
   const basePath = getBlogBasePath()
   const pageTitle = category

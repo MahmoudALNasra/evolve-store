@@ -10,7 +10,7 @@ import FloatingPrescriptionCtas from './components/FloatingPrescriptionCtas'
 import CartDrawer from './components/CartDrawer'
 import EmailCaptureModal from './components/EmailCaptureModal'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
-import ScrollToTop from './components/ScrollToTop'
+import ScrollRestoration from './components/ScrollRestoration'
 import AnalyticsTracker from './components/AnalyticsTracker'
 import AdminLayout from './components/admin/AdminLayout'
 
@@ -65,7 +65,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnalyticsTracker />
-      <ScrollToTop />
+      <ScrollRestoration />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Routes>
         {/* Auth pages (no layout) */}
