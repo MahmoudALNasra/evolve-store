@@ -16,32 +16,36 @@ server/src/utils/inventoryMapper.js
 
 ```text
 Master spreadsheet (1xlDAl...)
-  tab "Products"  ← you edit here; stock writes on orders go here
+  tab "Products"  ← source of truth (you edit here; stock writes on orders go here)
         │
         │  IMPORTRANGE (Google Sheets — automatic)
         ▼
 GMC spreadsheet (1LKXER...)
-  tab "from MasterSheet(products)"  ← website sync reads from here
+  tab "from MasterSheet(products)"  ← optional read for new products / metadata
         │
         │  formulas / feed pipeline
         ▼
   tab "Sheet1"  ← Google Merchant Center feed
 ```
 
-1. `POST /api/inventory/sync` reads **`from MasterSheet(products)`** on the GMC spreadsheet.
-2. Each row is transformed with `mapSheetRowToWebsiteProduct`.
-3. MongoDB stores the source row hash and transformed payload hash in `InventorySyncProduct`.
-4. Changed rows are upserted into the website `Product` collection.
-5. Changed rows are pushed to Google Merchant Center when `GOOGLE_MERCHANT_ID` is configured.
-6. `POST /webhooks/orders` receives sales events and updates the Sheet `Stock` cell from the website's current stock (checkout already reduced website stock).
+**Google Sheets master Products tab is the source of truth** for prices, stock, names, and descriptions. The GMC import tab and Sheet1 feed follow via IMPORTRANGE and formulas.
+
+1. You edit the master **Products** tab (or stock updates on orders write back to column `Stock`).
+2. IMPORTRANGE refreshes **`from MasterSheet(products)`** on the GMC spreadsheet automatically.
+3. `POST /api/inventory/sync` (or `npm run inventory:sync`) reads the import tab and upserts website products.
+4. Use **`npm run inventory:restore-from-sheet`** to force a full website restore from the master **Products** tab when the site data is wrong.
+5. MongoDB stores row hashes in `InventorySyncProduct`.
+6. Changed rows are pushed to Google Merchant Center when `GOOGLE_MERCHANT_ID` is configured.
+7. `POST /webhooks/orders` pushes sale stock back to the master **Products** tab.
 
 For this store's native checkout flow, set `INVENTORY_SYNC_ON_ORDERS=true` after Google Sheets auth is configured. Paid Stripe orders will then push stock to the Google Sheet automatically.
 
-**Important:** `POST /api/inventory/sync` reads the Google Sheet and updates the website. It does **not** write website sales back to the sheet. Running sync after a sale will not update column `Stock` in the sheet.
+**Important:** `POST /api/inventory/sync` reads the Google Sheet and updates the website. It does **not** write website sales back to the sheet. Running sync after a sale will not update column `Stock` in the sheet — use order webhooks or `inventory:push-to-sheet` for stock.
 
-| Action | Endpoint |
+| Action | Endpoint / command |
 | --- | --- |
-| Sheet → website import/update | `POST /api/inventory/sync` |
+| **Full restore** (master Products → website) | `npm run inventory:restore-from-sheet` |
+| Sheet → website import/update | `POST /api/inventory/sync` or `npm run inventory:sync` |
 | Sale → Google Sheet stock | `POST /webhooks/orders` or enable `INVENTORY_SYNC_ON_ORDERS=true` |
 | Fix one paid order manually | `POST /api/inventory/push-order/:orderId` |
 

@@ -12,6 +12,7 @@ const {
   getHeatmapData,
 } = require('../services/adminAnalyticsService')
 const { syncMasterSheetToProductsTab } = require('../services/masterSheetSyncService')
+const { syncWebsiteToMasterSheet } = require('../services/websiteToMasterSheetSyncService')
 
 const router = express.Router()
 
@@ -170,6 +171,18 @@ router.post('/sheets/sync-master', protect, admin, async (req, res) => {
     res.json(result)
   } catch (err) {
     res.status(500).json({ message: err.message || 'Master sheet sync failed' })
+  }
+})
+
+router.post('/sheets/push-website', protect, admin, async (req, res) => {
+  try {
+    const result = await syncWebsiteToMasterSheet({
+      dryRun: req.body?.dryRun === true,
+      onlyPublished: req.body?.onlyPublished !== false,
+    })
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Website → master sheet push failed' })
   }
 })
 

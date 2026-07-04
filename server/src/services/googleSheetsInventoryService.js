@@ -123,6 +123,90 @@ async function updateStockCell(rowNumber, stock) {
   }))
 }
 
+/** Master Products tab column numbers (A=1 … O=15). */
+function getMasterColumnMap() {
+  return {
+    name: Number(process.env.GOOGLE_MASTER_COL_NAME || 2),
+    desc: Number(process.env.GOOGLE_MASTER_COL_DESC || 9),
+    stock: Number(process.env.GOOGLE_MASTER_COL_STOCK || 10),
+    priceLocal: Number(process.env.GOOGLE_MASTER_COL_PRICE_LOCAL || 12),
+    mpn: Number(process.env.GOOGLE_MASTER_COL_MPN || 15),
+  }
+}
+
+async function fetchMasterProductRows() {
+  const { sheetId, sheetName, rows, headers } = await fetchMasterInventoryRows()
+  const barcodeIndex = new Map()
+  const mpnIndex = new Map()
+
+  const barcodeCol = Math.max(headers.indexOf('Barcode'), 0)
+  const mpnCol = Math.max(headers.indexOf('MPN'), 14)
+
+  rows.forEach((entry) => {
+    const barcode = String(entry.sourceRow.Barcode || '').trim()
+    const mpn = String(entry.sourceRow.MPN || '').trim()
+    if (barcode) barcodeIndex.set(barcode, entry.rowNumber)
+    if (mpn) mpnIndex.set(mpn, entry.rowNumber)
+  })
+
+  return { sheetId, sheetName, barcodeIndex, mpnIndex, headers }
+}
+
+/** Read master Products tab (source of truth) in the same shape as fetchInventoryRows. */
+async function fetchMasterInventoryRows() {
+  const sheetId = getStockSheetId()
+  const sheetName = getStockSheetName()
+  const range = process.env.GOOGLE_MASTER_RANGE || sheetRange(sheetName, 'A:O')
+  const sheets = await getSheetsClient()
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range,
+  })
+
+  const values = response.data.values || []
+  const headers = (values[0] || []).map((h) => String(h).trim())
+
+  return {
+    sheetId,
+    sheetName,
+    headers,
+    rows: rowsToObjects(values),
+  }
+}
+
+/** Push website product fields → master Products tab (website = source of truth). */
+async function pushWebsiteProductToMasterRow(rowNumber, product) {
+  const sheetId = getStockSheetId()
+  const sheetName = getStockSheetName()
+  const cols = getMasterColumnMap()
+  const sheets = await getSheetsClient()
+
+  const updates = [
+    { col: cols.name, value: product.name },
+    { col: cols.desc, value: product.description || '' },
+    { col: cols.stock, value: Number(product.stock) || 0 },
+    { col: cols.priceLocal, value: Number(product.price).toFixed(2) },
+  ]
+
+  if (product.sku) {
+    updates.push({ col: cols.mpn, value: product.sku })
+  }
+
+  const data = updates.map(({ col, value }) => ({
+    range: sheetRange(sheetName, `${columnNumberToName(col)}${rowNumber}`),
+    values: [[value]],
+  }))
+
+  await throttledSheetWrite(() => sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data,
+    },
+  }))
+}
+
 async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
   const sheetId = getMerchantFeedSheetId()
   if (!sheetId || !productUrl) return { skipped: true }
@@ -144,7 +228,10 @@ async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
 
 module.exports = {
   fetchInventoryRows,
+  fetchMasterInventoryRows,
+  fetchMasterProductRows,
   updateStockCell,
+  pushWebsiteProductToMasterRow,
   updateMerchantFeedLinkCell,
   getSheetId,
   getSheetName,

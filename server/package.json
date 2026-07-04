@@ -21,6 +21,8 @@
     "product:optimize-descriptions:missing": "node src/scripts/optimizeProductDescriptions.js --only-missing",
     "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
     "inventory:sync": "node src/scripts/syncInventory.js",
+    "inventory:restore-from-sheet": "node src/scripts/restoreFromSheet.js",
+    "inventory:push-to-sheet": "node src/scripts/pushWebsiteToSheet.js",
     "product:dedupe-barcodes": "node src/scripts/dedupeBarcodeProducts.js",
     "product:catalog-maintenance": "node src/scripts/productCatalogMaintenance.js",
     "google:oauth-token": "node src/scripts/googleOAuthRefreshToken.js",

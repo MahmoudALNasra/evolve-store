@@ -1,21 +1,21 @@
 require('dotenv').config()
 const connectDB = require('../config/db')
-const { syncInventoryFromSheet } = require('../services/inventorySyncService')
+const { syncWebsiteToMasterSheet } = require('../services/websiteToMasterSheetSyncService')
 
 function parseArgs(argv) {
   return {
-    force: argv.includes('--force'),
-    fromMaster: argv.includes('--from-master'),
+    dryRun: argv.includes('--dry-run'),
+    all: argv.includes('--all'),
   }
 }
 
 async function main() {
   await connectDB()
   const args = parseArgs(process.argv.slice(2))
-  console.log('Starting inventory sync...')
-  const result = await syncInventoryFromSheet({
-    force: args.force,
-    fromMaster: args.fromMaster,
+  console.log('Pushing website products → master Products tab...')
+  const result = await syncWebsiteToMasterSheet({
+    dryRun: args.dryRun,
+    onlyPublished: !args.all,
   })
   console.log(JSON.stringify(result, null, 2))
   process.exit(0)

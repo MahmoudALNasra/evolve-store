@@ -37,6 +37,11 @@ async function upsertWebsiteProduct(websitePayload) {
     return { product: created, created: true }
   }
 
+  if (process.env.INVENTORY_SYNC_PRESERVE_WEBSITE_PRICE === 'true') {
+    delete productPayload.price
+    delete productPayload.comparePrice
+  }
+
   if (!existing.slug) {
     productPayload.slug = await generateUniqueSlug(Product, productPayload.name, { excludeId: existing._id })
   }

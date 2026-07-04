@@ -3,6 +3,7 @@ const Product = require('../models/Product')
 const InventorySyncProduct = require('../models/InventorySyncProduct')
 const {
   fetchInventoryRows,
+  fetchMasterInventoryRows,
   updateStockCell,
   updateMerchantFeedLinkCell,
 } = require('./googleSheetsInventoryService')
@@ -107,7 +108,10 @@ function collapseLowVolumeCategories(entries) {
   })
 }
 
-async function syncInventoryFromSheet() {
+async function syncInventoryFromSheet(options = {}) {
+  const force = options.force === true || process.env.INVENTORY_SYNC_FORCE === 'true'
+  const fromMaster = options.fromMaster === true || process.env.INVENTORY_SYNC_FROM_MASTER === 'true'
+
   if (process.env.INVENTORY_SYNC_MASTER_FIRST === 'true') {
     try {
       const masterResult = await syncMasterSheetToProductsTab()
@@ -117,9 +121,10 @@ async function syncInventoryFromSheet() {
     }
   }
 
-  const { sheetId, sheetName, rows } = await fetchInventoryRows()
-  console.log(`Fetched ${rows.length} rows from "${sheetName}" (${sheetId})`)
-  const results = { scanned: rows.length, changed: 0, synced: 0, failed: 0, skipped: 0 }
+  const fetchRows = fromMaster ? fetchMasterInventoryRows : fetchInventoryRows
+  const { sheetId, sheetName, rows } = await fetchRows()
+  console.log(`Fetched ${rows.length} rows from "${sheetName}" (${sheetId})${force ? ' [force restore]' : ''}`)
+  const results = { scanned: rows.length, changed: 0, synced: 0, failed: 0, skipped: 0, force, fromMaster }
   const entries = []
 
   for (const row of rows) {
@@ -146,7 +151,11 @@ async function syncInventoryFromSheet() {
     const payloadHash = hashComparablePayload(websitePayload)
     const existing = await InventorySyncProduct.findOne({ sheetId, rowNumber: row.rowNumber })
 
-    if (shouldSkipInventoryRow(existing, sourceHash, payloadHash) && existing?.syncStatus === 'synced') {
+    if (
+      !force &&
+      shouldSkipInventoryRow(existing, sourceHash, payloadHash) &&
+      existing?.syncStatus === 'synced'
+    ) {
       continue
     }
 
