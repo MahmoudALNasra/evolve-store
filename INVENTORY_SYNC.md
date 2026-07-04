@@ -14,7 +14,21 @@ server/src/utils/inventoryMapper.js
 
 ## Data Flow
 
-1. `POST /api/inventory/sync` fetches the Google Sheet.
+```text
+Master spreadsheet (1xlDAl...)
+  tab "Products"  ← you edit here; stock writes on orders go here
+        │
+        │  IMPORTRANGE (Google Sheets — automatic)
+        ▼
+GMC spreadsheet (1LKXER...)
+  tab "from MasterSheet(products)"  ← website sync reads from here
+        │
+        │  formulas / feed pipeline
+        ▼
+  tab "Sheet1"  ← Google Merchant Center feed
+```
+
+1. `POST /api/inventory/sync` reads **`from MasterSheet(products)`** on the GMC spreadsheet.
 2. Each row is transformed with `mapSheetRowToWebsiteProduct`.
 3. MongoDB stores the source row hash and transformed payload hash in `InventorySyncProduct`.
 4. Changed rows are upserted into the website `Product` collection.
@@ -67,10 +81,15 @@ INVENTORY_SYNC_INTERVAL_MS=900000
 INVENTORY_MIN_CATEGORY_PRODUCT_COUNT=2
 INVENTORY_OTHER_CATEGORY_NAME=Other Categories
 INVENTORY_WEBHOOK_SECRET=change-this-shared-secret
-GOOGLE_INVENTORY_SHEET_ID=1xlDAlbKki5lwI91_Jw1pTe6mhyxIwEmp2_tJ6vOYMag
-GOOGLE_INVENTORY_SHEET_NAME=Products
-GOOGLE_INVENTORY_RANGE=Products!A:O
+GOOGLE_MASTER_SHEET_ID=1xlDAlbKki5lwI91_Jw1pTe6mhyxIwEmp2_tJ6vOYMag
+GOOGLE_MASTER_SHEET_NAME=Products
+INVENTORY_SYNC_MASTER_FIRST=false
+GOOGLE_INVENTORY_SHEET_ID=1LKXERqfQUOssj3WadUxIgwoPdcOyRcJGf8itFwTnhjk
+GOOGLE_INVENTORY_SHEET_NAME=from MasterSheet(products)
+GOOGLE_INVENTORY_RANGE='from MasterSheet(products)'!A:O
 GOOGLE_INVENTORY_STOCK_COLUMN=10
+GOOGLE_STOCK_SHEET_ID=1xlDAlbKki5lwI91_Jw1pTe6mhyxIwEmp2_tJ6vOYMag
+GOOGLE_STOCK_SHEET_NAME=Products
 GOOGLE_MERCHANT_FEED_SHEET_ID=1LKXERqfQUOssj3WadUxIgwoPdcOyRcJGf8itFwTnhjk
 GOOGLE_MERCHANT_FEED_SHEET_NAME=Sheet1
 GOOGLE_MERCHANT_FEED_LINK_COLUMN=7

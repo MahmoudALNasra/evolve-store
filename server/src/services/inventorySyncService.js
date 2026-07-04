@@ -107,10 +107,10 @@ function collapseLowVolumeCategories(entries) {
 }
 
 async function syncInventoryFromSheet() {
-  if (process.env.INVENTORY_SYNC_MASTER_FIRST === 'true' || process.env.GOOGLE_MASTER_SHEET_ID) {
+  if (process.env.INVENTORY_SYNC_MASTER_FIRST === 'true') {
     try {
       const masterResult = await syncMasterSheetToProductsTab()
-      console.log(`Master sheet → Products tab: ${masterResult.copiedRows} rows`)
+      console.log(`Master sheet → import tab: ${masterResult.copiedRows} rows`)
     } catch (err) {
       console.warn('Master sheet sync failed:', err.message)
     }

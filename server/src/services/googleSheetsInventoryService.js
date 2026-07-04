@@ -7,7 +7,30 @@ function getSheetId() {
 }
 
 function getSheetName() {
-  return process.env.GOOGLE_INVENTORY_SHEET_NAME || 'Products'
+  return process.env.GOOGLE_INVENTORY_SHEET_NAME || 'from MasterSheet(products)'
+}
+
+function getStockSheetId() {
+  return process.env.GOOGLE_STOCK_SHEET_ID
+    || process.env.GOOGLE_MASTER_SHEET_ID
+    || '1xlDAlbKki5lwI91_Jw1pTe6mhyxIwEmp2_tJ6vOYMag'
+}
+
+function getStockSheetName() {
+  return process.env.GOOGLE_STOCK_SHEET_NAME
+    || process.env.GOOGLE_MASTER_SHEET_NAME
+    || 'Products'
+}
+
+function quoteSheetName(name) {
+  if (/[^A-Za-z0-9_]/.test(name)) {
+    return `'${String(name).replace(/'/g, "''")}'`
+  }
+  return name
+}
+
+function sheetRange(sheetName, a1) {
+  return `${quoteSheetName(sheetName)}!${a1}`
 }
 
 function getMerchantFeedSheetId() {
@@ -73,7 +96,7 @@ function rowsToObjects(values = []) {
 async function fetchInventoryRows() {
   const sheetId = getSheetId()
   const sheetName = getSheetName()
-  const range = process.env.GOOGLE_INVENTORY_RANGE || `${sheetName}!A:O`
+  const range = process.env.GOOGLE_INVENTORY_RANGE || sheetRange(sheetName, 'A:O')
   const sheets = await getSheetsClient()
 
   const response = await sheets.spreadsheets.values.get({
@@ -89,10 +112,10 @@ async function fetchInventoryRows() {
 }
 
 async function updateStockCell(rowNumber, stock) {
-  const sheetId = getSheetId()
-  const sheetName = getSheetName()
+  const sheetId = getStockSheetId()
+  const sheetName = getStockSheetName()
   const stockColumn = Number(process.env.GOOGLE_INVENTORY_STOCK_COLUMN || 10)
-  const cell = `${sheetName}!${columnNumberToName(stockColumn)}${rowNumber}`
+  const cell = sheetRange(sheetName, `${columnNumberToName(stockColumn)}${rowNumber}`)
   const sheets = await getSheetsClient()
 
   await sheets.spreadsheets.values.update({
@@ -109,7 +132,7 @@ async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
 
   const sheetName = getMerchantFeedSheetName()
   const linkColumn = Number(process.env.GOOGLE_MERCHANT_FEED_LINK_COLUMN || 7)
-  const cell = `${sheetName}!${columnNumberToName(linkColumn)}${rowNumber}`
+  const cell = sheetRange(sheetName, `${columnNumberToName(linkColumn)}${rowNumber}`)
   const sheets = await getSheetsClient()
 
   await sheets.spreadsheets.values.update({
@@ -128,4 +151,8 @@ module.exports = {
   updateMerchantFeedLinkCell,
   getSheetId,
   getSheetName,
+  getStockSheetId,
+  getStockSheetName,
+  quoteSheetName,
+  sheetRange,
 }
