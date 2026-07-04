@@ -117,6 +117,7 @@ async function syncInventoryFromSheet() {
   }
 
   const { sheetId, sheetName, rows } = await fetchInventoryRows()
+  console.log(`Fetched ${rows.length} rows from "${sheetName}" (${sheetId})`)
   const results = { scanned: rows.length, changed: 0, synced: 0, failed: 0, skipped: 0 }
   const entries = []
 
@@ -171,6 +172,9 @@ async function syncInventoryFromSheet() {
       )
 
       results.synced += 1
+      if (results.synced % 25 === 0) {
+        console.log(`Synced ${results.synced}/${results.changed} changed rows...`)
+      }
     } catch (err) {
       results.failed += 1
       await InventorySyncProduct.findOneAndUpdate(
@@ -193,6 +197,7 @@ async function syncInventoryFromSheet() {
     }
   }
 
+  console.log(`Done: scanned=${results.scanned} changed=${results.changed} synced=${results.synced} failed=${results.failed} skipped=${results.skipped}`)
   return results
 }
 

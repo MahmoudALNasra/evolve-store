@@ -4,6 +4,7 @@ const { syncInventoryFromSheet } = require('../services/inventorySyncService')
 
 async function main() {
   await connectDB()
+  console.log('Starting inventory sync...')
   const result = await syncInventoryFromSheet()
   console.log(JSON.stringify(result, null, 2))
   process.exit(0)
