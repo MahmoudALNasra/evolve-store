@@ -21,6 +21,7 @@
     "product:image-stats": "node src/scripts/productImageStats.js",
     "product:import-barcodes": "node src/scripts/importProductsFromBarcodes.js",
     "product:review-barcodes": "node src/scripts/reviewImportedBarcodes.js",
+    "product:fix-categories": "node src/scripts/fixBarcodeCategories.js",
     "build:client": "npm run build --prefix ../client",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
