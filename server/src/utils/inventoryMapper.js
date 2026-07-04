@@ -1,3 +1,6 @@
+const { normalizeSku } = require('./normalizeProductFields')
+const { isValidSheetProductName } = require('./inventoryProductIdentity')
+
 function cleanText(value) {
   if (value == null) return ''
   return String(value).trim()
@@ -145,7 +148,7 @@ function mapSheetRowToWebsiteProduct(row = {}) {
     category,
     googleProductCategory: getGoogleCategory(row),
     tags: buildTags(row, category),
-    sku: cleanText(row.MPN) || cleanText(row.Barcode),
+    sku: normalizeSku(row.MPN),
     barcode: cleanText(row.Barcode),
     stock,
     weight: 0,
@@ -185,4 +188,5 @@ module.exports = {
   getWebsiteCategory,
   getGoogleCategory,
   getCategoryLeaf,
+  isValidSheetProductName,
 }

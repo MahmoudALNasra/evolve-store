@@ -8,7 +8,8 @@ const {
 } = require('./googleSheetsInventoryService')
 const { upsertWebsiteProduct, updateWebsiteStockByProductId } = require('./websiteProductSyncService')
 const { upsertMerchantProduct, updateMerchantStock } = require('./googleMerchantSyncService')
-const { mapSheetRowToWebsiteProduct } = require('../utils/inventoryMapper')
+const { mapSheetRowToWebsiteProduct, isValidSheetProductName } = require('../utils/inventoryMapper')
+const { dedupeSheetEntries } = require('../utils/inventoryProductIdentity')
 const { syncMasterSheetToProductsTab } = require('./masterSheetSyncService')
 
 function stableJson(value) {
@@ -123,7 +124,11 @@ async function syncInventoryFromSheet() {
 
   for (const row of rows) {
     const websitePayload = mapSheetRowToWebsiteProduct(row.sourceRow)
-    if (!websitePayload.name || (!websitePayload.sku && !websitePayload.barcode)) {
+    if (!isValidSheetProductName(websitePayload.name, websitePayload.barcode)) {
+      results.skipped += 1
+      continue
+    }
+    if (!websitePayload.barcode && !websitePayload.sku) {
       results.skipped += 1
       continue
     }
@@ -131,12 +136,17 @@ async function syncInventoryFromSheet() {
     entries.push({ row, websitePayload })
   }
 
-  for (const { row, websitePayload } of collapseLowVolumeCategories(entries)) {
+  const dedupedEntries = dedupeSheetEntries(entries)
+  if (dedupedEntries.length < entries.length) {
+    console.log(`Deduped sheet rows by barcode: ${entries.length} → ${dedupedEntries.length}`)
+  }
+
+  for (const { row, websitePayload } of collapseLowVolumeCategories(dedupedEntries)) {
     const sourceHash = hash(row.sourceRow)
     const payloadHash = hashComparablePayload(websitePayload)
     const existing = await InventorySyncProduct.findOne({ sheetId, rowNumber: row.rowNumber })
 
-    if (shouldSkipInventoryRow(existing, sourceHash, payloadHash)) {
+    if (shouldSkipInventoryRow(existing, sourceHash, payloadHash) && existing?.syncStatus === 'synced') {
       continue
     }
 

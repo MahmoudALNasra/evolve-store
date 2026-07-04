@@ -2,10 +2,8 @@ const Product = require('../models/Product')
 const Category = require('../models/Category')
 const { generateUniqueSlug } = require('../utils/productSlug')
 const { websitePayloadToProductDocument } = require('../utils/inventoryMapper')
-
-function normalizeCategoryName(category) {
-  return String(category || '').trim() || 'Uncategorized'
-}
+const { normalizeSku } = require('../utils/normalizeProductFields')
+const { findExistingProduct, normalizeCategoryName } = require('../utils/productMatch')
 
 async function ensureCategoryExists(category) {
   const name = normalizeCategoryName(category)
@@ -16,26 +14,31 @@ async function ensureCategoryExists(category) {
   )
 }
 
-function buildProductQuery(payload) {
-  if (payload.sku) return { sku: payload.sku }
-  if (payload.barcode) return { barcode: payload.barcode }
-  throw new Error('Cannot sync product without sku or barcode')
-}
-
 async function upsertWebsiteProduct(websitePayload) {
   const productPayload = websitePayloadToProductDocument(websitePayload)
   productPayload.category = normalizeCategoryName(productPayload.category)
   delete productPayload.imageUrls
 
+  const sku = normalizeSku(productPayload.sku)
+  if (sku) productPayload.sku = sku
+  else delete productPayload.sku
+
+  if (!productPayload.barcode && !sku) {
+    throw new Error('Cannot sync product without sku or barcode')
+  }
+
   await ensureCategoryExists(productPayload.category)
 
-  const query = buildProductQuery(productPayload)
-  const existing = await Product.findOne(query)
+  const existing = await findExistingProduct(productPayload)
 
   if (!existing) {
     productPayload.slug = await generateUniqueSlug(Product, productPayload.name)
     const created = await Product.create(productPayload)
     return { product: created, created: true }
+  }
+
+  if (!existing.slug) {
+    productPayload.slug = await generateUniqueSlug(Product, productPayload.name, { excludeId: existing._id })
   }
 
   Object.assign(existing, productPayload)
