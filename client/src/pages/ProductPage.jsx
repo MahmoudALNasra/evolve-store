@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ShoppingCart, ArrowLeft } from 'lucide-react'
 import api from '../lib/api'
+import useAuthStore from '../store/useAuthStore'
 import useCartStore from '../store/useCartStore'
 import { formatPrice } from '../lib/utils'
 import { pushAddToCart, pushViewItem } from '../lib/gtm'
@@ -12,6 +13,7 @@ import FulfillmentBlock from '../components/product/FulfillmentBlock'
 import RelatedSearchChips from '../components/product/RelatedSearchChips'
 import ProductReviews, { ProductReviewLink } from '../components/product/ProductReviews'
 import RelatedProducts from '../components/RelatedProducts'
+import AdminProductQuickEdit from '../components/product/AdminProductQuickEdit'
 import toast from 'react-hot-toast'
 
 function getCategoryShopPath(category) {
@@ -24,6 +26,8 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [qty, setQty] = useState(1)
   const addItem = useCartStore((s) => s.addItem)
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'admin'
   const viewItemFired = useRef(null)
 
   useEffect(() => {
@@ -110,6 +114,10 @@ export default function ProductPage() {
         <Link to="/shop" className="product-page-back">
           <ArrowLeft size={15} aria-hidden="true" /> Back to Shop
         </Link>
+
+        {isAdmin && (
+          <AdminProductQuickEdit product={product} onUpdated={setProduct} />
+        )}
 
         <div className="product-page-grid">
           <ProductGallery product={product} images={images} />

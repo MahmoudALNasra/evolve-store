@@ -1815,6 +1815,215 @@
   }
 }
 
+/* Shop results + pagination */
+.storefront-shell .shop-results-range {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 500;
+}
+
+.storefront-shell .pagination-nav {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(201, 168, 76, 0.12);
+}
+
+.storefront-shell .pagination-btn {
+  border-color: rgba(201, 168, 76, 0.25);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #374151);
+}
+
+.storefront-shell .pagination-btn:hover:not(:disabled) {
+  border-color: var(--color-gold, #c9a84c);
+  color: var(--color-gold, #c9a84c);
+}
+
+.storefront-shell .pagination-btn.active {
+  background: var(--color-gold, #c9a84c);
+  border-color: var(--color-gold, #c9a84c);
+  color: #1c2b1c;
+}
+
+.storefront-shell .shop-filters-backdrop {
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 1024px) {
+  .storefront-shell .shop-sidebar.open {
+    background: var(--color-surface);
+    padding-top: 20px;
+  }
+}
+
+/* Admin quick edit on product page */
+.storefront-shell .admin-quick-edit {
+  margin-bottom: 20px;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: var(--ev-radius-card, 12px);
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.08), rgba(28, 43, 28, 0.04));
+  overflow: hidden;
+}
+
+.storefront-shell .admin-quick-edit-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-gold, #c9a84c);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.storefront-shell .admin-quick-edit-toggle span {
+  flex: 1;
+  text-align: left;
+}
+
+.storefront-shell .admin-quick-edit-panel {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(201, 168, 76, 0.15);
+}
+
+.storefront-shell .admin-quick-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.storefront-shell .admin-quick-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.storefront-shell .admin-quick-edit-field--full {
+  grid-column: 1 / -1;
+}
+
+.storefront-shell .admin-quick-edit-field span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.storefront-shell .admin-quick-edit-field input,
+.storefront-shell .admin-quick-edit-field select,
+.storefront-shell .admin-quick-edit-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e7e0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #1c2b1c;
+  min-height: 44px;
+}
+
+.storefront-shell .admin-quick-edit-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.storefront-shell .admin-quick-edit-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 14px;
+}
+
+.storefront-shell .admin-quick-edit-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.storefront-shell .admin-quick-edit-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-gold, #c9a84c);
+}
+
+.storefront-shell .admin-quick-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(201, 168, 76, 0.12);
+}
+
+.storefront-shell .admin-quick-edit-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  min-height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-gold, #c9a84c);
+  color: #1c2b1c;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.storefront-shell .admin-quick-edit-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.storefront-shell .admin-quick-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.storefront-shell .admin-quick-edit-link:hover {
+  color: var(--color-gold, #c9a84c);
+}
+
+@media (max-width: 640px) {
+  .storefront-shell .admin-quick-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-shell .admin-quick-edit-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .storefront-shell .admin-quick-edit-save,
+  .storefront-shell .admin-quick-edit-link {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .storefront-shell .btn-add-cart {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ev-btn,
   .storefront-shell .product-card,

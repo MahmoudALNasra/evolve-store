@@ -3,9 +3,12 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import api from '../lib/api'
 import ProductGrid from '../components/shop/ProductGrid'
-import Spinner from '../components/ui/Spinner'
+import Pagination from '../components/ui/Pagination'
 import SEO from '../components/SEO'
 import { generateSEOTitle, generateMetaDescription } from '../lib/seoUtils'
+import { getPageRange } from '../lib/pagination'
+
+const PAGE_SIZE = 20
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -26,7 +29,7 @@ export default function ShopPage() {
 
   const fetchProducts = useCallback(() => {
     setLoading(true)
-    const params = { page, limit: 20, sort }
+    const params = { page, limit: PAGE_SIZE, sort }
     if (search) params.search = search
     if (category) params.category = category
     if (minPrice) params.minPrice = minPrice
@@ -66,6 +69,8 @@ export default function ShopPage() {
   const pageDescription = category
     ? generateMetaDescription(`Browse ${category} at Evolve Pharmacy. Trusted vitamins, supplements, and wellness products with expert pharmacy support.`)
     : generateMetaDescription('Shop vitamins, supplements, personal care, and wellness products at Evolve Specialty Pharmacy & Wellness.')
+
+  const { start: rangeStart, end: rangeEnd } = getPageRange(page, PAGE_SIZE, total)
 
   return (
     <div>
@@ -114,6 +119,15 @@ export default function ShopPage() {
             </select>
           </div>
         </div>
+
+        {showFilters && (
+          <button
+            type="button"
+            className="shop-filters-backdrop"
+            aria-label="Close filters"
+            onClick={() => setShowFilters(false)}
+          />
+        )}
 
         <div className="shop-layout">
           <aside className={`shop-sidebar${showFilters ? ' open' : ''}`}>
@@ -165,6 +179,12 @@ export default function ShopPage() {
           </aside>
 
           <div className="shop-main">
+            {!loading && products.length > 0 && (
+              <p className="shop-results-range">
+                Showing {rangeStart}–{rangeEnd} of {total} product{total !== 1 ? 's' : ''}
+              </p>
+            )}
+
             {loading ? (
               <div className="spinner-wrap"><div className="spinner spinner-lg" /></div>
             ) : products.length === 0 ? (
@@ -178,19 +198,11 @@ export default function ShopPage() {
               <ProductGrid products={products} />
             )}
 
-            {pages > 1 && (
-              <div className="pagination">
-                {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setParam('page', String(p))}
-                    className={`pagination-btn${page === p ? ' active' : ''}`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
+            <Pagination
+              page={page}
+              pages={pages}
+              onPageChange={(p) => setParam('page', String(p))}
+            />
           </div>
         </div>
       </div>

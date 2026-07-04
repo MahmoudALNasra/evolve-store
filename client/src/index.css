@@ -1016,9 +1016,44 @@ img { display: block; max-width: 100%; height: auto; }
   gap: 8px;
   margin-top: 40px;
 }
+.pagination-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  width: 100%;
+}
+.pagination-summary {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+.pagination-summary strong {
+  color: #1c2b1c;
+  font-weight: 700;
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+}
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: min(100%, 420px);
+}
 .pagination-btn {
-  width: 40px;
+  min-width: 40px;
   height: 40px;
+  padding: 0 10px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -1026,9 +1061,37 @@ img { display: block; max-width: 100%; height: auto; }
   background: #fff;
   color: #444;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
-.pagination-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.pagination-btn--nav {
+  min-width: auto;
+  padding: 0 12px;
+}
+.pagination-btn-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.pagination-btn:hover:not(:disabled) { border-color: var(--brand-primary); color: var(--brand-primary); }
 .pagination-btn.active { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; }
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pagination-ellipsis {
+  min-width: 28px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
 
 /* ════════════════════════════════════
    CART PAGE
@@ -2421,21 +2484,49 @@ img { display: block; max-width: 100%; height: auto; }
 
 /* Tablet & below */
 @media (max-width: 1024px) {
-  .shop-layout { flex-direction: column; gap: 16px; }
+  .shop-layout { flex-direction: column; gap: 16px; position: relative; }
   .shop-sidebar {
     width: 100%;
     position: static;
     top: auto;
-    display: none; /* hidden until "Filters" toggled */
+    display: none;
   }
-  .shop-sidebar.open { display: flex; }
+  .shop-sidebar.open {
+    display: flex;
+    position: fixed;
+    top: var(--navbar-height, 64px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(100%, 360px);
+    margin: 0;
+    border-radius: 0;
+    border-right: 1px solid #e8eee8;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    overflow-y: auto;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.12);
+  }
+  .shop-filters-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: none;
+    background: rgba(15, 23, 15, 0.45);
+    cursor: pointer;
+  }
   .product-page { padding: 24px 20px 56px; }
 }
 
 /* Hide mobile filter button on desktop */
 .btn-mobile-filters { display: none; }
+.shop-filters-backdrop { display: none; }
 @media (max-width: 1024px) {
-  .btn-mobile-filters { display: flex; }
+  .btn-mobile-filters { display: flex; min-height: 44px; }
+  .shop-sort select { min-height: 44px; }
 }
 
 /* Phone */
@@ -2493,7 +2584,7 @@ img { display: block; max-width: 100%; height: auto; }
   .product-card-name { font-size: 13px; }
   .product-card-price { font-size: 15px; }
   .product-card-compare { font-size: 12px; }
-  .btn-add-cart { padding: 9px; font-size: 13px; }
+  .btn-add-cart { padding: 9px; font-size: 13px; min-height: 44px; }
 
   /* Why us */
   .why-inner { padding: 48px 16px; }
@@ -2545,7 +2636,18 @@ img { display: block; max-width: 100%; height: auto; }
   .btn-add-to-cart-lg { width: 100%; padding: 12px 16px; font-size: 14px; }
 
   /* Pagination */
-  .pagination-btn { width: 36px; height: 36px; font-size: 13px; }
+  .pagination-nav { margin-top: 24px; gap: 10px; }
+  .pagination-summary { font-size: 12px; }
+  .pagination-controls { gap: 6px; }
+  .pagination-pages { gap: 4px; max-width: 100%; }
+  .pagination-btn { min-width: 36px; height: 36px; font-size: 13px; padding: 0 8px; }
+  .pagination-btn--nav { padding: 0 10px; }
+@media (min-width: 769px) {
+  .pagination-btn-label {
+    display: inline;
+  }
+}
+  .pagination-ellipsis { min-width: 24px; height: 36px; font-size: 14px; }
 
   /* Footer */
   .footer-trust-inner { padding: 24px 16px; gap: 16px; }
