@@ -4,6 +4,7 @@ const { generateUniqueSlug } = require('../utils/productSlug')
 const { websitePayloadToProductDocument } = require('../utils/inventoryMapper')
 const { normalizeSku } = require('../utils/normalizeProductFields')
 const { findExistingProduct, normalizeCategoryName } = require('../utils/productMatch')
+const { shouldSyncPricesFromSheet, stripSheetPricing } = require('../utils/inventorySyncOptions')
 
 async function ensureCategoryExists(category) {
   const name = normalizeCategoryName(category)
@@ -37,9 +38,8 @@ async function upsertWebsiteProduct(websitePayload) {
     return { product: created, created: true }
   }
 
-  if (process.env.INVENTORY_SYNC_PRESERVE_WEBSITE_PRICE === 'true') {
-    delete productPayload.price
-    delete productPayload.comparePrice
+  if (!shouldSyncPricesFromSheet()) {
+    Object.assign(productPayload, stripSheetPricing(productPayload))
   }
 
   if (!existing.slug) {

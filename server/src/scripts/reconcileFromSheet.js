@@ -7,7 +7,7 @@
 require('dotenv').config()
 
 process.env.INVENTORY_SYNC_SHEET1_LINKS = 'false'
-delete process.env.INVENTORY_SYNC_PRESERVE_WEBSITE_PRICE
+process.env.INVENTORY_SYNC_SHEET_PRICES = 'false'
 
 const connectDB = require('../config/db')
 const Product = require('../models/Product')
@@ -17,6 +17,7 @@ const { fetchMasterInventoryRows } = require('../services/googleSheetsInventoryS
 const { mapSheetRowToWebsiteProduct, websitePayloadToProductDocument } = require('../utils/inventoryMapper')
 const { isValidSheetProductName, dedupeSheetEntries } = require('../utils/inventoryProductIdentity')
 const { findExistingProduct, productQualityScore, cleanId } = require('../utils/productMatch')
+const { shouldSyncPricesFromSheet } = require('../utils/inventorySyncOptions')
 const { generateUniqueSlug } = require('../utils/productSlug')
 
 function parseArgs(argv) {
@@ -110,9 +111,12 @@ async function forceAlignFromSheet(dryRun) {
 
     const needsUpdate =
       cleanId(existing.name) !== cleanId(doc.name) ||
-      Number(existing.price) !== Number(doc.price) ||
+      cleanId(existing.description) !== cleanId(doc.description) ||
       Number(existing.stock) !== Number(doc.stock) ||
-      cleanId(existing.description) !== cleanId(doc.description)
+      (shouldSyncPricesFromSheet() && (
+        Number(existing.price) !== Number(doc.price) ||
+        Number(existing.comparePrice || 0) !== Number(doc.comparePrice || 0)
+      ))
 
     if (!needsUpdate) continue
     realigned += 1
@@ -120,6 +124,11 @@ async function forceAlignFromSheet(dryRun) {
     if (dryRun) {
       console.log(`[dry-run] realign ${websitePayload.barcode}: "${existing.name}" → "${doc.name}" $${existing.price}→$${doc.price}`)
       continue
+    }
+
+    if (!shouldSyncPricesFromSheet()) {
+      delete doc.price
+      delete doc.comparePrice
     }
 
     Object.assign(existing, doc)

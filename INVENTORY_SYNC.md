@@ -28,15 +28,12 @@ GMC spreadsheet (1LKXER...)
   tab "Sheet1"  ← Google Merchant Center feed
 ```
 
-**Google Sheets master Products tab is the source of truth** for prices, stock, names, and descriptions. The GMC import tab and Sheet1 feed follow via IMPORTRANGE and formulas.
+**Google Sheets master Products tab** supplies catalog metadata (names, stock, descriptions). **Website/admin prices are the default source of truth** unless you set `INVENTORY_SYNC_SHEET_PRICES=true`.
 
-1. You edit the master **Products** tab (or stock updates on orders write back to column `Stock`).
+1. Edit prices in **website admin** (or export/backup with `npm run inventory:export-prices`).
 2. IMPORTRANGE refreshes **`from MasterSheet(products)`** on the GMC spreadsheet automatically.
-3. `POST /api/inventory/sync` (or `npm run inventory:sync`) reads the import tab and upserts website products.
-4. Use **`npm run inventory:restore-from-sheet`** to force a full website restore from the master **Products** tab when the site data is wrong.
-5. MongoDB stores row hashes in `InventorySyncProduct`.
-6. Changed rows are pushed to Google Merchant Center when `GOOGLE_MERCHANT_ID` is configured.
-7. `POST /webhooks/orders` pushes sale stock back to the master **Products** tab.
+3. `npm run inventory:sync` upserts website products **without overwriting prices** (default).
+4. **`npm run inventory:restore-prices -- --dump /root/mongo-backups/...`** restores prices from a MongoDB backup if sheet sync overwrote them.
 
 For this store's native checkout flow, set `INVENTORY_SYNC_ON_ORDERS=true` after Google Sheets auth is configured. Paid Stripe orders will then push stock to the Google Sheet automatically.
 

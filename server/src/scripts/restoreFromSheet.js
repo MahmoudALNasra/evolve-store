@@ -2,7 +2,8 @@ require('dotenv').config()
 
 // Restore overwrites website from sheet only — skip GMC Sheet1 link writes (quota + not needed for restore)
 process.env.INVENTORY_SYNC_SHEET1_LINKS = 'false'
-delete process.env.INVENTORY_SYNC_PRESERVE_WEBSITE_PRICE
+// Never overwrite website prices during sheet restore (prices live on website/admin)
+process.env.INVENTORY_SYNC_SHEET_PRICES = 'false'
 
 const connectDB = require('../config/db')
 const { syncInventoryFromSheet } = require('../services/inventorySyncService')
