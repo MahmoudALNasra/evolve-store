@@ -41,8 +41,20 @@ async function dedupeBarcodeGroups(dryRun) {
     }
 
     report.duplicateGroups += 1
+    const syncLinks = await InventorySyncProduct.find({
+      barcode,
+      websiteProduct: { $in: group.map((p) => p._id) },
+    }).lean()
+    const syncedIds = new Set(
+      syncLinks.filter((s) => s.syncStatus === 'synced').map((s) => String(s.websiteProduct))
+    )
+
     const ranked = group
-      .map((product) => ({ product, score: productQualityScore(product) }))
+      .map((product) => {
+        let score = productQualityScore(product)
+        if (syncedIds.has(String(product._id))) score += 500
+        return { product, score }
+      })
       .sort((a, b) => b.score - a.score)
 
     const keeper = ranked[0].product

@@ -30,7 +30,10 @@ async function findExistingProduct(payload) {
     const byBarcode = await Product.findOne({ barcode })
     if (byBarcode) return byBarcode
 
-    const legacySkuMatch = await Product.findOne({ sku: barcode })
+    const legacySkuMatch = await Product.findOne({
+      sku: barcode,
+      $or: [{ barcode: '' }, { barcode: null }],
+    })
     if (legacySkuMatch) return legacySkuMatch
   }
 
