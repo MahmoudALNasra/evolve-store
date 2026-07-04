@@ -82,9 +82,45 @@ function run(cmd) {
   execSync(cmd, { stdio: 'inherit' })
 }
 
-async function restorePricesFromBson(bsonPath, options = {}) {
-  const { dryRun = false, full = false } = options
-  const tempDb = `estore_price_restore_${Date.now()}`
+function cleanId(value) {
+  return String(value || '').trim()
+}
+
+function productFieldsFromBackup(backup) {
+  const { _id, __v, createdAt, updatedAt, ...rest } = backup
+  return rest
+}
+
+async function findProductMatch(backup) {
+  const barcode = cleanId(backup.barcode)
+  if (barcode) {
+    const byBarcode = await Product.findOne({ barcode })
+    if (byBarcode) return byBarcode
+  }
+  if (backup._id) {
+    const byId = await Product.findById(backup._id)
+    if (byId) return byId
+  }
+  const sku = cleanId(backup.sku)
+  if (sku) {
+    const bySku = await Product.findOne({ sku })
+    if (bySku) return bySku
+  }
+  return null
+}
+
+/**
+ * @param {'prices'|'full'} mode — full restores name, description, images, tags, SEO, stock, etc.
+ */
+async function restoreProductsFromBson(bsonPath, options = {}) {
+  const {
+    dryRun = false,
+    mode = 'full',
+    insertMissing = true,
+    unpublishExtras = true,
+  } = options
+
+  const tempDb = `estore_product_restore_${Date.now()}`
   const quotedBson = `"${bsonPath.replace(/"/g, '\\"')}"`
 
   if (!dryRun) {
@@ -93,34 +129,51 @@ async function restorePricesFromBson(bsonPath, options = {}) {
 
   const client = mongoose.connection.getClient()
   if (dryRun) {
-    return { dryRun: true, bsonPath, tempDb }
+    return { dryRun: true, mode, bsonPath, tempDb }
   }
 
-  const backupProducts = await client.db(tempDb).collection('products').find({}).project({
-    _id: 1, barcode: 1, sku: 1, name: 1, price: 1, comparePrice: 1,
-    description: 1, stock: 1, isPublished: 1, category: 1, slug: 1,
-  }).toArray()
+  const backupProducts = await client.db(tempDb).collection('products').find({}).toArray()
+  const backupBarcodes = new Set(
+    backupProducts.map((p) => cleanId(p.barcode)).filter(Boolean)
+  )
+  const backupIds = new Set(backupProducts.map((p) => String(p._id)))
 
-  const report = { matched: 0, updated: 0, missing: 0, total: backupProducts.length, bsonPath }
+  const report = {
+    mode,
+    matched: 0,
+    updated: 0,
+    inserted: 0,
+    missing: 0,
+    unpublished: 0,
+    total: backupProducts.length,
+    bsonPath,
+  }
 
   for (const backup of backupProducts) {
-    const barcode = String(backup.barcode || '').trim()
-    let existing = null
-
-    if (barcode) existing = await Product.findOne({ barcode })
-    if (!existing && backup._id) existing = await Product.findById(backup._id)
-    if (!existing && backup.sku) existing = await Product.findOne({ sku: String(backup.sku).trim() })
+    const existing = await findProductMatch(backup)
 
     if (!existing) {
-      report.missing += 1
+      if (mode === 'full' && insertMissing) {
+        try {
+          await Product.create(productFieldsFromBackup(backup))
+          report.inserted += 1
+        } catch (err) {
+          report.missing += 1
+          console.warn(`Insert failed ${cleanId(backup.barcode) || backup.name}: ${err.message}`)
+        }
+      } else {
+        report.missing += 1
+      }
       continue
     }
 
     report.matched += 1
 
-    if (full) {
-      const { _id, __v, createdAt, updatedAt, ...rest } = backup
-      await Product.updateOne({ _id: existing._id }, { $set: rest })
+    if (mode === 'full') {
+      await Product.updateOne(
+        { _id: existing._id },
+        { $set: productFieldsFromBackup(backup) }
+      )
       report.updated += 1
       continue
     }
@@ -138,8 +191,34 @@ async function restorePricesFromBson(bsonPath, options = {}) {
     report.updated += 1
   }
 
+  if (mode === 'full' && unpublishExtras) {
+    const extras = await Product.find({
+      isPublished: true,
+      $or: [
+        { barcode: { $nin: [...backupBarcodes, ''] } },
+        { barcode: null },
+      ],
+    }).select('_id barcode')
+
+    for (const product of extras) {
+      const barcode = cleanId(product.barcode)
+      if (barcode && backupBarcodes.has(barcode)) continue
+      if (backupIds.has(String(product._id))) continue
+      await Product.updateOne({ _id: product._id }, { $set: { isPublished: false } })
+      report.unpublished += 1
+    }
+  }
+
   await client.db(tempDb).dropDatabase()
   return report
+}
+
+/** @deprecated use restoreProductsFromBson */
+async function restorePricesFromBson(bsonPath, options = {}) {
+  return restoreProductsFromBson(bsonPath, {
+    ...options,
+    mode: options.full ? 'full' : 'prices',
+  })
 }
 
 module.exports = {
@@ -147,5 +226,6 @@ module.exports = {
   findProductsBson,
   findAllProductBackups,
   pickBackupNearTime,
+  restoreProductsFromBson,
   restorePricesFromBson,
 }
