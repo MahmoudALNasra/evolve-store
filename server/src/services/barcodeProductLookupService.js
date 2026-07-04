@@ -215,18 +215,13 @@ async function lookupViaSerper(barcode) {
     const name = cleanProductTitle(hit.title)
     if (!name || name.length < 4 || isJunkLookupTitle(name)) continue
 
-    const snippet = web
-      .filter((r) => !isJunkLookupTitle(r.title))
-      .map((r) => r.snippet)
-      .filter(Boolean)
-      .slice(0, 3)
-      .join(' ')
+    const snippet = String(hit.snippet || '').trim()
     const imageUrls = images.map((i) => i.imageUrl).filter(Boolean)
 
     return {
       name,
       brand: '',
-      description: snippet.slice(0, 600) || `${name}. Available at Evolve Specialty Pharmacy & Wellness.`,
+      description: snippet.slice(0, 400) || `${name}. Available at Evolve Specialty Pharmacy & Wellness.`,
       category: 'Uncategorized',
       images: imageUrls,
       source: 'serper',
