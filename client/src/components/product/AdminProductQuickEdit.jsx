@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, ExternalLink, Save, Settings2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, Image, Link as LinkIcon, Save, Settings2, X } from 'lucide-react'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 
@@ -15,6 +15,7 @@ function productToForm(product) {
     isPublished: Boolean(product.isPublished),
     isFeatured: Boolean(product.isFeatured),
     isTaxable: Boolean(product.isTaxable),
+    images: product.images || [],
   }
 }
 
@@ -23,6 +24,8 @@ export default function AdminProductQuickEdit({ product, onUpdated }) {
   const [saving, setSaving] = useState(false)
   const [categories, setCategories] = useState([])
   const [form, setForm] = useState(() => productToForm(product))
+  const [imgUrl, setImgUrl] = useState('')
+  const imgFileRef = useRef(null)
 
   useEffect(() => {
     setForm(productToForm(product))
@@ -35,6 +38,39 @@ export default function AdminProductQuickEdit({ product, onUpdated }) {
   }, [])
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  const handleImageUpload = async (file) => {
+    const fd = new FormData()
+    fd.append('image', file)
+    setSaving(true)
+    try {
+      const { data } = await api.post('/products/upload-image', fd)
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, { url: data.url, source: 'upload', publicId: data.publicId }],
+      }))
+    } catch {
+      toast.error('Image upload failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addImageUrl = () => {
+    if (!imgUrl.trim()) return
+    setForm((prev) => ({
+      ...prev,
+      images: [...prev.images, { url: imgUrl.trim(), source: 'link' }],
+    }))
+    setImgUrl('')
+  }
+
+  const removeImage = (idx) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx),
+    }))
+  }
 
   const handleSave = async () => {
     if (!form.name.trim()) return toast.error('Name is required')
@@ -50,6 +86,7 @@ export default function AdminProductQuickEdit({ product, onUpdated }) {
         isPublished: form.isPublished,
         isFeatured: form.isFeatured,
         isTaxable: form.isTaxable,
+        images: form.images,
       }
       const { data } = await api.put(`/products/${product._id}`, payload)
       toast.success('Product updated')
@@ -144,6 +181,61 @@ export default function AdminProductQuickEdit({ product, onUpdated }) {
                 ))}
               </select>
             </label>
+
+            <div className="admin-quick-edit-field admin-quick-edit-field--full">
+              <span>Images</span>
+              {form.images.length > 0 && (
+                <div className="admin-quick-edit-images">
+                  {form.images.map((img, i) => (
+                    <div key={`${img.url}-${i}`} className="admin-quick-edit-image">
+                      <img src={img.url} alt="" />
+                      <button
+                        type="button"
+                        className="admin-quick-edit-image-remove"
+                        onClick={() => removeImage(i)}
+                        aria-label="Remove image"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="admin-quick-edit-image-actions">
+                <button
+                  type="button"
+                  className="admin-quick-edit-image-btn"
+                  onClick={() => imgFileRef.current?.click()}
+                  disabled={saving}
+                >
+                  <Image size={14} aria-hidden="true" /> Upload
+                </button>
+                <input
+                  ref={imgFileRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload(file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              <div className="admin-quick-edit-image-url-row">
+                <div className="admin-quick-edit-image-url-input">
+                  <LinkIcon size={14} aria-hidden="true" />
+                  <input
+                    value={imgUrl}
+                    onChange={(e) => setImgUrl(e.target.value)}
+                    placeholder="Paste image URL…"
+                  />
+                </div>
+                <button type="button" className="admin-quick-edit-image-btn" onClick={addImageUrl}>
+                  Add
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="admin-quick-edit-flags">

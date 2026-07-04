@@ -2003,6 +2003,101 @@
   color: var(--color-gold, #c9a84c);
 }
 
+.storefront-shell .admin-quick-edit-link:hover {
+  color: var(--color-gold, #c9a84c);
+}
+
+.storefront-shell .admin-quick-edit-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.storefront-shell .admin-quick-edit-image {
+  position: relative;
+}
+
+.storefront-shell .admin-quick-edit-image img {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(201, 168, 76, 0.25);
+}
+
+.storefront-shell .admin-quick-edit-image-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.storefront-shell .admin-quick-edit-image-actions {
+  margin-bottom: 8px;
+}
+
+.storefront-shell .admin-quick-edit-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1.5px solid #e0e7e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.storefront-shell .admin-quick-edit-image-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.storefront-shell .admin-quick-edit-image-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.storefront-shell .admin-quick-edit-image-url-input {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1.5px solid #e0e7e0;
+  border-radius: 8px;
+  background: #fff;
+  min-height: 40px;
+}
+
+.storefront-shell .admin-quick-edit-image-url-input input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  min-height: 38px;
+  padding: 0;
+}
+
+.storefront-shell .admin-quick-edit-image-url-input input:focus {
+  outline: none;
+}
+
 @media (max-width: 640px) {
   .storefront-shell .admin-quick-edit-grid {
     grid-template-columns: 1fr;

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Plus, Edit2, Trash2, PackagePlus, Download, Upload, X, Search, Image, Link as LinkIcon, Sparkles, FileText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getArticlePath } from '../../lib/blogSeo'
+import { getProductPath } from '../../lib/productSeo'
 import api from '../../lib/api'
 import { formatPrice } from '../../lib/utils'
 import toast from 'react-hot-toast'
@@ -304,14 +305,18 @@ export default function AdminProducts() {
               ) : products.map((p) => (
                 <tr key={p._id}>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <img src={p.images?.[0]?.url || 'https://placehold.co/40x40?text=?'} alt={p.name}
+                    <Link
+                      to={getProductPath(p)}
+                      className="admin-product-cell-link"
+                      title="View product page"
+                    >
+                      <img src={p.images?.[0]?.url || 'https://placehold.co/40x40?text=?'} alt=""
                         style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8eee8' }} />
-                      <div>
-                        <div style={{ fontWeight: 600, color: '#1c2b1c', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                        {p.sku && <div style={{ fontSize: 11, color: '#9ca3af' }}>SKU: {p.sku}</div>}
+                      <div className="admin-product-cell-text">
+                        <div className="admin-product-cell-name">{p.name}</div>
+                        {p.sku && <div className="admin-product-cell-sku">SKU: {p.sku}</div>}
                       </div>
-                    </div>
+                    </Link>
                   </td>
                   <td style={{ color: '#6b7280' }}>{p.category || '—'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatPrice(p.price)}</td>

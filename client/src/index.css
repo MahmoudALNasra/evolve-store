@@ -2229,6 +2229,41 @@ img { display: block; max-width: 100%; height: auto; }
 .admin-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+.admin-product-cell-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 8px;
+  padding: 4px;
+  margin: -4px;
+  transition: background 0.15s;
+  max-width: 260px;
+}
+.admin-product-cell-link:hover {
+  background: #f0f7f0;
+}
+.admin-product-cell-link:hover .admin-product-cell-name {
+  color: var(--brand-primary);
+}
+.admin-product-cell-text {
+  min-width: 0;
+}
+.admin-product-cell-name {
+  font-weight: 600;
+  color: #1c2b1c;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.admin-product-cell-sku {
+  font-size: 11px;
+  color: #9ca3af;
+}
 .admin-badge {
   display: inline-flex;
   align-items: center;
