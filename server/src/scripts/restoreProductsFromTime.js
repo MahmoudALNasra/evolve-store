@@ -24,8 +24,9 @@ function parseArgs(argv) {
     pricesOnly: argv.includes('--prices-only'),
     list: argv.includes('--list'),
     allowClosest: argv.includes('--allow-closest'),
+    includeSafetySnapshots: argv.includes('--include-safety-snapshots'),
     noUnpublish: argv.includes('--keep-extras'),
-    maxDiffHours: Number(process.env.RESTORE_MAX_BACKUP_AGE_HOURS || 48),
+    maxDiffHours: Number(process.env.RESTORE_MAX_BACKUP_AGE_HOURS || 720),
   }
 }
 
@@ -37,12 +38,19 @@ function formatDiff(ms) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  const backups = findAllProductBackups(DEFAULT_BACKUP_ROOTS)
+  const backups = findAllProductBackups(DEFAULT_BACKUP_ROOTS, {
+    includeSafetySnapshots: args.includeSafetySnapshots,
+  })
 
   if (args.list || !backups.length) {
     console.log(JSON.stringify({
       backupRoots: DEFAULT_BACKUP_ROOTS,
-      found: backups.map((b) => ({ mtime: b.mtime, dumpPath: b.dumpPath })),
+      note: 'pre-restore-* folders are safety snapshots (excluded by default). Use --include-safety-snapshots to include them.',
+      found: backups.map((b) => ({
+        mtime: b.mtime,
+        dumpPath: b.dumpPath,
+        safetySnapshot: b.isSafetySnapshot,
+      })),
     }, null, 2))
     if (!backups.length) {
       console.error('\nNo products.bson backups found. Create one with: mongodump --db estore --out /root/mongo-backups/estore-$(date +%F-%H%M)')

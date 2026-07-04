@@ -26,7 +26,12 @@ function dumpRootFromBson(bsonPath) {
   return parent
 }
 
-function findAllProductBackups(roots = DEFAULT_BACKUP_ROOTS) {
+function isSafetySnapshot(backup) {
+  return /pre-restore/i.test(backup.dumpPath) || /pre-restore/i.test(backup.bsonPath)
+}
+
+function findAllProductBackups(roots = DEFAULT_BACKUP_ROOTS, options = {}) {
+  const { includeSafetySnapshots = false } = options
   const found = []
 
   function scanDir(dir, depth = 0) {
@@ -48,12 +53,17 @@ function findAllProductBackups(roots = DEFAULT_BACKUP_ROOTS) {
       if (entry.name !== 'products.bson') continue
 
       const stat = fs.statSync(fullPath)
-      found.push({
+      const entry = {
         bsonPath: fullPath,
         dumpPath: dumpRootFromBson(fullPath),
         mtimeMs: stat.mtimeMs,
         mtime: stat.mtime.toISOString(),
-      })
+        isSafetySnapshot: false,
+      }
+      entry.isSafetySnapshot = isSafetySnapshot(entry)
+      if (entry.isSafetySnapshot && !includeSafetySnapshots) continue
+
+      found.push(entry)
     }
   }
 
