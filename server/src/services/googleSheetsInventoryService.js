@@ -56,6 +56,22 @@ async function getSheetsClient() {
   return google.sheets({ version: 'v4', auth })
 }
 
+let lastSheetWriteAt = 0
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function throttledSheetWrite(fn) {
+  const delayMs = Number(process.env.GOOGLE_SHEETS_WRITE_DELAY_MS || 250)
+  const now = Date.now()
+  const wait = Math.max(0, lastSheetWriteAt + delayMs - now)
+  if (wait) await sleep(wait)
+  const result = await fn()
+  lastSheetWriteAt = Date.now()
+  return result
+}
+
 function rowsToObjects(values = []) {
   const [headers = [], ...rows] = values
   const stockColumnIndex = headers.findIndex((header) => String(header).trim() === 'Stock') + 1
@@ -99,12 +115,12 @@ async function updateStockCell(rowNumber, stock) {
   const cell = sheetRange(sheetName, `${columnNumberToName(stockColumn)}${rowNumber}`)
   const sheets = await getSheetsClient()
 
-  await sheets.spreadsheets.values.update({
+  await throttledSheetWrite(() => sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range: cell,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[stock]] },
-  })
+  }))
 }
 
 async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
@@ -116,12 +132,12 @@ async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
   const cell = sheetRange(sheetName, `${columnNumberToName(linkColumn)}${rowNumber}`)
   const sheets = await getSheetsClient()
 
-  await sheets.spreadsheets.values.update({
+  await throttledSheetWrite(() => sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range: cell,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[productUrl]] },
-  })
+  }))
 
   return { skipped: false, cell }
 }

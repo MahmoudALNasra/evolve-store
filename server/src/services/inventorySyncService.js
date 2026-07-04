@@ -146,7 +146,17 @@ async function syncInventoryFromSheet() {
       const { product } = await upsertWebsiteProduct(websitePayload)
       const merchantPayload = withProductUrl(websitePayload, product)
       const merchantResult = await upsertMerchantProduct(merchantPayload)
-      const merchantFeedLinkResult = await updateMerchantFeedLinkCell(row.rowNumber, merchantPayload.productUrl)
+
+      let merchantFeedLinkResult = { skipped: true }
+      let sheetLinkError = ''
+      if (process.env.INVENTORY_SYNC_SHEET1_LINKS !== 'false') {
+        try {
+          merchantFeedLinkResult = await updateMerchantFeedLinkCell(row.rowNumber, merchantPayload.productUrl)
+        } catch (err) {
+          sheetLinkError = err.message
+          console.warn(`Sheet1 link update skipped row ${row.rowNumber}: ${err.message}`)
+        }
+      }
 
       await InventorySyncProduct.findOneAndUpdate(
         { sheetId, rowNumber: row.rowNumber },
@@ -165,7 +175,7 @@ async function syncInventoryFromSheet() {
             merchantFeedLinkSyncedAt: merchantFeedLinkResult.skipped ? undefined : new Date(),
             lastSyncedAt: new Date(),
             syncStatus: 'synced',
-            lastError: '',
+            lastError: sheetLinkError,
           },
         },
         { upsert: true, returnDocument: 'after' }
