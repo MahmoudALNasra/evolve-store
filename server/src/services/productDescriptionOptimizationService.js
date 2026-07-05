@@ -12,6 +12,9 @@ const {
   needsDescriptionOptimization,
   MIN_WORDS,
 } = require('../utils/productDescriptionQuality')
+const { shouldFixProductName, normalizeProductName } = require('../utils/productNameQuality')
+const { generateUniqueSlug } = require('../utils/productSlug')
+const applyAutoTagsToPayload = require('../utils/applyProductTags')
 
 const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 
@@ -88,10 +91,12 @@ Rules:
 - 150–200 words, short paragraphs, optional bullet list if source supports it.
 - Naturally include product name, category, and 1–2 relevant keywords without stuffing.
 - Generate 2–3 FAQ Q&As genuinely useful and grounded in the original description.
+- Provide a clean customer-facing product title in "nameDraft" (max 120 chars). Remove Amazon/Walmart junk, ellipses, and storefront placeholders. Keep brand + product type + size/count when known.
 ${tabFields}
 
 Return ONLY valid JSON:
 {
+  "nameDraft": "clean product title",
   "descriptionDraft": "rewritten body",
   "seoTitle": "suggested title fragment without suffix",
   "seoMetaDescription": "150-155 char meta",
@@ -107,19 +112,22 @@ async function suggestProductSeo(product, options = {}) {
     { role: 'user', content: prompt },
   ])
 
-  const seoTitle = generateSEOTitle(result.seoTitle || product.name, 60)
+  const seoTitle = generateSEOTitle(result.seoTitle || result.nameDraft || product.name, 60)
   const seoMetaDescription = generateMetaDescription(
     result.seoMetaDescription || result.descriptionDraft || product.description,
     155
   )
+  const nameDraft = normalizeProductName(result.nameDraft || product.name)
 
   return {
     original: {
+      name: product.name || '',
       description: product.description || '',
       seoTitle: generateSEOTitle(product.name, 60),
       seoMetaDescription: generateMetaDescription(product.description, 155),
     },
     suggested: {
+      nameDraft,
       descriptionDraft: result.descriptionDraft || '',
       seoTitle,
       seoMetaDescription,
@@ -129,6 +137,38 @@ async function suggestProductSeo(product, options = {}) {
       moreInfo: result.moreInfo || '',
     },
     serpSnippets,
+  }
+}
+
+async function applyProductSeoUpdates(product, suggestion, options = {}) {
+  const fixTitles = options.fixTitles !== false
+  const nameBefore = product.name
+  const shouldRename = fixTitles && (
+    options.forceTitleFix === true
+    || shouldFixProductName(product.name)
+  )
+
+  if (shouldRename && suggestion.suggested.nameDraft) {
+    product.name = suggestion.suggested.nameDraft
+    if (product.name !== nameBefore) {
+      product.slug = await generateUniqueSlug(product.constructor, product.name, {
+        excludeId: product._id,
+      })
+    }
+  }
+
+  product.description = suggestion.suggested.descriptionDraft || product.description
+  product.descriptionDraft = suggestion.suggested.descriptionDraft
+  product.seoTitle = suggestion.suggested.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim()
+  product.seoMetaDescription = suggestion.suggested.seoMetaDescription
+  product.seoFaqs = suggestion.suggested.seoFaqs
+  applyAutoTagsToPayload(product)
+  await product.save()
+
+  return {
+    nameChanged: product.name !== nameBefore,
+    nameBefore,
+    nameAfter: product.name,
   }
 }
 
@@ -186,6 +226,7 @@ async function optimizeProductsBatch(options = {}) {
   const dryRun = options.dryRun === true
   const onlyMissing = options.onlyMissing === true
   const onlyNeedsWork = options.onlyNeedsWork === true
+  const fixTitles = options.fixTitles !== false
   const delayMs = Number(process.env.PRODUCT_SEO_DELAY_MS || 1200)
 
   let products = await Product.find({ isPublished: true })
@@ -220,13 +261,9 @@ async function optimizeProductsBatch(options = {}) {
     try {
       const beforeQuality = analyzeDescriptionQuality(product)
       const suggestion = await suggestProductSeo(product)
+      let titleUpdate = null
       if (!dryRun) {
-        product.description = suggestion.suggested.descriptionDraft || product.description
-        product.descriptionDraft = suggestion.suggested.descriptionDraft
-        product.seoTitle = suggestion.suggested.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim()
-        product.seoMetaDescription = suggestion.suggested.seoMetaDescription
-        product.seoFaqs = suggestion.suggested.seoFaqs
-        await product.save()
+        titleUpdate = await applyProductSeoUpdates(product, suggestion, { fixTitles })
       }
       optimized += 1
       report.push({
@@ -236,6 +273,7 @@ async function optimizeProductsBatch(options = {}) {
         beforeQuality,
         before: suggestion.original,
         after: suggestion.suggested,
+        titleUpdate,
       })
       await new Promise((r) => setTimeout(r, delayMs))
     } catch (err) {
@@ -297,6 +335,7 @@ async function optimizeAllProducts(options = {}) {
 
 module.exports = {
   suggestProductSeo,
+  applyProductSeoUpdates,
   auditDescriptionQuality,
   optimizeProductsBatch,
   optimizeAllProducts,

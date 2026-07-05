@@ -46,6 +46,7 @@
     "product:import-barcodes": "node src/scripts/importProductsFromBarcodes.js",
     "product:review-barcodes": "node src/scripts/reviewImportedBarcodes.js",
     "product:fix-categories": "node src/scripts/fixBarcodeCategories.js",
+    "product:fix-categories:all": "node src/scripts/fixBarcodeCategories.js --all-published",
     "build:client": "npm run build --prefix ../client",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

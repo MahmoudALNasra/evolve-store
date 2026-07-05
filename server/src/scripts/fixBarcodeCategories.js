@@ -10,7 +10,7 @@ const fs = require('fs')
 const path = require('path')
 const mongoose = require('mongoose')
 const { normalizeBarcode } = require('../services/barcodeProductLookupService')
-const { fixBarcodeProductCategories, auditProductCategories } = require('../services/barcodeCategoryFixService')
+const { fixBarcodeProductCategories, fixAllProductCategories, auditProductCategories } = require('../services/barcodeCategoryFixService')
 
 const DEFAULT_FILE = path.join(__dirname, '../../data/barcode-import-batch.csv')
 
@@ -76,14 +76,21 @@ async function main() {
   else if (args.allPublished || args.onlyUnresolved) console.log('Scope: all published products')
   console.log('MongoDB connected\n')
 
-  const result = await fixBarcodeProductCategories({
-    barcodes: barcodes.length ? barcodes : undefined,
-    dryRun: args.dryRun,
-    limit: args.limit,
-    onlyPublished: !args.all,
-    onlyNeedsCategory: args.onlyUnresolved || args.allPublished,
-    forceOpenAi: args.forceOpenAi,
-  })
+  const result = args.allPublished
+    ? await fixAllProductCategories({
+      dryRun: args.dryRun,
+      limit: args.limit || 25,
+      onlyPublished: !args.all,
+      forceOpenAi: args.forceOpenAi,
+    })
+    : await fixBarcodeProductCategories({
+      barcodes: barcodes.length ? barcodes : undefined,
+      dryRun: args.dryRun,
+      limit: args.limit,
+      onlyPublished: !args.all,
+      onlyNeedsCategory: args.onlyUnresolved || args.allPublished,
+      forceOpenAi: args.forceOpenAi,
+    })
 
   console.log('\n--- Summary ---')
   console.log(`Scanned: ${result.scanned}`)
