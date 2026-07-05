@@ -21,6 +21,8 @@
     "product:mirror-images:all": "node src/scripts/productMirrorImages.js --all",
     "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",
     "product:optimize-descriptions:missing": "node src/scripts/optimizeProductDescriptions.js --only-missing",
+    "product:optimize-descriptions:needs-work": "node src/scripts/optimizeProductDescriptions.js --needs-work --all",
+    "product:catalog-audit": "node src/scripts/productCatalogAudit.js",
     "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
     "inventory:sync": "node src/scripts/syncInventory.js",
     "inventory:restore-from-sheet": "node src/scripts/restoreFromSheet.js",

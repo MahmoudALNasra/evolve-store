@@ -7,6 +7,11 @@ const {
   generateMetaDescription,
   getProductBrand,
 } = require('../utils/seoUtils')
+const {
+  analyzeDescriptionQuality,
+  needsDescriptionOptimization,
+  MIN_WORDS,
+} = require('../utils/productDescriptionQuality')
 
 const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 
@@ -127,32 +132,93 @@ async function suggestProductSeo(product, options = {}) {
   }
 }
 
-async function optimizeAllProducts(options = {}) {
+async function auditDescriptionQuality(options = {}) {
+  const Product = require('../models/Product')
+  const onlyPublished = options.onlyPublished !== false
+
+  const filter = onlyPublished ? { isPublished: true } : {}
+  const products = await Product.find(filter).select('name slug barcode description descriptionDraft seoMetaDescription seoFaqs').lean()
+
+  const stats = {
+    total: products.length,
+    optimized: 0,
+    needsWork: 0,
+    empty: 0,
+    veryShort: 0,
+    thin: 0,
+    missingSeoMeta: 0,
+    missingFaqs: 0,
+    minWordsThreshold: MIN_WORDS,
+    samples: [],
+  }
+
+  for (const product of products) {
+    const quality = analyzeDescriptionQuality(product)
+    if (quality.optimized) {
+      stats.optimized += 1
+      continue
+    }
+
+    stats.needsWork += 1
+    if (quality.reasons.includes('empty')) stats.empty += 1
+    if (quality.reasons.some((r) => r.startsWith('very_short'))) stats.veryShort += 1
+    if (quality.reasons.some((r) => r.startsWith('thin'))) stats.thin += 1
+    if (quality.reasons.includes('missing_seo_meta')) stats.missingSeoMeta += 1
+    if (quality.reasons.includes('missing_faqs')) stats.missingFaqs += 1
+
+    if (stats.samples.length < 8) {
+      stats.samples.push({
+        barcode: product.barcode,
+        name: product.name?.slice(0, 60),
+        wordCount: quality.wordCount,
+        reasons: quality.reasons,
+      })
+    }
+  }
+
+  return stats
+}
+
+async function optimizeProductsBatch(options = {}) {
   const Product = require('../models/Product')
   const limit = Number(options.limit || 50)
   const skip = Number(options.skip || 0)
   const dryRun = options.dryRun === true
   const onlyMissing = options.onlyMissing === true
+  const onlyNeedsWork = options.onlyNeedsWork === true
   const delayMs = Number(process.env.PRODUCT_SEO_DELAY_MS || 1200)
 
-  const filter = { isPublished: true }
-  if (onlyMissing) {
-    filter.$or = [
-      { seoMetaDescription: { $in: [null, ''] } },
-      { description: { $in: [null, ''] } },
-      { seoTitle: { $in: [null, ''] } },
-    ]
+  let products = await Product.find({ isPublished: true })
+    .sort({ updatedAt: 1 })
+    .skip(onlyNeedsWork ? 0 : skip)
+    .limit(onlyNeedsWork ? 0 : limit)
+
+  if (onlyNeedsWork) {
+    const all = await Product.find({ isPublished: true }).sort({ updatedAt: 1 })
+    products = all.filter((p) => needsDescriptionOptimization(p))
+    if (skip > 0) products = products.slice(skip)
+    if (limit > 0) products = products.slice(0, limit)
+  } else if (onlyMissing) {
+    products = products.filter((p) =>
+      !p.description?.trim()
+      || !p.seoMetaDescription?.trim()
+      || !p.seoTitle?.trim()
+    )
   }
 
-  const products = await Product.find(filter)
-    .sort({ updatedAt: 1 })
-    .skip(skip)
-    .limit(limit)
-
   const report = []
+  let optimized = 0
+  let skipped = 0
+  let errors = 0
 
   for (const product of products) {
+    if (onlyNeedsWork && !needsDescriptionOptimization(product)) {
+      skipped += 1
+      continue
+    }
+
     try {
+      const beforeQuality = analyzeDescriptionQuality(product)
       const suggestion = await suggestProductSeo(product)
       if (!dryRun) {
         product.description = suggestion.suggested.descriptionDraft || product.description
@@ -162,15 +228,18 @@ async function optimizeAllProducts(options = {}) {
         product.seoFaqs = suggestion.suggested.seoFaqs
         await product.save()
       }
+      optimized += 1
       report.push({
         productId: product._id,
         slug: product.slug,
         name: product.name,
+        beforeQuality,
         before: suggestion.original,
         after: suggestion.suggested,
       })
       await new Promise((r) => setTimeout(r, delayMs))
     } catch (err) {
+      errors += 1
       report.push({
         productId: product._id,
         slug: product.slug,
@@ -185,7 +254,52 @@ async function optimizeAllProducts(options = {}) {
   const outPath = path.join(outDir, `product-seo-${Date.now()}.json`)
   fs.writeFileSync(outPath, JSON.stringify(report, null, 2))
 
-  return { scanned: products.length, reportPath: outPath, report }
+  return { scanned: products.length, optimized, skipped, errors, dryRun, reportPath: outPath, report }
 }
 
-module.exports = { suggestProductSeo, optimizeAllProducts }
+async function optimizeAllProducts(options = {}) {
+  const batchSize = Number(options.limit || 50)
+  let skip = 0
+  const totals = { batches: 0, scanned: 0, optimized: 0, skipped: 0, errors: 0, dryRun: options.dryRun === true, reportPaths: [] }
+
+  while (true) {
+    const result = await optimizeProductsBatch({ ...options, limit: batchSize, skip })
+
+    if (result.scanned === 0) break
+
+    totals.batches += 1
+    totals.scanned += result.scanned
+    totals.optimized += result.optimized
+    totals.skipped += result.skipped
+    totals.errors += result.errors
+    totals.reportPaths.push(result.reportPath)
+
+    console.log(
+      `[seo batch ${totals.batches}] scanned=${result.scanned} optimized=${result.optimized} ` +
+      `errors=${result.errors} (total: ${totals.scanned})`
+    )
+
+    if (!options.onlyNeedsWork) {
+      skip += result.scanned
+    } else if (result.optimized === 0) {
+      break
+    } else {
+      skip = 0
+    }
+
+    if (options.onlyNeedsWork && result.optimized === 0) break
+    if (!options.all) break
+    if (!options.onlyNeedsWork && result.scanned < batchSize) break
+  }
+
+  return totals
+}
+
+module.exports = {
+  suggestProductSeo,
+  auditDescriptionQuality,
+  optimizeProductsBatch,
+  optimizeAllProducts,
+  needsDescriptionOptimization,
+  analyzeDescriptionQuality,
+}

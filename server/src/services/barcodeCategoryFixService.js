@@ -83,11 +83,64 @@ async function fixProductCategory(product, allowedCategories, options = {}) {
   }
 }
 
+function productNeedsCategoryFix(product, allowedCategories) {
+  const category = String(product.category || '').trim()
+  if (!category || category === 'Uncategorized') return true
+  return !allowedCategories.includes(category)
+}
+
+async function auditProductCategories(options = {}) {
+  const Product = require('../models/Product')
+  const Category = require('../models/Category')
+  const onlyPublished = options.onlyPublished !== false
+
+  const allowedCategories = (await Category.find().sort({ name: 1 }).lean())
+    .map((c) => c.name)
+    .filter(Boolean)
+
+  const filter = onlyPublished ? { isPublished: true } : {}
+  const products = await Product.find(filter).select('name barcode category').lean()
+
+  const stats = {
+    total: products.length,
+    valid: 0,
+    needsFix: 0,
+    uncategorized: 0,
+    invalidCategory: 0,
+    allowedCategories,
+    samples: [],
+  }
+
+  for (const product of products) {
+    const needs = productNeedsCategoryFix(product, allowedCategories)
+    if (!needs) {
+      stats.valid += 1
+      continue
+    }
+
+    stats.needsFix += 1
+    const category = String(product.category || '').trim()
+    if (!category || category === 'Uncategorized') stats.uncategorized += 1
+    else stats.invalidCategory += 1
+
+    if (stats.samples.length < 8) {
+      stats.samples.push({
+        barcode: product.barcode,
+        name: product.name?.slice(0, 60),
+        category: category || '(empty)',
+      })
+    }
+  }
+
+  return stats
+}
+
 async function fixBarcodeProductCategories(options = {}) {
   const Product = require('../models/Product')
   const Category = require('../models/Category')
   const dryRun = options.dryRun === true
   const onlyPublished = options.onlyPublished !== false
+  const onlyNeedsCategory = options.onlyNeedsCategory === true
   const delayMs = Number(process.env.BARCODE_CATEGORY_DELAY_MS || 400)
 
   const allowedCategories = (await Category.find().sort({ name: 1 }).lean())
@@ -101,6 +154,11 @@ async function fixBarcodeProductCategories(options = {}) {
   if (onlyPublished) query.isPublished = true
 
   let products = await Product.find(query).sort({ name: 1 })
+
+  if (onlyNeedsCategory) {
+    products = products.filter((p) => productNeedsCategoryFix(p, allowedCategories))
+  }
+
   if (options.limit > 0) products = products.slice(0, options.limit)
 
   const report = []
@@ -109,7 +167,7 @@ async function fixBarcodeProductCategories(options = {}) {
   for (const product of products) {
     const before = product.category
     const resolved = await fixProductCategory(product, allowedCategories, {
-      forceOpenAi: options.forceOpenAi || before === 'Uncategorized',
+      forceOpenAi: options.forceOpenAi || before === 'Uncategorized' || productNeedsCategoryFix(product, allowedCategories),
     })
 
     const after = resolved.category || before
@@ -154,5 +212,7 @@ async function fixBarcodeProductCategories(options = {}) {
 module.exports = {
   fixProductCategory,
   fixBarcodeProductCategories,
+  auditProductCategories,
+  productNeedsCategoryFix,
   resolveCategoryWithOpenAi,
 }

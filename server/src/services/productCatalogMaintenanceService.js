@@ -2,6 +2,7 @@ const Product = require('../models/Product')
 const { isImageUrlWorking } = require('./productImageAuditService')
 const { isPlaceholderImageUrl } = require('../utils/productImageUtils')
 const { suggestProductSeo } = require('./productDescriptionOptimizationService')
+const { needsDescriptionOptimization } = require('../utils/productDescriptionQuality')
 
 const DEFAULT_TIMEOUT = Number(process.env.IMAGE_AUDIT_TIMEOUT_MS || 8000)
 
@@ -72,11 +73,11 @@ async function auditAllProductImages({ limit = 0, dryRun = false } = {}) {
 }
 
 async function enrichProductContent(product, { save = true, dryRun = false } = {}) {
-  const needsDescription = !product.description?.trim() || product.description.trim().length < 80
+  const needsDescription = needsDescriptionOptimization(product)
   const needsTabs = !product.ingredients?.trim()
     || !product.suggestedUse?.trim()
     || !product.moreInfo?.trim()
-  const needsSeo = !product.seoMetaDescription?.trim()
+  const needsSeo = !product.seoMetaDescription?.trim() || !(product.seoFaqs?.length > 0)
 
   if (!needsDescription && !needsTabs && !needsSeo) {
     return { skipped: true, productId: product._id }
@@ -112,18 +113,26 @@ async function enrichProductContent(product, { save = true, dryRun = false } = {
   return { productId: product._id, name: product.name, enriched: true }
 }
 
-async function enrichAllProductContent({ limit = 50, onlyMissing = true, dryRun = false } = {}) {
-  const filter = { isPublished: true }
-  if (onlyMissing) {
-    filter.$or = [
-      { description: { $in: [null, ''] } },
-      { seoMetaDescription: { $in: [null, ''] } },
-      { ingredients: { $in: [null, ''] } },
-      { suggestedUse: { $in: [null, ''] } },
-    ]
+async function enrichAllProductContent({ limit = 50, onlyMissing = true, onlyNeedsWork = false, dryRun = false } = {}) {
+  let products = await Product.find({ isPublished: true }).sort({ updatedAt: 1 })
+
+  if (onlyNeedsWork) {
+    products = products.filter((p) =>
+      needsDescriptionOptimization(p)
+      || !p.ingredients?.trim()
+      || !p.suggestedUse?.trim()
+      || !p.moreInfo?.trim()
+    )
+  } else if (onlyMissing) {
+    products = products.filter((p) =>
+      !p.description?.trim()
+      || !p.seoMetaDescription?.trim()
+      || !p.ingredients?.trim()
+      || !p.suggestedUse?.trim()
+    )
   }
 
-  const products = await Product.find(filter).sort({ updatedAt: 1 }).limit(limit || 500)
+  if (limit > 0) products = products.slice(0, limit)
   const delayMs = Number(process.env.PRODUCT_SEO_DELAY_MS || 1200)
   const summary = { scanned: products.length, enriched: 0, skipped: 0, errors: 0 }
 

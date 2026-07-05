@@ -10,7 +10,7 @@ const fs = require('fs')
 const path = require('path')
 const mongoose = require('mongoose')
 const { normalizeBarcode } = require('../services/barcodeProductLookupService')
-const { fixBarcodeProductCategories } = require('../services/barcodeCategoryFixService')
+const { fixBarcodeProductCategories, auditProductCategories } = require('../services/barcodeCategoryFixService')
 
 const DEFAULT_FILE = path.join(__dirname, '../../data/barcode-import-batch.csv')
 
@@ -20,13 +20,19 @@ function parseArgs(argv) {
     dryRun: false,
     limit: 0,
     all: false,
+    allPublished: false,
+    onlyUnresolved: false,
     forceOpenAi: false,
+    auditOnly: false,
   }
 
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--dry-run') args.dryRun = true
     else if (arg === '--all') args.all = true
+    else if (arg === '--all-published') args.allPublished = true
+    else if (arg === '--only-unresolved') args.onlyUnresolved = true
+    else if (arg === '--audit') args.auditOnly = true
     else if (arg === '--force-openai') args.forceOpenAi = true
     else if (arg === '--limit') args.limit = Number(argv[++i]) || 0
     else if (arg === '--file') args.file = path.resolve(argv[++i])
@@ -57,8 +63,17 @@ async function main() {
   }
 
   await mongoose.connect(process.env.MONGO_URI)
+
+  if (args.auditOnly) {
+    const audit = await auditProductCategories({ onlyPublished: !args.all })
+    console.log(JSON.stringify(audit, null, 2))
+    await mongoose.disconnect()
+    process.exit(0)
+  }
+
   console.log(`Category fix${args.dryRun ? ' [DRY RUN]' : ''}`)
   if (barcodes.length) console.log(`Barcodes: ${barcodes.length}`)
+  else if (args.allPublished || args.onlyUnresolved) console.log('Scope: all published products')
   console.log('MongoDB connected\n')
 
   const result = await fixBarcodeProductCategories({
@@ -66,6 +81,7 @@ async function main() {
     dryRun: args.dryRun,
     limit: args.limit,
     onlyPublished: !args.all,
+    onlyNeedsCategory: args.onlyUnresolved || args.allPublished,
     forceOpenAi: args.forceOpenAi,
   })
 
