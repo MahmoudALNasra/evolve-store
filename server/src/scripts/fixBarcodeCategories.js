@@ -58,7 +58,7 @@ async function main() {
   const args = parseArgs(process.argv)
   let barcodes = []
 
-  if (fs.existsSync(args.file)) {
+  if (!args.allPublished && !args.onlyUnresolved && fs.existsSync(args.file)) {
     barcodes = loadBarcodesFromCsv(args.file)
   }
 
@@ -72,8 +72,13 @@ async function main() {
   }
 
   console.log(`Category fix${args.dryRun ? ' [DRY RUN]' : ''}`)
-  if (barcodes.length) console.log(`Barcodes: ${barcodes.length}`)
-  else if (args.allPublished || args.onlyUnresolved) console.log('Scope: all published products')
+  if (args.allPublished || args.onlyUnresolved) {
+    console.log('Scope: all published products needing a category')
+  } else if (barcodes.length) {
+    console.log(`Barcodes: ${barcodes.length}`)
+  } else {
+    console.log('Scope: all published products')
+  }
   console.log('MongoDB connected\n')
 
   const result = args.allPublished
@@ -88,20 +93,28 @@ async function main() {
       dryRun: args.dryRun,
       limit: args.limit,
       onlyPublished: !args.all,
-      onlyNeedsCategory: args.onlyUnresolved || args.allPublished,
+      onlyNeedsCategory: args.onlyUnresolved,
       forceOpenAi: args.forceOpenAi,
     })
 
   console.log('\n--- Summary ---')
-  console.log(`Scanned: ${result.scanned}`)
-  console.log(`Changed: ${result.changed}`)
-  console.log(`Report: ${result.reportPath}`)
+  console.log(JSON.stringify({
+    scanned: result.scanned,
+    changed: result.changed,
+    batches: result.batches,
+    dryRun: result.dryRun,
+    reportPath: result.reportPath || result.reportPaths?.[result.reportPaths.length - 1],
+  }, null, 2))
 
-  for (const row of result.report.filter((r) => r.changed).slice(0, 20)) {
-    console.log(`✓ ${row.barcode} | ${row.before} → ${row.after} (${row.source})`)
+  if (Array.isArray(result.report)) {
+    for (const row of result.report.filter((r) => r.changed).slice(0, 20)) {
+      console.log(`✓ ${row.barcode} | ${row.before} → ${row.after} (${row.source})`)
+    }
+    const more = result.report.filter((r) => r.changed).length - 20
+    if (more > 0) console.log(`… and ${more} more`)
+  } else if (result.changed === 0 && result.scanned === 0) {
+    console.log('Nothing to do — all published products already have valid categories.')
   }
-  const more = result.report.filter((r) => r.changed).length - 20
-  if (more > 0) console.log(`… and ${more} more`)
 
   await mongoose.disconnect()
   process.exit(0)

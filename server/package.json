@@ -22,6 +22,7 @@
     "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",
     "product:optimize-descriptions:missing": "node src/scripts/optimizeProductDescriptions.js --only-missing",
     "product:optimize-descriptions:needs-work": "node src/scripts/optimizeProductDescriptions.js --needs-work --all",
+    "product:fix-titles": "node src/scripts/fixProductTitles.js",
     "product:catalog-audit": "node src/scripts/productCatalogAudit.js",
     "inventory:sync-master": "node src/scripts/syncMasterSheet.js",
     "inventory:sync": "node src/scripts/syncInventory.js",

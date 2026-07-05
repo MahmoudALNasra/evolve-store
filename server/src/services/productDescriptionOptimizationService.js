@@ -157,11 +157,14 @@ async function applyProductSeoUpdates(product, suggestion, options = {}) {
     }
   }
 
-  product.description = suggestion.suggested.descriptionDraft || product.description
-  product.descriptionDraft = suggestion.suggested.descriptionDraft
+  if (!options.titlesOnly) {
+    product.description = suggestion.suggested.descriptionDraft || product.description
+    product.descriptionDraft = suggestion.suggested.descriptionDraft
+    product.seoMetaDescription = suggestion.suggested.seoMetaDescription
+    product.seoFaqs = suggestion.suggested.seoFaqs
+  }
+
   product.seoTitle = suggestion.suggested.seoTitle.replace(/\s*\|\s*Evolve.*/i, '').trim()
-  product.seoMetaDescription = suggestion.suggested.seoMetaDescription
-  product.seoFaqs = suggestion.suggested.seoFaqs
   applyAutoTagsToPayload(product)
   await product.save()
 
@@ -226,15 +229,21 @@ async function optimizeProductsBatch(options = {}) {
   const dryRun = options.dryRun === true
   const onlyMissing = options.onlyMissing === true
   const onlyNeedsWork = options.onlyNeedsWork === true
+  const onlyBadTitles = options.onlyBadTitles === true
   const fixTitles = options.fixTitles !== false
   const delayMs = Number(process.env.PRODUCT_SEO_DELAY_MS || 1200)
 
   let products = await Product.find({ isPublished: true })
     .sort({ updatedAt: 1 })
-    .skip(onlyNeedsWork ? 0 : skip)
-    .limit(onlyNeedsWork ? 0 : limit)
+    .skip(onlyNeedsWork || onlyBadTitles ? 0 : skip)
+    .limit(onlyNeedsWork || onlyBadTitles ? 0 : limit)
 
-  if (onlyNeedsWork) {
+  if (onlyBadTitles) {
+    const all = await Product.find({ isPublished: true }).sort({ updatedAt: 1 })
+    products = all.filter((p) => shouldFixProductName(p.name))
+    if (skip > 0) products = products.slice(skip)
+    if (limit > 0) products = products.slice(0, limit)
+  } else if (onlyNeedsWork) {
     const all = await Product.find({ isPublished: true }).sort({ updatedAt: 1 })
     products = all.filter((p) => needsDescriptionOptimization(p))
     if (skip > 0) products = products.slice(skip)
@@ -263,7 +272,11 @@ async function optimizeProductsBatch(options = {}) {
       const suggestion = await suggestProductSeo(product)
       let titleUpdate = null
       if (!dryRun) {
-        titleUpdate = await applyProductSeoUpdates(product, suggestion, { fixTitles })
+        titleUpdate = await applyProductSeoUpdates(product, suggestion, {
+          fixTitles,
+          forceTitleFix: onlyBadTitles,
+          titlesOnly: onlyBadTitles,
+        })
       }
       optimized += 1
       report.push({
@@ -326,6 +339,7 @@ async function optimizeAllProducts(options = {}) {
     }
 
     if (options.onlyNeedsWork && result.optimized === 0) break
+    if (options.onlyBadTitles && result.optimized === 0) break
     if (!options.all) break
     if (!options.onlyNeedsWork && result.scanned < batchSize) break
   }
