@@ -17,6 +17,7 @@
     "blog:audit-images": "node src/scripts/blogAuditImages.js",
     "product:enrich-images": "node src/scripts/productEnrichImages.js",
     "product:enrich-images:all": "node src/scripts/productEnrichImages.js --all",
+    "product:enrich-images:missing": "node src/scripts/productEnrichImages.js --under-min",
     "product:mirror-images": "node src/scripts/productMirrorImages.js",
     "product:mirror-images:all": "node src/scripts/productMirrorImages.js --all",
     "product:optimize-descriptions": "node src/scripts/optimizeProductDescriptions.js",

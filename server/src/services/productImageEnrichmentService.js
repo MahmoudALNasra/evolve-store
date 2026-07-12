@@ -284,8 +284,23 @@ async function enrichProductsBatch(options = {}) {
   const dryRun = options.dryRun === true
   const force = options.force === true
   const onlyNeedsWork = options.onlyNeedsWork !== false
+  const onlyNoImages = options.onlyNoImages === true
+  const onlyUnderMin = options.onlyUnderMin === true
 
-  const products = await Product.find({ isPublished: true })
+  let query = { isPublished: true }
+  if (onlyNoImages) {
+    query = {
+      isPublished: true,
+      $or: [{ images: { $exists: false } }, { images: { $size: 0 } }],
+    }
+  } else if (onlyUnderMin) {
+    query = {
+      isPublished: true,
+      $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
+    }
+  }
+
+  const products = await Product.find(query)
     .sort({ updatedAt: 1 })
     .skip(skip)
     .limit(limit)
@@ -295,7 +310,7 @@ async function enrichProductsBatch(options = {}) {
   let updated = 0
 
   for (const product of products) {
-    if (onlyNeedsWork && !force) {
+    if (onlyNeedsWork && !force && !onlyNoImages && !onlyUnderMin) {
       const { good, broken } = await classifyProductImages(product)
       const allLocal = good.length > 0 && !hasExternalWorkingImages(good)
       if (good.length >= MIN_IMAGES && broken.length === 0 && allLocal) {
@@ -336,6 +351,57 @@ async function enrichProductsBatch(options = {}) {
     maxImages: MAX_IMAGES,
     results,
   }
+}
+
+/** Enrich published products under MIN_IMAGES until the queue is empty. */
+async function enrichAllProductsUnderMin(options = {}) {
+  const batchSize = Number(options.limit || process.env.PRODUCT_IMAGE_BATCH_LIMIT || 25)
+  const onlyNoImages = options.onlyNoImages === true
+  const totals = {
+    batches: 0,
+    scanned: 0,
+    updated: 0,
+    skipped: 0,
+    errors: 0,
+    partial: 0,
+    dryRun: options.dryRun === true,
+    minImages: MIN_IMAGES,
+  }
+
+  while (true) {
+    const result = await enrichProductsBatch({
+      ...options,
+      limit: batchSize,
+      skip: 0,
+      onlyNeedsWork: false,
+      onlyUnderMin: !onlyNoImages,
+      onlyNoImages,
+      force: true,
+    })
+
+    if (result.scanned === 0) break
+
+    totals.batches += 1
+    totals.scanned += result.scanned
+    totals.updated += result.updated
+    totals.skipped += result.skipped
+    totals.errors += result.results.filter((r) => r.status === 'error').length
+    totals.partial += result.results.filter((r) => r.status === 'partial' || r.status === 'needs_more').length
+
+    console.log(
+      `[enrich batch ${totals.batches}] scanned=${result.scanned} updated=${result.updated} ` +
+      `partial=${result.results.filter((r) => r.status === 'partial' || r.status === 'needs_more').length} ` +
+      `(total: ${totals.scanned})`
+    )
+
+    for (const row of result.results.filter((r) => r.status === 'updated' || r.afterCount > 0).slice(0, 5)) {
+      console.log(`  ✓ ${row.productName?.slice(0, 50)} → ${row.afterCount} images`)
+    }
+
+    if (result.updated === 0 && result.scanned > 0) break
+  }
+
+  return totals
 }
 
 /** Process every published product in batches until the catalog is exhausted. */
@@ -474,4 +540,5 @@ module.exports = {
   enrichProductImages,
   enrichProductsBatch,
   enrichAllProducts,
+  enrichAllProductsUnderMin,
 }

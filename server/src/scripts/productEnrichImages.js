@@ -4,6 +4,7 @@ const Product = require('../models/Product')
 const {
   enrichProductsBatch,
   enrichAllProducts,
+  enrichAllProductsUnderMin,
   MIN_IMAGES,
   MAX_IMAGES,
 } = require('../services/productImageEnrichmentService')
@@ -17,6 +18,8 @@ function parseArgs(argv) {
     force: false,
     onlyNeedsWork: true,
     all: false,
+    underMin: false,
+    noImages: false,
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -33,6 +36,10 @@ function parseArgs(argv) {
       args.force = true
     } else if (arg === '--all') {
       args.all = true
+    } else if (arg === '--under-min') {
+      args.underMin = true
+    } else if (arg === '--no-images') {
+      args.noImages = true
     }
   }
 
@@ -49,13 +56,22 @@ async function printStats() {
     isPublished: true,
     $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
   })
+  const noImages = await Product.countDocuments({
+    isPublished: true,
+    $or: [{ images: { $size: 0 } }, { images: { $exists: false } }],
+  })
+  const underMin = await Product.countDocuments({
+    isPublished: true,
+    $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
+  })
 
   console.log('--- Catalog stats ---')
   console.log(`Min images required: ${MIN_IMAGES}`)
   console.log(`Published products: ${total}`)
   console.log(`With ${MIN_IMAGES}+ images: ${withMin} / ${total}`)
   console.log(`With local /media/ paths: ${withLocal}`)
-  console.log(`Still under ${MIN_IMAGES}: ${total - withMin}`)
+  console.log(`No images: ${noImages}`)
+  console.log(`Under ${MIN_IMAGES} images: ${underMin}`)
 }
 
 async function main() {
@@ -74,7 +90,16 @@ async function main() {
 
   await printStats()
 
-  if (args.all) {
+  if (args.underMin || args.noImages) {
+    const mode = args.noImages ? 'no images' : `under ${MIN_IMAGES} images`
+    console.log(`\nEnriching published products with ${mode} (batch ${args.limit})...\n`)
+    const result = await enrichAllProductsUnderMin({
+      ...args,
+      onlyNoImages: args.noImages,
+    })
+    console.log('\n--- Finished ---')
+    console.log(JSON.stringify(result, null, 2))
+  } else if (args.all) {
     console.log(`\nProcessing ALL published products (batch size ${args.limit})...\n`)
     const result = await enrichAllProducts(args)
     console.log('\n--- Finished ---')
