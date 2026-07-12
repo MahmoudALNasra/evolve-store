@@ -278,6 +278,25 @@ async function enrichProductImages(product, options = {}) {
   }
 }
 
+function buildImageEnrichQuery(options = {}) {
+  const base = options.includeUnpublished ? {} : { isPublished: true }
+
+  if (options.onlyNoImages) {
+    return {
+      ...base,
+      $or: [{ images: { $exists: false } }, { images: { $size: 0 } }],
+    }
+  }
+  if (options.onlyUnderMin) {
+    return {
+      ...base,
+      $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
+    }
+  }
+
+  return Object.keys(base).length ? base : { isPublished: true }
+}
+
 async function enrichProductsBatch(options = {}) {
   const limit = Number(options.limit || 25)
   const skip = Number(options.skip || 0)
@@ -286,19 +305,13 @@ async function enrichProductsBatch(options = {}) {
   const onlyNeedsWork = options.onlyNeedsWork !== false
   const onlyNoImages = options.onlyNoImages === true
   const onlyUnderMin = options.onlyUnderMin === true
+  const includeUnpublished = options.includeUnpublished === true
 
-  let query = { isPublished: true }
-  if (onlyNoImages) {
-    query = {
-      isPublished: true,
-      $or: [{ images: { $exists: false } }, { images: { $size: 0 } }],
-    }
-  } else if (onlyUnderMin) {
-    query = {
-      isPublished: true,
-      $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
-    }
-  }
+  const query = buildImageEnrichQuery({
+    includeUnpublished,
+    onlyNoImages,
+    onlyUnderMin,
+  })
 
   const products = await Product.find(query)
     .sort({ updatedAt: 1 })
@@ -353,7 +366,7 @@ async function enrichProductsBatch(options = {}) {
   }
 }
 
-/** Enrich published products under MIN_IMAGES until the queue is empty. */
+/** Enrich products under MIN_IMAGES until the queue is empty. */
 async function enrichAllProductsUnderMin(options = {}) {
   const batchSize = Number(options.limit || process.env.PRODUCT_IMAGE_BATCH_LIMIT || 25)
   const onlyNoImages = options.onlyNoImages === true

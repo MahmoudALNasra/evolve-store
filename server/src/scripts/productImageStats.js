@@ -3,31 +3,40 @@ const connectDB = require('../config/db')
 const Product = require('../models/Product')
 const { MIN_IMAGES } = require('../services/productImageEnrichmentService')
 
+async function countFor(filter) {
+  const total = await Product.countDocuments(filter)
+  const withMin = await Product.countDocuments({
+    ...filter,
+    $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
+  })
+  const withLocal = await Product.countDocuments({
+    ...filter,
+    'images.url': /^\/media\/products\//,
+  })
+  const noImages = await Product.countDocuments({
+    ...filter,
+    $or: [{ images: { $size: 0 } }, { images: { $exists: false } }],
+  })
+  const underMin = await Product.countDocuments({
+    ...filter,
+    $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
+  })
+
+  return { total, withMin, withLocal, noImages, underMin }
+}
+
 async function main() {
   await connectDB()
 
-  const total = await Product.countDocuments({ isPublished: true })
-  const withLocal = await Product.countDocuments({
-    isPublished: true,
-    'images.url': /^\/media\/products\//,
-  })
-  const withMin = await Product.countDocuments({
-    isPublished: true,
-    $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
-  })
-  const noImages = await Product.countDocuments({
-    isPublished: true,
-    $or: [{ images: { $size: 0 } }, { images: { $exists: false } }],
-  })
+  const published = await countFor({ isPublished: true })
+  const unpublished = await countFor({ isPublished: false })
+  const all = await countFor({})
 
   console.log(JSON.stringify({
     minImagesRequired: MIN_IMAGES,
-    publishedProducts: total,
-    withMinImages: withMin,
-    withLocalMedia: withLocal,
-    noImages,
-    stillNeedWork: total - withMin,
-    percentComplete: total ? Math.round((withMin / total) * 100) : 0,
+    published,
+    unpublished,
+    all,
   }, null, 2))
 
   process.exit(0)

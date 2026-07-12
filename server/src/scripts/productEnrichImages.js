@@ -20,6 +20,8 @@ function parseArgs(argv) {
     all: false,
     underMin: false,
     noImages: false,
+    includeUnpublished: false,
+    publishedOnly: false,
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -40,38 +42,60 @@ function parseArgs(argv) {
       args.underMin = true
     } else if (arg === '--no-images') {
       args.noImages = true
+    } else if (arg === '--include-unpublished') {
+      args.includeUnpublished = true
+    } else if (arg === '--published-only') {
+      args.publishedOnly = true
     }
+  }
+
+  if (args.underMin || args.noImages) {
+    if (!args.publishedOnly) args.includeUnpublished = true
   }
 
   return args
 }
 
-async function printStats() {
-  const total = await Product.countDocuments({ isPublished: true })
-  const withLocal = await Product.countDocuments({
-    isPublished: true,
-    'images.url': /^\/media\/products\//,
-  })
-  const withMin = await Product.countDocuments({
-    isPublished: true,
+async function printStats(includeUnpublished = false) {
+  const publishedFilter = { isPublished: true }
+  const allFilter = includeUnpublished ? {} : publishedFilter
+
+  const totalPublished = await Product.countDocuments(publishedFilter)
+  const totalAll = includeUnpublished
+    ? await Product.countDocuments({})
+    : totalPublished
+  const unpublished = includeUnpublished ? totalAll - totalPublished : 0
+
+  const withMinPublished = await Product.countDocuments({
+    ...publishedFilter,
     $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
   })
-  const noImages = await Product.countDocuments({
-    isPublished: true,
+  const withMinAll = await Product.countDocuments({
+    ...allFilter,
+    $expr: { $gte: [{ $size: '$images' }, MIN_IMAGES] },
+  })
+  const noImagesAll = await Product.countDocuments({
+    ...allFilter,
     $or: [{ images: { $size: 0 } }, { images: { $exists: false } }],
   })
-  const underMin = await Product.countDocuments({
-    isPublished: true,
+  const underMinAll = await Product.countDocuments({
+    ...allFilter,
     $expr: { $lt: [{ $size: { $ifNull: ['$images', []] } }, MIN_IMAGES] },
   })
 
   console.log('--- Catalog stats ---')
   console.log(`Min images required: ${MIN_IMAGES}`)
-  console.log(`Published products: ${total}`)
-  console.log(`With ${MIN_IMAGES}+ images: ${withMin} / ${total}`)
-  console.log(`With local /media/ paths: ${withLocal}`)
-  console.log(`No images: ${noImages}`)
-  console.log(`Under ${MIN_IMAGES} images: ${underMin}`)
+  console.log(`Published products: ${totalPublished}`)
+  if (includeUnpublished) {
+    console.log(`Unpublished products: ${unpublished}`)
+    console.log(`Total catalog: ${totalAll}`)
+  }
+  console.log(`With ${MIN_IMAGES}+ images (published): ${withMinPublished} / ${totalPublished}`)
+  if (includeUnpublished) {
+    console.log(`With ${MIN_IMAGES}+ images (all): ${withMinAll} / ${totalAll}`)
+  }
+  console.log(`No images${includeUnpublished ? ' (all)' : ''}: ${noImagesAll}`)
+  console.log(`Under ${MIN_IMAGES} images${includeUnpublished ? ' (all)' : ''}: ${underMinAll}`)
 }
 
 async function main() {
@@ -88,11 +112,12 @@ async function main() {
   console.log(`Absolute URLs for feeds use SITE_URL: ${getSiteOrigin()}`)
   console.log(`Target: ${MIN_IMAGES}-${MAX_IMAGES} images per product`)
 
-  await printStats()
+  await printStats(args.includeUnpublished)
 
   if (args.underMin || args.noImages) {
+    const scope = args.includeUnpublished ? 'all products (published + unpublished)' : 'published products only'
     const mode = args.noImages ? 'no images' : `under ${MIN_IMAGES} images`
-    console.log(`\nEnriching published products with ${mode} (batch ${args.limit})...\n`)
+    console.log(`\nEnriching ${scope} with ${mode} (batch ${args.limit})...\n`)
     const result = await enrichAllProductsUnderMin({
       ...args,
       onlyNoImages: args.noImages,
@@ -112,7 +137,7 @@ async function main() {
     console.log(JSON.stringify(result, null, 2))
   }
 
-  await printStats()
+  await printStats(args.includeUnpublished)
   process.exit(0)
 }
 
