@@ -8,19 +8,22 @@ const { shouldFixProductName } = require('../utils/productNameQuality')
 async function main() {
   await connectDB()
 
-  const descriptions = await auditDescriptionQuality()
-  const categories = await auditProductCategories()
+  const includeUnpublished = process.argv.includes('--include-unpublished')
+  const descriptions = await auditDescriptionQuality({ includeUnpublished })
+  const categories = await auditProductCategories({ onlyPublished: !includeUnpublished })
 
   const Product = require('../models/Product')
-  const published = await Product.find({ isPublished: true }).select('name').lean()
-  const badTitles = published.filter((p) => shouldFixProductName(p.name)).length
+  const filter = includeUnpublished ? {} : { isPublished: true }
+  const products = await Product.find(filter).select('name').lean()
+  const badTitles = products.filter((p) => shouldFixProductName(p.name)).length
 
   console.log('--- Catalog quality audit ---')
   console.log(JSON.stringify({
+    scope: includeUnpublished ? 'all products' : 'published only',
     titles: {
-      total: published.length,
+      total: products.length,
       needsFix: badTitles,
-      optimized: published.length - badTitles,
+      optimized: products.length - badTitles,
       rule: 'Bad if Amazon/Walmart junk, Seller StoreFront, too long, or truncated with ...',
     },
     descriptions: {

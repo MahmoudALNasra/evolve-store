@@ -207,6 +207,70 @@ async function pushWebsiteProductToMasterRow(rowNumber, product) {
   }))
 }
 
+const WRITE_CHUNK_SIZE = Number(process.env.GOOGLE_SHEETS_WRITE_CHUNK || 200)
+
+/**
+ * Clear Products tab A:O values and write a full matrix (header + rows).
+ * Preserves formatting / columns beyond O.
+ */
+async function replaceMasterProductsTab(matrix, options = {}) {
+  const sheetId = options.sheetId || getStockSheetId()
+  const sheetName = options.sheetName || getStockSheetName()
+  const clearRange = options.clearRange || sheetRange(sheetName, 'A:O')
+  const sheets = await getSheetsClient()
+
+  if (!Array.isArray(matrix) || matrix.length < 1) {
+    throw new Error('replaceMasterProductsTab requires a non-empty values matrix')
+  }
+
+  await throttledSheetWrite(() => sheets.spreadsheets.values.clear({
+    spreadsheetId: sheetId,
+    range: clearRange,
+  }))
+
+  let written = 0
+  for (let i = 0; i < matrix.length; i += WRITE_CHUNK_SIZE) {
+    const chunk = matrix.slice(i, i + WRITE_CHUNK_SIZE)
+    const startRow = i + 1
+    const endRow = startRow + chunk.length - 1
+    const range = sheetRange(sheetName, `A${startRow}:O${endRow}`)
+
+    await throttledSheetWrite(() => sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: chunk },
+    }))
+
+    written += chunk.length
+  }
+
+  return {
+    sheetId,
+    sheetName,
+    rowsWritten: written,
+    dataRows: Math.max(0, written - 1),
+  }
+}
+
+async function readMasterProductsMatrix(options = {}) {
+  const sheetId = options.sheetId || getStockSheetId()
+  const sheetName = options.sheetName || getStockSheetName()
+  const range = options.range || sheetRange(sheetName, 'A:O')
+  const sheets = await getSheetsClient()
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range,
+  })
+
+  return {
+    sheetId,
+    sheetName,
+    values: response.data.values || [],
+  }
+}
+
 async function updateMerchantFeedLinkCell(rowNumber, productUrl) {
   const sheetId = getMerchantFeedSheetId()
   if (!sheetId || !productUrl) return { skipped: true }
@@ -232,6 +296,8 @@ module.exports = {
   fetchMasterProductRows,
   updateStockCell,
   pushWebsiteProductToMasterRow,
+  replaceMasterProductsTab,
+  readMasterProductsMatrix,
   updateMerchantFeedLinkCell,
   getSheetId,
   getSheetName,
