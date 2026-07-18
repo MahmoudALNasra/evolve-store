@@ -30,29 +30,48 @@ function getOpenAiConfig() {
 
 async function callOpenAi(messages) {
   const { apiKey, model, baseUrl } = getOpenAiConfig()
-  const { data } = await axios.post(
-    `${baseUrl}/chat/completions`,
-    {
-      model,
-      messages,
-      response_format: { type: 'json_object' },
-      temperature: 0.4,
-    },
-    {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      timeout: Number(process.env.OPENAI_TIMEOUT_MS || 60000),
-    }
-  )
+  let data
+  try {
+    ;({ data } = await axios.post(
+      `${baseUrl}/chat/completions`,
+      {
+        model,
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.4,
+      },
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: Number(process.env.OPENAI_TIMEOUT_MS || 60000),
+      }
+    ))
+  } catch (err) {
+    const detail = err.response?.data?.error?.message || err.response?.statusText
+    const status = err.response?.status
+    throw new Error(
+      `OpenAI request failed${status ? ` (HTTP ${status})` : ''}: ${detail || err.message} [model=${model}]`
+    )
+  }
   const content = data.choices?.[0]?.message?.content
   if (!content) throw new Error('Empty OpenAI response')
   return JSON.parse(content)
 }
 
 async function fetchSerpSnippets(product) {
-  const brand = getProductBrand(product)
-  const query = [product.name, brand].filter(Boolean).join(' ')
-  const results = await searchWeb(query, { num: 5 })
-  return results.slice(0, 5).map((r) => r.snippet || r.title || '').filter(Boolean)
+  // SERP snippets are reference-only. A Serper outage / quota error must not
+  // block OpenAI SEO generation, so failures degrade to an empty list.
+  try {
+    const brand = getProductBrand(product)
+    const query = [product.name, brand].filter(Boolean).join(' ')
+    const results = await searchWeb(query, { num: 5 })
+    return results.slice(0, 5).map((r) => r.snippet || r.title || '').filter(Boolean)
+  } catch (err) {
+    if (!fetchSerpSnippets._warned) {
+      console.warn(`Serper search unavailable, continuing SEO without snippets: ${err.message}`)
+      fetchSerpSnippets._warned = true
+    }
+    return []
+  }
 }
 
 function buildOptimizationPrompt(product, serpSnippets, options = {}) {
@@ -296,6 +315,9 @@ async function optimizeProductsBatch(options = {}) {
       await new Promise((r) => setTimeout(r, delayMs))
     } catch (err) {
       errors += 1
+      if (errors <= 3) {
+        console.warn(`SEO optimize failed for "${product.name?.slice(0, 50)}": ${err.message}`)
+      }
       report.push({
         productId: product._id,
         slug: product.slug,
@@ -303,6 +325,11 @@ async function optimizeProductsBatch(options = {}) {
         error: err.message,
       })
     }
+  }
+
+  if (errors > 0) {
+    const firstError = report.find((r) => r.error)?.error
+    console.warn(`SEO batch finished with ${errors} error(s). First error: ${firstError}`)
   }
 
   const outDir = path.join(__dirname, '../../reports')
