@@ -63,6 +63,12 @@ server/media/products/
 *.dump
 dump/
 
+# Local inventory / import artifacts (never commit)
+server/data/*-log.txt
+server/data/*.tsv
+server/data/*.csv
+server/reports/
+
 # Stripe CLI (local webhook forwarding secrets)
 .stripe/
 

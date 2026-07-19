@@ -3,6 +3,12 @@ function cleanText(value) {
   return String(value).trim()
 }
 
+/** Valid retail UPC/EAN/GTIN — digits only, 8–14 characters. */
+function isValidBarcode(barcode) {
+  const bc = cleanText(barcode)
+  return /^\d{8,14}$/.test(bc)
+}
+
 /** Reject rows where Name is empty or is only the barcode digits. */
 function isValidSheetProductName(name, barcode) {
   const n = cleanText(name)
@@ -47,6 +53,7 @@ function dedupeSheetEntries(entries) {
 
 module.exports = {
   cleanText,
+  isValidBarcode,
   isValidSheetProductName,
   productCompletenessScore,
   dedupeSheetEntries,
