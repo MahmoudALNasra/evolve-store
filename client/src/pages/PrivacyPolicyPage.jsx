@@ -65,6 +65,31 @@ export default function PrivacyPolicyPage() {
         </p>
 
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1c2b1c', marginTop: 40, marginBottom: 16 }}>
+          Cookies:
+        </h2>
+        <p style={{ marginBottom: 20 }}>
+          We use cookies and similar technologies on <strong>https://evolvepharmacy.com</strong>. You can
+          choose <strong>Accept all</strong>, <strong>Accept necessary</strong>, or customize categories
+          via the cookie banner (or Cookie preferences in the footer).
+        </p>
+        <ul style={{ marginBottom: 20, paddingLeft: 24, listStyleType: 'disc' }}>
+          <li style={{ marginBottom: 8 }}>
+            <strong>Necessary</strong> — required for security, login, cart, and checkout. Always on.
+          </li>
+          <li style={{ marginBottom: 8 }}>
+            <strong>Analytics</strong> — first-party usage analytics and related measurement (only with your consent).
+          </li>
+          <li style={{ marginBottom: 8 }}>
+            <strong>Marketing</strong> — advertising / campaign measurement tags such as Google Tag Manager
+            tags that require marketing consent (only with your consent).
+          </li>
+        </ul>
+        <p style={{ marginBottom: 20 }}>
+          If you decline analytics and marketing, we will not load those optional tags. You can change your
+          choice at any time using Cookie preferences.
+        </p>
+
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1c2b1c', marginTop: 40, marginBottom: 16 }}>
           Links to other websites:
         </h2>
         <p style={{ marginBottom: 20 }}>

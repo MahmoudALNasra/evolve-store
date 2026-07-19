@@ -4,6 +4,7 @@ import { Mail, Shield, Truck, RefreshCw, Pill, ArrowRightLeft } from 'lucide-rea
 import Logo from './Logo'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
+import { openCookiePreferences } from '../lib/cookieConsent'
 
 export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('')
@@ -83,6 +84,11 @@ export default function Footer() {
             <li><Link to="/about">About Us</Link></li>
             <li><Link to="/contact">Contact Us</Link></li>
             <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+            <li>
+              <button type="button" className="footer-cookie-btn" onClick={openCookiePreferences}>
+                Cookie preferences
+              </button>
+            </li>
           </ul>
         </div>
 

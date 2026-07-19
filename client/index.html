@@ -37,29 +37,23 @@
       }
     </script>
 
-    <!-- [GTM] dataLayer bootstrap — product page pushes view_item / add_to_cart from React -->
-    <script>window.dataLayer = window.dataLayer || [];</script>
-    <!-- [GTM] Container GTM-PV2RLR9P (head) — GA4 via GTM only; no gtag.js -->
+    <!-- Consent Mode defaults denied until banner choice; GTM loads after accept (cookieConsent.js) -->
     <script>
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','GTM-PV2RLR9P');
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
+      window.__evolveConsentDefaults = true;
     </script>
   </head>
   <body>
-    <!-- [GTM] Container GTM-PV2RLR9P (noscript fallback) -->
-    <noscript>
-      <iframe
-        src="https://www.googletagmanager.com/ns.html?id=GTM-PV2RLR9P"
-        height="0"
-        width="0"
-        style="display:none;visibility:hidden"
-        title="Google Tag Manager"
-      ></iframe>
-    </noscript>
-
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

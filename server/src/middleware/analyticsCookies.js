@@ -11,13 +11,20 @@ function cookieOptions(maxAge) {
     process.env.ANALYTICS_COOKIE_SECURE === 'true' ||
     (process.env.ANALYTICS_COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production')
 
-  return {
+  const options = {
     httpOnly: true,
     secure,
-    sameSite: 'strict',
+    // Lax works for same-site SPA + HTTPS API on evolvepharmacy.com
+    sameSite: process.env.ANALYTICS_COOKIE_SAMESITE || 'lax',
     path: '/',
     maxAge,
   }
+
+  // Optional: share cookies across apex + www (e.g. .evolvepharmacy.com)
+  const domain = String(process.env.COOKIE_DOMAIN || '').trim()
+  if (domain) options.domain = domain
+
+  return options
 }
 
 /**

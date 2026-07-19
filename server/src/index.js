@@ -50,9 +50,10 @@ app.use('/api/webhooks', webhookRoutes)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
+const { corsOriginCallback } = require('./utils/corsOrigins')
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: corsOriginCallback,
     credentials: true,
   })
 )

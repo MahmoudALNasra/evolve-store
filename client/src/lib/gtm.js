@@ -1,17 +1,26 @@
 /**
  * Google Tag Manager & GA4 ecommerce dataLayer helpers.
  * GA4 is deployed via GTM — no gtag.js here.
+ * GTM script loads only after analytics/marketing cookie consent.
  */
+
+import { allowsGtm, loadGtmIfAllowed } from './cookieConsent'
 
 export const GTM_ID = 'GTM-PV2RLR9P'
 export const GA4_CURRENCY = 'USD'
 export const GA4_AFFILIATION = 'Evolve Specialty Pharmacy & Wellness'
 export const GA4_ITEM_BRAND = 'Evolve Specialty Pharmacy & Wellness'
 
-/** Ensure dataLayer exists (GTM also initializes this in index.html). */
+/** Ensure dataLayer exists (GTM loads after cookie consent). */
 export function ensureDataLayer() {
   window.dataLayer = window.dataLayer || []
   return window.dataLayer
+}
+
+function canPushEcommerce() {
+  if (!allowsGtm()) return false
+  loadGtmIfAllowed()
+  return true
 }
 
 /**
@@ -62,6 +71,8 @@ function getDefaultItemVariant(product) {
  * GA4 view_item — call once when the product page has loaded product data.
  */
 export function pushViewItem(product, quantity = 1) {
+  if (!canPushEcommerce()) return
+
   const items = [buildGA4Item(product, { quantity, index: 0 })]
   const value = Number((items[0].price * quantity).toFixed(2))
 
@@ -92,6 +103,8 @@ export function pushViewItem(product, quantity = 1) {
  * @param {object} [options] - optional coupon, itemVariant
  */
 export function pushAddToCart(product, quantity = 1, options = {}) {
+  if (!canPushEcommerce()) return
+
   const items = [
     buildGA4Item(product, {
       quantity,

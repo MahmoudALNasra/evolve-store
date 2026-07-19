@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './store/useAuthStore'
 
@@ -12,7 +12,9 @@ import EmailCaptureModal from './components/EmailCaptureModal'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import ScrollRestoration from './components/ScrollRestoration'
 import AnalyticsTracker from './components/AnalyticsTracker'
+import CookieBanner from './components/CookieBanner'
 import AdminLayout from './components/admin/AdminLayout'
+import { initCookieConsentRuntime } from './lib/cookieConsent'
 
 // Storefront pages
 import HomePage from './pages/HomePage'
@@ -59,16 +61,26 @@ function StorefrontLayout({ children }) {
   )
 }
 
+function StorefrontCookieBanner() {
+  const { pathname } = useLocation()
+  if (pathname.startsWith('/admin')) return null
+  return <CookieBanner />
+}
+
 export default function App() {
   const init = useAuthStore((s) => s.init)
 
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    initCookieConsentRuntime()
+    init()
+  }, [])
 
   return (
     <BrowserRouter>
       <AnalyticsTracker />
       <ScrollRestoration />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+      <StorefrontCookieBanner />
       <Routes>
         {/* Auth pages (no layout) */}
         <Route path="/login" element={<LoginPage />} />
