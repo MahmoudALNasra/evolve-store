@@ -60,6 +60,7 @@ function mapWebsiteProductToSheetRow(product = {}) {
   const extraImages = images.slice(1).join(', ')
   const { activeIngredient, dosageForm } = parseIngredientsParts(product.ingredients)
   const price = Number(product.price)
+  const roundedPrice = Number.isFinite(price) ? Number(price.toFixed(2)) : 0
   const stock = Number(product.stock) || 0
 
   return {
@@ -69,12 +70,12 @@ function mapWebsiteProductToSheetRow(product = {}) {
     active_ingredient: activeIngredient,
     dosage_form: dosageForm,
     package_ndc: parsePackageNdc(product.moreInfo),
-    'price (API)': '',
+    'price (API)': roundedPrice,
     'Image URLs': primaryImage,
     'Desc.': cleanText(product.description),
     Stock: stock,
     'Google Category': cleanText(product.category),
-    'Price (Local)': Number.isFinite(price) ? Number(price.toFixed(2)) : 0,
+    'Price (Local)': roundedPrice,
     'Stock Alert': '',
     'image (extra)': extraImages,
     MPN: cleanText(product.sku),
