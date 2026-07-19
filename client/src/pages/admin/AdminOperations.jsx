@@ -8,6 +8,7 @@ import {
   PackagePlus,
   Trash2,
   Combine,
+  Rocket,
   Play,
   Loader2,
 } from 'lucide-react'
@@ -15,6 +16,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 
 const JOB_ICONS = {
+  'rebuild-frontend': Rocket,
   'sync-sheet': FileSpreadsheet,
   'delete-unpublished': Trash2,
   'purge-unpublished-and-sync': Combine,
@@ -37,6 +39,9 @@ function formatDuration(ms) {
 
 function summarizeResult(job, result) {
   if (!result || typeof result !== 'object') return null
+  if (job === 'rebuild-frontend') {
+    return result.summary || (result.ok ? 'Storefront rebuilt' : 'Rebuild failed')
+  }
   if (job === 'purge-unpublished-and-sync') {
     return result.summary
       || `${result.dryRun ? 'Dry run' : 'Done'}: delete ${result.deleted?.matched ?? 0}, sheet ${result.sheet?.productCount ?? '—'}`
@@ -101,6 +106,13 @@ export default function AdminOperations() {
 
   const startJob = async (job, supportsDryRun) => {
     const dryRun = supportsDryRun && Boolean(dryRunByJob[job])
+
+    if (job === 'rebuild-frontend') {
+      const ok = window.confirm(
+        'This will run on the server:\n\n  git pull --ff-only\n  cd client && npm run build\n\nTakes 1–3 minutes. Continue?'
+      )
+      if (!ok) return
+    }
 
     if (!dryRun && DESTRUCTIVE_JOBS.has(job)) {
       const unpublished = status?.counts?.unpublished ?? '?'
@@ -176,9 +188,10 @@ export default function AdminOperations() {
 
   const orderedJobs = [...jobs].sort((a, b) => {
     const rank = (job) => {
-      if (job === 'purge-unpublished-and-sync') return 0
-      if (job === 'delete-unpublished') return 1
-      if (job === 'sync-sheet') return 2
+      if (job === 'rebuild-frontend') return 0
+      if (job === 'purge-unpublished-and-sync') return 1
+      if (job === 'delete-unpublished') return 2
+      if (job === 'sync-sheet') return 3
       return 10
     }
     return rank(a.job) - rank(b.job)
@@ -299,7 +312,12 @@ export default function AdminOperations() {
           const busy = Boolean(running) || Boolean(startingJob)
           const summary = last?.status === 'done' ? summarizeResult(def.job, last.result) : null
           const dryRunOn = Boolean(dryRunByJob[def.job])
-          const highlight = def.job === 'purge-unpublished-and-sync'
+          const highlight = def.job === 'rebuild-frontend' || def.job === 'purge-unpublished-and-sync'
+          const highlightLabel = def.job === 'rebuild-frontend'
+            ? '  ← after git push'
+            : def.job === 'purge-unpublished-and-sync'
+              ? '  ← use this'
+              : ''
 
           return (
             <div
@@ -327,7 +345,7 @@ export default function AdminOperations() {
                   <div>
                     <h2 className="admin-card-title" style={{ marginBottom: 4 }}>
                       {def.label}
-                      {highlight ? '  ← use this' : ''}
+                      {highlightLabel}
                     </h2>
                     <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
                       {def.description}

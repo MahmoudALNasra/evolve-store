@@ -5,6 +5,21 @@
  */
 
 const JOBS = {
+  'rebuild-frontend': {
+    label: 'Pull + rebuild storefront',
+    description: 'Runs git pull --ff-only on the server, then npm run build in client/. Use after you push commits so blog/CSS/admin UI updates go live. Takes 1–3 minutes.',
+    supportsDryRun: false,
+    run: async (params = {}) => {
+      const { deployFrontend } = require('./deployFrontendService')
+      const result = await deployFrontend({ skipPull: params.skipPull === true })
+      if (!result.ok) {
+        const err = new Error(result.summary || 'Frontend deploy failed')
+        err.deployResult = result
+        throw err
+      }
+      return result
+    },
+  },
   'sync-sheet': {
     label: 'Push catalog to Google Sheet',
     description: 'Backup the Products tab, then replace it with published website products only.',
@@ -258,7 +273,8 @@ async function runOpsJob(job, params = {}) {
     }
   } catch (err) {
     console.error(`Admin ops job "${job}" failed:`, err)
-    recordRun({ job, label: def.label, startedAt, params, error: err.message })
+    const result = err.deployResult || undefined
+    recordRun({ job, label: def.label, startedAt, params, result, error: err.message })
     return {
       ok: false,
       status: 500,
@@ -267,6 +283,7 @@ async function runOpsJob(job, params = {}) {
       label: def.label,
       dryRun,
       message: err.message || 'Job failed',
+      result,
     }
   } finally {
     state.running = null
