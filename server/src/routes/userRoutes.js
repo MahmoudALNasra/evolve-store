@@ -31,6 +31,33 @@ router.put('/profile', protect, async (req, res) => {
   res.json(user)
 })
 
+// PUT /api/users/password  — change own password
+router.put('/password', protect, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters' })
+  }
+
+  const user = await User.findById(req.user._id).select('+password')
+  if (!user) return res.status(404).json({ message: 'User not found' })
+
+  // Google-OAuth accounts have no password yet; let them set one directly.
+  if (user.password) {
+    if (!currentPassword) {
+      return res.status(400).json({ message: 'Current password is required' })
+    }
+    const matches = await user.matchPassword(currentPassword)
+    if (!matches) {
+      return res.status(401).json({ message: 'Current password is incorrect' })
+    }
+  }
+
+  user.password = newPassword
+  await user.save()
+  res.json({ message: 'Password updated' })
+})
+
 // PUT /api/users/:id/role  — admin: toggle role
 router.put('/:id/role', protect, admin, async (req, res) => {
   const { role } = req.body
