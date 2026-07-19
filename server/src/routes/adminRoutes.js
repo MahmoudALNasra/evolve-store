@@ -13,7 +13,7 @@ const {
 } = require('../services/adminAnalyticsService')
 const { syncMasterSheetToProductsTab } = require('../services/masterSheetSyncService')
 const { syncWebsiteToMasterSheet } = require('../services/websiteToMasterSheetSyncService')
-const { startOpsJob, getOpsStatus } = require('../services/adminOpsService')
+const { runOpsJob, getOpsStatus } = require('../services/adminOpsService')
 const StoreSettings = require('../models/StoreSettings')
 
 const router = express.Router()
@@ -192,18 +192,26 @@ router.post('/sheets/push-website', protect, admin, async (req, res) => {
   }
 })
 
-// GET /api/admin/ops — list jobs + running/last-run status
+// GET /api/admin/ops — list jobs + running/last-run status + catalog counts
 router.get('/ops', protect, admin, async (req, res) => {
-  res.json(await getOpsStatus())
+  try {
+    res.json(await getOpsStatus())
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to load ops status' })
+  }
 })
 
-// POST /api/admin/ops/:job — start a long-running ops job (one at a time)
-router.post('/ops/:job', protect, admin, (req, res) => {
-  const started = startOpsJob(req.params.job, req.body || {})
-  if (!started.ok) {
-    return res.status(started.status || 400).json({ message: started.message })
+// POST /api/admin/ops/:job — run a job (awaits short jobs; long jobs return 202)
+router.post('/ops/:job', protect, admin, async (req, res) => {
+  try {
+    const outcome = await runOpsJob(req.params.job, req.body || {})
+    if (!outcome.ok) {
+      return res.status(outcome.status || 400).json({ message: outcome.message, ...outcome })
+    }
+    res.status(outcome.waited ? 200 : 202).json(outcome)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Ops job failed' })
   }
-  res.status(202).json(started)
 })
 
 // GET /api/admin/settings — persisted store settings

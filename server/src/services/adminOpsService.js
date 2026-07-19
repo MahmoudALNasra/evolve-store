@@ -1,13 +1,13 @@
 /**
- * In-process job runner for long-running admin operations (sheet sync, image
- * enrichment, audits). One job at a time; status is kept in memory so the
- * admin UI can poll progress and read the last result of each job.
+ * Admin operations runner.
+ * Destructive / sheet jobs run synchronously in the HTTP request so the UI
+ * always gets a real result (works with multi-instance PM2; no lost in-memory state).
  */
 
 const JOBS = {
   'sync-sheet': {
     label: 'Push catalog to Google Sheet',
-    description: 'Backup the Products tab, then replace it with published website products only (prices, stock, images, descriptions). Unpublished stay off the Merchant feed.',
+    description: 'Backup the Products tab, then replace it with published website products only.',
     supportsDryRun: true,
     run: async (params = {}) => {
       const { replaceWebsiteCatalogOnMasterSheet } = require('./websiteToMasterSheetSyncService')
@@ -19,13 +19,13 @@ const JOBS = {
   },
   'delete-unpublished': {
     label: 'Delete unpublished products',
-    description: 'Permanently remove products that are not published (Draft). Dry run only previews — uncheck Dry run to delete for real.',
+    description: 'Permanently remove products that are not published (Draft). Uncheck Dry run to delete for real.',
     supportsDryRun: true,
     run: async (params = {}) => deleteUnpublishedProducts(params),
   },
   'purge-unpublished-and-sync': {
     label: 'Delete unpublished + push sheet',
-    description: 'Deletes all non-published products from the website DB, then replaces the Google Products tab with published products only. This is the button to use.',
+    description: 'Deletes all non-published products, then replaces the Google Products tab with published products only.',
     supportsDryRun: true,
     run: async (params = {}) => {
       const dryRun = params.dryRun === true
@@ -46,14 +46,14 @@ const JOBS = {
           preview: sheet.preview,
         },
         summary: dryRun
-          ? `Dry run only: would delete ${deleted.matched} unpublished, then write ${sheet.productCount} published rows to the sheet. Nothing was changed.`
+          ? `Dry run only: would delete ${deleted.matched} unpublished, then write ${sheet.productCount} published rows. Nothing was changed.`
           : `Deleted ${deleted.deleted} unpublished from the site, then wrote ${sheet.productCount} published products to the sheet.`,
       }
     },
   },
   'pull-inventory': {
     label: 'Pull stock from Google Sheet',
-    description: 'Read stock/price from the inventory sheet and update MongoDB products, then push Merchant Center where configured.',
+    description: 'Read stock/price from the inventory sheet and update MongoDB products.',
     supportsDryRun: false,
     run: async () => {
       const { syncInventoryFromSheet } = require('./inventorySyncService')
@@ -62,7 +62,7 @@ const JOBS = {
   },
   'normalize-stock': {
     label: 'Normalize stock 1 → 2',
-    description: 'Set every product with stock exactly 1 to stock 2 in the website database.',
+    description: 'Set every product with stock exactly 1 to stock 2.',
     supportsDryRun: true,
     run: async (params = {}) => {
       const { normalizeStockOneToTwo } = require('./stockNormalizationService')
@@ -71,8 +71,9 @@ const JOBS = {
   },
   'enrich-images': {
     label: 'Enrich product images (Serper)',
-    description: 'Find and download images for products under the minimum image count (includes unpublished).',
+    description: 'Find and download images for products under the minimum image count.',
     supportsDryRun: true,
+    async: true, // long-running — fire and poll
     run: async (params = {}) => {
       const { enrichAllProductsUnderMin } = require('./productImageEnrichmentService')
       return enrichAllProductsUnderMin({
@@ -83,8 +84,9 @@ const JOBS = {
   },
   'mirror-images': {
     label: 'Mirror external images to local media',
-    description: 'Download external hotlinked images onto the server and rewrite product URLs to /media/...',
+    description: 'Download external hotlinked images onto the server as /media/...',
     supportsDryRun: true,
+    async: true,
     run: async (params = {}) => {
       const { mirrorAllProducts } = require('./productImageEnrichmentService')
       return mirrorAllProducts({ dryRun: params.dryRun === true })
@@ -92,7 +94,7 @@ const JOBS = {
   },
   'catalog-audit': {
     label: 'Audit catalog quality',
-    description: 'Count products needing description/SEO work, bad titles, and unresolved categories. Read-only.',
+    description: 'Count products needing description/SEO work, bad titles, and unresolved categories.',
     supportsDryRun: false,
     run: async () => {
       const { auditDescriptionQuality } = require('./productDescriptionOptimizationService')
@@ -118,11 +120,10 @@ const JOBS = {
 }
 
 const state = {
-  running: null, // { job, label, startedAt, params }
-  lastRuns: {}, // job -> { job, label, status, startedAt, finishedAt, durationMs, result?, error? }
+  running: null,
+  lastRuns: {},
 }
 
-/** Anything not explicitly published (false, null, missing). */
 async function deleteUnpublishedProducts(params = {}) {
   const Product = require('../models/Product')
   const dryRun = params.dryRun === true
@@ -166,6 +167,7 @@ function getJobDefinitions() {
     label: def.label,
     description: def.description || '',
     supportsDryRun: def.supportsDryRun === true,
+    async: def.async === true,
   }))
 }
 
@@ -179,7 +181,25 @@ async function getOpsStatus() {
   }
 }
 
-function startOpsJob(job, params = {}) {
+function recordRun({ job, label, startedAt, params, result, error }) {
+  state.lastRuns[job] = {
+    job,
+    label,
+    status: error ? 'error' : 'done',
+    startedAt,
+    finishedAt: new Date(),
+    durationMs: Date.now() - startedAt.getTime(),
+    params,
+    result,
+    error,
+  }
+}
+
+/**
+ * Run a job. Short jobs await and return the result.
+ * Long jobs (async:true) start in background and return 202-style payload.
+ */
+async function runOpsJob(job, params = {}) {
   const def = JOBS[job]
   if (!def) {
     return { ok: false, status: 400, message: `Unknown job "${job}"` }
@@ -193,39 +213,75 @@ function startOpsJob(job, params = {}) {
   }
 
   const startedAt = new Date()
+  const dryRun = params.dryRun === true
   state.running = { job, label: def.label, startedAt, params }
 
-  def.run(params)
-    .then((result) => {
-      state.lastRuns[job] = {
-        job,
-        label: def.label,
-        status: 'done',
-        startedAt,
-        finishedAt: new Date(),
-        durationMs: Date.now() - startedAt.getTime(),
-        params,
-        result,
-      }
-    })
-    .catch((err) => {
-      console.error(`Admin ops job "${job}" failed:`, err)
-      state.lastRuns[job] = {
-        job,
-        label: def.label,
-        status: 'error',
-        startedAt,
-        finishedAt: new Date(),
-        durationMs: Date.now() - startedAt.getTime(),
-        params,
-        error: err.message,
-      }
-    })
-    .finally(() => {
-      state.running = null
-    })
+  // Long-running: fire-and-forget
+  if (def.async === true) {
+    def.run(params)
+      .then((result) => recordRun({ job, label: def.label, startedAt, params, result }))
+      .catch((err) => {
+        console.error(`Admin ops job "${job}" failed:`, err)
+        recordRun({ job, label: def.label, startedAt, params, error: err.message })
+      })
+      .finally(() => {
+        state.running = null
+      })
 
-  return { ok: true, job, label: def.label, startedAt, dryRun: params.dryRun === true }
+    return {
+      ok: true,
+      waited: false,
+      job,
+      label: def.label,
+      startedAt,
+      dryRun,
+      message: 'Job started in background. Refresh status shortly.',
+    }
+  }
+
+  // Default: wait for completion and return result + fresh counts
+  try {
+    const result = await def.run(params)
+    recordRun({ job, label: def.label, startedAt, params, result })
+    const counts = await getCatalogCounts()
+    return {
+      ok: true,
+      waited: true,
+      job,
+      label: def.label,
+      startedAt,
+      finishedAt: new Date(),
+      durationMs: Date.now() - startedAt.getTime(),
+      dryRun,
+      result,
+      counts,
+    }
+  } catch (err) {
+    console.error(`Admin ops job "${job}" failed:`, err)
+    recordRun({ job, label: def.label, startedAt, params, error: err.message })
+    return {
+      ok: false,
+      status: 500,
+      waited: true,
+      job,
+      label: def.label,
+      dryRun,
+      message: err.message || 'Job failed',
+    }
+  } finally {
+    state.running = null
+  }
 }
 
-module.exports = { startOpsJob, getOpsStatus, getJobDefinitions }
+/** @deprecated use runOpsJob */
+function startOpsJob(job, params = {}) {
+  return runOpsJob(job, params)
+}
+
+module.exports = {
+  startOpsJob,
+  runOpsJob,
+  getOpsStatus,
+  getJobDefinitions,
+  getCatalogCounts,
+}

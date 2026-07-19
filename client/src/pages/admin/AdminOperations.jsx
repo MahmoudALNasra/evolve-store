@@ -42,8 +42,7 @@ function summarizeResult(job, result) {
       || `${result.dryRun ? 'Dry run' : 'Done'}: delete ${result.deleted?.matched ?? 0}, sheet ${result.sheet?.productCount ?? '—'}`
   }
   if (job === 'sync-sheet') {
-    return `${result.productCount ?? '—'} products → sheet` +
-      (result.verification?.ok === false ? ' (verification warnings)' : '')
+    return `${result.productCount ?? '—'} products → sheet`
   }
   if (job === 'delete-unpublished') {
     const prefix = result.dryRun ? 'Dry run: would delete ' : 'Deleted '
@@ -68,18 +67,23 @@ function summarizeResult(job, result) {
 export default function AdminOperations() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [dryRunByJob, setDryRunByJob] = useState({
     'delete-unpublished': true,
     'purge-unpublished-and-sync': true,
   })
   const [startingJob, setStartingJob] = useState(null)
+  const [lastOutcome, setLastOutcome] = useState(null)
 
   const loadStatus = useCallback(async (silent = false) => {
     try {
       const { data } = await api.get('/admin/ops')
       setStatus(data)
+      setLoadError('')
     } catch (err) {
-      if (!silent) toast.error(err.response?.data?.message || 'Failed to load operations status')
+      const message = err.response?.data?.message || err.message || 'Failed to load operations status'
+      setLoadError(message)
+      if (!silent) toast.error(message)
     } finally {
       if (!silent) setLoading(false)
     }
@@ -109,20 +113,51 @@ export default function AdminOperations() {
     }
 
     setStartingJob(job)
+    setLastOutcome(null)
     try {
       const body = {}
       if (supportsDryRun && dryRun) body.dryRun = true
-      const { data } = await api.post(`/admin/ops/${job}`, body)
-      toast.success(
-        data.dryRun || body.dryRun
-          ? 'Dry run started — nothing will be deleted or written'
-          : 'Job started'
-      )
-      await loadStatus(true)
+
+      // Long jobs can take a few minutes (sheet write). Raise timeout.
+      const { data } = await api.post(`/admin/ops/${job}`, body, { timeout: 10 * 60 * 1000 })
+
+      if (data.waited) {
+        setLastOutcome(data)
+        if (data.counts) {
+          setStatus((prev) => ({ ...(prev || {}), counts: data.counts, lastRuns: {
+            ...(prev?.lastRuns || {}),
+            [job]: {
+              job,
+              label: data.label,
+              status: 'done',
+              startedAt: data.startedAt,
+              finishedAt: data.finishedAt,
+              durationMs: data.durationMs,
+              params: { dryRun: data.dryRun },
+              result: data.result,
+            },
+          } }))
+        } else {
+          await loadStatus(true)
+        }
+
+        const summary = summarizeResult(job, data.result) || data.message || 'Done'
+        if (data.dryRun) {
+          toast.success(`Dry run finished — no changes. ${summary}`, { duration: 6000 })
+        } else {
+          toast.success(summary, { duration: 7000 })
+        }
+      } else {
+        toast.success(data.message || 'Job started in background')
+        await loadStatus(true)
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to start job')
+      const message = err.response?.data?.message || err.message || 'Failed to run job'
+      toast.error(message, { duration: 8000 })
+      setLastOutcome({ ok: false, message, job })
     } finally {
       setStartingJob(null)
+      await loadStatus(true)
     }
   }
 
@@ -137,9 +172,8 @@ export default function AdminOperations() {
   const jobs = status?.jobs || []
   const running = status?.running
   const lastRuns = status?.lastRuns || {}
-  const counts = status?.counts || { total: '—', published: '—', unpublished: '—' }
+  const counts = status?.counts || null
 
-  // Put the combined cleanup job first for clarity.
   const orderedJobs = [...jobs].sort((a, b) => {
     const rank = (job) => {
       if (job === 'purge-unpublished-and-sync') return 0
@@ -156,13 +190,23 @@ export default function AdminOperations() {
         <div>
           <h1 className="admin-page-title">Operations</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>
-            Run catalog sync, cleanup, and audit jobs. Dry run = preview only (no deletes, no sheet writes).
+            Catalog cleanup and sync. Dry run = preview only. Uncheck it to make real changes.
           </p>
         </div>
         <button type="button" className="btn-secondary" onClick={() => loadStatus()} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
+
+      {loadError && (
+        <div className="admin-card" style={{ marginBottom: 20, border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b' }}>
+          <strong>Could not load Operations API.</strong>
+          <div style={{ marginTop: 6 }}>{loadError}</div>
+          <div style={{ marginTop: 8, fontSize: 13 }}>
+            On the server run: <code>cd /var/www/evolve-store && git pull && cd server && pm2 restart evolve-api --update-env && cd ../client && npm run build</code>
+          </div>
+        </div>
+      )}
 
       <div
         className="admin-card"
@@ -175,26 +219,46 @@ export default function AdminOperations() {
       >
         <div>
           <div style={{ fontSize: 12, color: '#6b7280' }}>Total in DB</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{counts.total}</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{counts ? counts.total : '—'}</div>
         </div>
         <div>
           <div style={{ fontSize: 12, color: '#6b7280' }}>Published (live)</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#166534' }}>{counts.published}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#166534' }}>{counts ? counts.published : '—'}</div>
         </div>
         <div>
           <div style={{ fontSize: 12, color: '#6b7280' }}>Unpublished (draft)</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#b45309' }}>{counts.unpublished}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#b45309' }}>{counts ? counts.unpublished : '—'}</div>
         </div>
       </div>
 
-      {Number(counts.unpublished) > 0 && (
+      {counts && Number(counts.unpublished) > 0 && (
         <div
           className="admin-card"
           style={{ marginBottom: 20, border: '1px solid #fcd34d', background: '#fffbeb', color: '#92400e', fontSize: 14 }}
         >
           <strong>{counts.unpublished} unpublished</strong> products are still in the database.
-          Use <strong>Delete unpublished + push sheet</strong> below — uncheck Dry run — then confirm.
-          A dry run will keep the same counts on purpose.
+          Use <strong>Delete unpublished + push sheet</strong> → set Dry run OFF → <strong>Run for real</strong>.
+        </div>
+      )}
+
+      {lastOutcome?.waited && lastOutcome.result && (
+        <div
+          className="admin-card"
+          style={{
+            marginBottom: 20,
+            border: lastOutcome.dryRun ? '1px solid #fcd34d' : '1px solid #86efac',
+            background: lastOutcome.dryRun ? '#fffbeb' : '#f0fdf4',
+          }}
+        >
+          <strong>{lastOutcome.dryRun ? 'Last result (DRY RUN — no changes)' : 'Last result (LIVE)'}</strong>
+          <div style={{ marginTop: 6, fontSize: 14 }}>
+            {summarizeResult(lastOutcome.job, lastOutcome.result)}
+          </div>
+          {lastOutcome.counts && (
+            <div style={{ marginTop: 8, fontSize: 13, color: '#374151' }}>
+              DB now: {lastOutcome.counts.total} total · {lastOutcome.counts.published} published · {lastOutcome.counts.unpublished} unpublished
+            </div>
+          )}
         </div>
       )}
 
@@ -215,9 +279,15 @@ export default function AdminOperations() {
             <strong style={{ color: '#166534' }}>Running: {running.label}</strong>
             <div style={{ fontSize: 13, color: '#15803d' }}>
               Started {new Date(running.startedAt).toLocaleString()}
-              {running.params?.dryRun ? ' · DRY RUN (no changes)' : ' · LIVE'}
+              {running.params?.dryRun ? ' · DRY RUN' : ' · LIVE'}
             </div>
           </div>
+        </div>
+      )}
+
+      {!orderedJobs.length && !loadError && (
+        <div className="admin-card" style={{ color: '#6b7280' }}>
+          No jobs returned from the API. Restart the API after pulling the latest code.
         </div>
       )}
 
@@ -225,8 +295,8 @@ export default function AdminOperations() {
         {orderedJobs.map((def) => {
           const Icon = JOB_ICONS[def.job] || Play
           const last = lastRuns[def.job]
-          const isThisRunning = running?.job === def.job
-          const busy = Boolean(running) || startingJob === def.job
+          const isThisRunning = running?.job === def.job || startingJob === def.job
+          const busy = Boolean(running) || Boolean(startingJob)
           const summary = last?.status === 'done' ? summarizeResult(def.job, last.result) : null
           const dryRunOn = Boolean(dryRunByJob[def.job])
           const highlight = def.job === 'purge-unpublished-and-sync'
@@ -270,10 +340,8 @@ export default function AdminOperations() {
                         </span>
                         {' · '}
                         {formatDuration(last.durationMs)}
-                        {' · '}
-                        {new Date(last.finishedAt).toLocaleString()}
                         {last.params?.dryRun || last.result?.dryRun ? (
-                          <span style={{ color: '#b45309', fontWeight: 700 }}> · was DRY RUN (no changes)</span>
+                          <span style={{ color: '#b45309', fontWeight: 700 }}> · was DRY RUN</span>
                         ) : (
                           <span style={{ color: '#166534' }}> · was LIVE</span>
                         )}
@@ -313,12 +381,8 @@ export default function AdminOperations() {
                       background: !dryRunOn && DESTRUCTIVE_JOBS.has(def.job) ? '#b91c1c' : undefined,
                     }}
                   >
-                    {isThisRunning || startingJob === def.job ? (
-                      <Loader2 size={15} className="spin" />
-                    ) : (
-                      <Play size={15} />
-                    )}
-                    {isThisRunning ? 'Running…' : dryRunOn && def.supportsDryRun ? 'Preview' : 'Run for real'}
+                    {isThisRunning ? <Loader2 size={15} className="spin" /> : <Play size={15} />}
+                    {isThisRunning ? 'Working…' : dryRunOn && def.supportsDryRun ? 'Preview' : 'Run for real'}
                   </button>
                 </div>
               </div>
