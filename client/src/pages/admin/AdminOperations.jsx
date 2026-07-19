@@ -314,7 +314,7 @@ export default function AdminOperations() {
           const dryRunOn = Boolean(dryRunByJob[def.job])
           const highlight = def.job === 'rebuild-frontend' || def.job === 'purge-unpublished-and-sync'
           const highlightLabel = def.job === 'rebuild-frontend'
-            ? '  ← after git push'
+            ? '  ← after git push (rebuilds UI + restarts API)'
             : def.job === 'purge-unpublished-and-sync'
               ? '  ← use this'
               : ''

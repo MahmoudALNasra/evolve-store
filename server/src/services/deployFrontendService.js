@@ -68,12 +68,55 @@ function tail(text, max = 2500) {
   return value.slice(-max)
 }
 
+function getPm2AppName() {
+  return String(process.env.PM2_APP_NAME || 'evolve-api').trim() || 'evolve-api'
+}
+
 /**
- * Pull latest main (ff-only) and rebuild the Vite client into client/dist.
+ * Restart the API via PM2 after a short delay so the current HTTP response can finish.
+ * Fixed command only — app name from env, never from request input.
+ */
+function scheduleApiRestart(options = {}) {
+  const skipRestart = options.skipRestart === true
+  if (skipRestart) {
+    return { scheduled: false, skipped: true, reason: 'skipRestart' }
+  }
+
+  const appName = getPm2AppName()
+  // Allow only safe PM2 process names
+  if (!/^[a-zA-Z0-9._-]+$/.test(appName)) {
+    return { scheduled: false, skipped: true, reason: 'invalid PM2_APP_NAME' }
+  }
+
+  const delaySec = Math.min(30, Math.max(1, Number(process.env.DEPLOY_RESTART_DELAY_SEC) || 3))
+
+  try {
+    const child = process.platform === 'win32'
+      ? spawn(
+        'cmd',
+        ['/c', `timeout /t ${delaySec} /nobreak >nul & pm2 restart ${appName} --update-env`],
+        { detached: true, stdio: 'ignore', windowsHide: true }
+      )
+      : spawn(
+        'sh',
+        ['-c', `sleep ${delaySec} && pm2 restart ${appName} --update-env`],
+        { detached: true, stdio: 'ignore' }
+      )
+    child.unref()
+    return { scheduled: true, appName, delaySec }
+  } catch (err) {
+    return { scheduled: false, skipped: true, reason: err.message, appName }
+  }
+}
+
+/**
+ * Pull latest main (ff-only), rebuild the Vite client into client/dist,
+ * then schedule a PM2 API restart so new server routes go live too.
  * Fixed commands only — no arbitrary shell input.
  */
 async function deployFrontend(options = {}) {
   const skipPull = options.skipPull === true
+  const skipRestart = options.skipRestart === true
   const repoRoot = getRepoRoot()
   const clientDir = path.join(repoRoot, 'client')
   const steps = []
@@ -123,17 +166,37 @@ async function deployFrontend(options = {}) {
     }
   }
 
+  const restart = scheduleApiRestart({ skipRestart })
+  steps.push({
+    step: `pm2 restart ${getPm2AppName()} --update-env`,
+    ok: restart.scheduled || restart.skipped,
+    scheduled: restart.scheduled,
+    skipped: restart.skipped,
+    delaySec: restart.delaySec,
+    appName: restart.appName || getPm2AppName(),
+    error: restart.reason || null,
+  })
+
+  const restartNote = restart.scheduled
+    ? ` API restart scheduled in ${restart.delaySec}s (${restart.appName}).`
+    : restart.skipped
+      ? ' API restart skipped.'
+      : ''
+
   return {
     ok: true,
     repoRoot,
+    restart,
     summary: skipPull
-      ? 'Client rebuilt successfully (no git pull).'
-      : 'Pulled latest code and rebuilt the storefront client.',
+      ? `Client rebuilt successfully.${restartNote}`
+      : `Pulled latest code, rebuilt the storefront, and scheduled API restart.${restartNote}`,
     steps,
   }
 }
 
 module.exports = {
   deployFrontend,
+  scheduleApiRestart,
   getRepoRoot,
+  getPm2AppName,
 }

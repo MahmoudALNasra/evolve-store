@@ -6,12 +6,15 @@
 
 const JOBS = {
   'rebuild-frontend': {
-    label: 'Pull + rebuild storefront',
-    description: 'Runs git pull --ff-only on the server, then npm run build in client/. Use after you push commits so blog/CSS/admin UI updates go live. Takes 1–3 minutes.',
+    label: 'Pull + rebuild + restart API',
+    description: 'git pull --ff-only, npm run build in client/, then pm2 restart evolve-api (after a few seconds so the response can finish). Use after you push commits. Takes 1–3 minutes; the admin UI may briefly disconnect during restart.',
     supportsDryRun: false,
     run: async (params = {}) => {
       const { deployFrontend } = require('./deployFrontendService')
-      const result = await deployFrontend({ skipPull: params.skipPull === true })
+      const result = await deployFrontend({
+        skipPull: params.skipPull === true,
+        skipRestart: params.skipRestart === true,
+      })
       if (!result.ok) {
         const err = new Error(result.summary || 'Frontend deploy failed')
         err.deployResult = result
