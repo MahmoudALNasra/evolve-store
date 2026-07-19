@@ -20,26 +20,29 @@ function CategoryPill({ category }) {
 
 export default function BlogCard({ article, index = 0, featured = false }) {
   const path = getArticlePath(article)
-  const imageSrc = article.image_url || 'https://placehold.co/800x450/1a1814/C9A84C?text=Evolve+Blog'
+  const imageSrc = article.image_url || 'https://placehold.co/800x450/e8eee4/3d4638?text=Evolve+Blog'
+  const excerpt = article.meta_description || ''
 
   if (featured) {
     return (
       <FadeContent delay={0} className="blog-card-featured-wrap">
         <article className="blog-card blog-card--featured">
-          <Link to={path} className="blog-card-featured-media">
-            <img src={imageSrc} alt={article.title} loading="lazy" referrerPolicy="no-referrer" />
-            <div className="blog-card-featured-overlay" aria-hidden="true" />
-            <div className="blog-card-featured-content">
-              <CategoryPill category={article.category} />
-              <h2 className="blog-card-featured-title">{article.title}</h2>
-              <div className="blog-card-featured-footer">
-                <span className="blog-card-featured-date">{formatDate(article.published_at)}</span>
-                <span className="blog-card-featured-cta ev-btn ev-btn-outline">
-                  Read Article <ArrowRight size={14} aria-hidden="true" />
-                </span>
-              </div>
-            </div>
+          <Link to={path} className="blog-card-featured-media" aria-label={article.title}>
+            <img src={imageSrc} alt="" loading="lazy" referrerPolicy="no-referrer" />
           </Link>
+          <div className="blog-card-featured-content">
+            <CategoryPill category={article.category} />
+            <h2 className="blog-card-featured-title">
+              <Link to={path}>{article.title}</Link>
+            </h2>
+            {excerpt ? <p className="blog-card-excerpt">{excerpt}</p> : null}
+            <div className="blog-card-featured-footer">
+              <span className="blog-card-featured-date">{formatDate(article.published_at)}</span>
+              <Link to={path} className="blog-card-featured-cta ev-btn ev-btn-outline">
+                Read article <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
         </article>
       </FadeContent>
     )
@@ -47,9 +50,9 @@ export default function BlogCard({ article, index = 0, featured = false }) {
 
   return (
     <FadeContent delay={index * 0.06}>
-      <article className="blog-card blog-card--dark">
-        <Link to={path} className="blog-card-image-wrap">
-          <img src={imageSrc} alt={article.title} loading="lazy" />
+      <article className="blog-card">
+        <Link to={path} className="blog-card-image-wrap" aria-label={article.title}>
+          <img src={imageSrc} alt="" loading="lazy" referrerPolicy="no-referrer" />
         </Link>
         <div className="blog-card-body">
           <div className="blog-card-meta">
@@ -59,9 +62,9 @@ export default function BlogCard({ article, index = 0, featured = false }) {
           <h2 className="blog-card-title">
             <Link to={path}>{article.title}</Link>
           </h2>
-          <p className="blog-card-excerpt">{article.meta_description}</p>
+          {excerpt ? <p className="blog-card-excerpt">{excerpt}</p> : null}
           <Link to={path} className="blog-card-link">
-            Read article →
+            Continue reading →
           </Link>
         </div>
       </article>

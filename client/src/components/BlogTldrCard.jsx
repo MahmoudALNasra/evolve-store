@@ -9,8 +9,8 @@ export default function BlogTldrCard({ article, shareUrl }) {
     <section className="blog-tldr-card">
       <div className="blog-tldr-header">
         <div>
-          <p className="blog-tldr-label">TL;DR</p>
-          <h2 className="blog-tldr-title">Key takeaways</h2>
+          <p className="blog-tldr-label">Quick read</p>
+          <h2 className="blog-tldr-title">What to know first</h2>
         </div>
         <ShareButtons url={shareUrl} title={article.title} compact />
       </div>

@@ -68,10 +68,10 @@ export default function BlogListPage() {
 
       <section className="blog-hero">
         <div className="blog-hero-inner">
-          <p className="blog-hero-kicker">Evolve Wellness Briefings</p>
-          <h1>{category ? category.replace(/-/g, ' ') : 'Pharmacy & Wellness Blog'}</h1>
+          <p className="blog-hero-kicker">From our pharmacists</p>
+          <h1>{category ? category.replace(/-/g, ' ') : 'Stories & guides for everyday wellness'}</h1>
           <p className="blog-hero-copy">
-            Practical, pharmacy-safe education on products, supplements, and everyday wellness decisions.
+            Clear, practical articles on supplements, self-care, and pharmacy questions — written to help you decide with confidence.
           </p>
         </div>
       </section>

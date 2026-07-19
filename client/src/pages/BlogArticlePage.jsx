@@ -110,8 +110,8 @@ export default function BlogArticlePage() {
         <BlogTldrCard article={article} shareUrl={shareUrl} />
 
         {anchors.length > 0 && (
-          <nav className="blog-in-this-briefing" aria-label="In this briefing">
-            <h2>In this briefing</h2>
+          <nav className="blog-in-this-briefing" aria-label="On this page">
+            <h2>On this page</h2>
             <ul>
               {anchors.map((item) => (
                 <li key={item.id}>

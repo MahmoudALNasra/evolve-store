@@ -1,7 +1,7 @@
 import MarkdownContent from '@/components/MarkdownContent'
 
 /**
- * Styled article body wrapper for blog posts (dark theme prose).
+ * Styled article body wrapper for blog posts (editorial prose).
  */
 export default function PostContent({ content, className = '' }) {
   return (
