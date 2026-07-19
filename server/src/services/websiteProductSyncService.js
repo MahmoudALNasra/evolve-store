@@ -48,8 +48,10 @@ async function upsertWebsiteProduct(websitePayload) {
     productPayload.slug = await generateUniqueSlug(Product, productPayload.name, { excludeId: existing._id })
   }
 
-  // Never let sheet/stock sync flip publish state — admin (website DB) is source of truth.
+  // Never let sheet/stock sync flip admin-only flags — website DB is source of truth.
   delete productPayload.isPublished
+  delete productPayload.isFeatured
+  delete productPayload.isTaxable
 
   Object.assign(existing, productPayload)
   await existing.save()

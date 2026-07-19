@@ -131,6 +131,11 @@ async function forceAlignFromSheet(dryRun) {
       delete doc.comparePrice
     }
 
+    // Preserve admin-controlled flags (sheet always sends isFeatured: false)
+    delete doc.isPublished
+    delete doc.isFeatured
+    delete doc.isTaxable
+
     Object.assign(existing, doc)
     if (!existing.slug) {
       existing.slug = await generateUniqueSlug(Product, doc.name, { excludeId: existing._id })
