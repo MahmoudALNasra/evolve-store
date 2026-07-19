@@ -193,8 +193,8 @@ router.post('/sheets/push-website', protect, admin, async (req, res) => {
 })
 
 // GET /api/admin/ops — list jobs + running/last-run status
-router.get('/ops', protect, admin, (req, res) => {
-  res.json(getOpsStatus())
+router.get('/ops', protect, admin, async (req, res) => {
+  res.json(await getOpsStatus())
 })
 
 // POST /api/admin/ops/:job — start a long-running ops job (one at a time)

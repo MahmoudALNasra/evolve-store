@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   PackagePlus,
   Trash2,
+  Combine,
   Play,
   Loader2,
 } from 'lucide-react'
@@ -16,12 +17,15 @@ import toast from 'react-hot-toast'
 const JOB_ICONS = {
   'sync-sheet': FileSpreadsheet,
   'delete-unpublished': Trash2,
+  'purge-unpublished-and-sync': Combine,
   'pull-inventory': RefreshCw,
   'normalize-stock': PackagePlus,
   'enrich-images': ImagePlus,
   'mirror-images': HardDriveDownload,
   'catalog-audit': ClipboardCheck,
 }
+
+const DESTRUCTIVE_JOBS = new Set(['delete-unpublished', 'purge-unpublished-and-sync'])
 
 function formatDuration(ms) {
   if (!ms && ms !== 0) return '—'
@@ -33,6 +37,10 @@ function formatDuration(ms) {
 
 function summarizeResult(job, result) {
   if (!result || typeof result !== 'object') return null
+  if (job === 'purge-unpublished-and-sync') {
+    return result.summary
+      || `${result.dryRun ? 'Dry run' : 'Done'}: delete ${result.deleted?.matched ?? 0}, sheet ${result.sheet?.productCount ?? '—'}`
+  }
   if (job === 'sync-sheet') {
     return `${result.productCount ?? '—'} products → sheet` +
       (result.verification?.ok === false ? ' (verification warnings)' : '')
@@ -60,7 +68,10 @@ function summarizeResult(job, result) {
 export default function AdminOperations() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [dryRunByJob, setDryRunByJob] = useState({})
+  const [dryRunByJob, setDryRunByJob] = useState({
+    'delete-unpublished': true,
+    'purge-unpublished-and-sync': true,
+  })
   const [startingJob, setStartingJob] = useState(null)
 
   const loadStatus = useCallback(async (silent = false) => {
@@ -85,12 +96,28 @@ export default function AdminOperations() {
   }, [status?.running, loadStatus])
 
   const startJob = async (job, supportsDryRun) => {
+    const dryRun = supportsDryRun && Boolean(dryRunByJob[job])
+
+    if (!dryRun && DESTRUCTIVE_JOBS.has(job)) {
+      const unpublished = status?.counts?.unpublished ?? '?'
+      const ok = window.confirm(
+        `This will PERMANENTLY delete ${unpublished} unpublished product(s) from the website database` +
+        (job === 'purge-unpublished-and-sync' ? ', then rewrite the Google Products sheet with published products only' : '') +
+        '.\n\nDry run is OFF. Continue?'
+      )
+      if (!ok) return
+    }
+
     setStartingJob(job)
     try {
       const body = {}
-      if (supportsDryRun && dryRunByJob[job]) body.dryRun = true
-      await api.post(`/admin/ops/${job}`, body)
-      toast.success(body.dryRun ? 'Dry run started' : 'Job started')
+      if (supportsDryRun && dryRun) body.dryRun = true
+      const { data } = await api.post(`/admin/ops/${job}`, body)
+      toast.success(
+        data.dryRun || body.dryRun
+          ? 'Dry run started — nothing will be deleted or written'
+          : 'Job started'
+      )
       await loadStatus(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to start job')
@@ -110,6 +137,18 @@ export default function AdminOperations() {
   const jobs = status?.jobs || []
   const running = status?.running
   const lastRuns = status?.lastRuns || {}
+  const counts = status?.counts || { total: '—', published: '—', unpublished: '—' }
+
+  // Put the combined cleanup job first for clarity.
+  const orderedJobs = [...jobs].sort((a, b) => {
+    const rank = (job) => {
+      if (job === 'purge-unpublished-and-sync') return 0
+      if (job === 'delete-unpublished') return 1
+      if (job === 'sync-sheet') return 2
+      return 10
+    }
+    return rank(a.job) - rank(b.job)
+  })
 
   return (
     <div className="admin-page">
@@ -117,13 +156,47 @@ export default function AdminOperations() {
         <div>
           <h1 className="admin-page-title">Operations</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>
-            Run catalog sync, image, and audit jobs without SSH. Only one job runs at a time.
+            Run catalog sync, cleanup, and audit jobs. Dry run = preview only (no deletes, no sheet writes).
           </p>
         </div>
         <button type="button" className="btn-secondary" onClick={() => loadStatus()} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
+
+      <div
+        className="admin-card"
+        style={{
+          marginBottom: 20,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>Total in DB</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>{counts.total}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>Published (live)</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#166534' }}>{counts.published}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>Unpublished (draft)</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#b45309' }}>{counts.unpublished}</div>
+        </div>
+      </div>
+
+      {Number(counts.unpublished) > 0 && (
+        <div
+          className="admin-card"
+          style={{ marginBottom: 20, border: '1px solid #fcd34d', background: '#fffbeb', color: '#92400e', fontSize: 14 }}
+        >
+          <strong>{counts.unpublished} unpublished</strong> products are still in the database.
+          Use <strong>Delete unpublished + push sheet</strong> below — uncheck Dry run — then confirm.
+          A dry run will keep the same counts on purpose.
+        </div>
+      )}
 
       {running && (
         <div
@@ -142,22 +215,28 @@ export default function AdminOperations() {
             <strong style={{ color: '#166534' }}>Running: {running.label}</strong>
             <div style={{ fontSize: 13, color: '#15803d' }}>
               Started {new Date(running.startedAt).toLocaleString()}
-              {running.params?.dryRun ? ' · dry run' : ''}
+              {running.params?.dryRun ? ' · DRY RUN (no changes)' : ' · LIVE'}
             </div>
           </div>
         </div>
       )}
 
       <div style={{ display: 'grid', gap: 16 }}>
-        {jobs.map((def) => {
+        {orderedJobs.map((def) => {
           const Icon = JOB_ICONS[def.job] || Play
           const last = lastRuns[def.job]
           const isThisRunning = running?.job === def.job
           const busy = Boolean(running) || startingJob === def.job
           const summary = last?.status === 'done' ? summarizeResult(def.job, last.result) : null
+          const dryRunOn = Boolean(dryRunByJob[def.job])
+          const highlight = def.job === 'purge-unpublished-and-sync'
 
           return (
-            <div key={def.job} className="admin-card">
+            <div
+              key={def.job}
+              className="admin-card"
+              style={highlight ? { border: '1px solid #86efac', background: '#f0fdf4' } : undefined}
+            >
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: 14, flex: 1, minWidth: 240 }}>
                   <div
@@ -165,7 +244,7 @@ export default function AdminOperations() {
                       width: 42,
                       height: 42,
                       borderRadius: 10,
-                      background: '#ecfdf5',
+                      background: highlight ? '#dcfce7' : '#ecfdf5',
                       color: '#166534',
                       display: 'flex',
                       alignItems: 'center',
@@ -176,7 +255,10 @@ export default function AdminOperations() {
                     <Icon size={20} />
                   </div>
                   <div>
-                    <h2 className="admin-card-title" style={{ marginBottom: 4 }}>{def.label}</h2>
+                    <h2 className="admin-card-title" style={{ marginBottom: 4 }}>
+                      {def.label}
+                      {highlight ? '  ← use this' : ''}
+                    </h2>
                     <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
                       {def.description}
                     </p>
@@ -190,9 +272,13 @@ export default function AdminOperations() {
                         {formatDuration(last.durationMs)}
                         {' · '}
                         {new Date(last.finishedAt).toLocaleString()}
-                        {last.params?.dryRun || last.result?.dryRun ? ' · was dry run' : ''}
+                        {last.params?.dryRun || last.result?.dryRun ? (
+                          <span style={{ color: '#b45309', fontWeight: 700 }}> · was DRY RUN (no changes)</span>
+                        ) : (
+                          <span style={{ color: '#166534' }}> · was LIVE</span>
+                        )}
                         {summary && (
-                          <div style={{ marginTop: 4, color: '#374151' }}>{summary}</div>
+                          <div style={{ marginTop: 4, color: '#374151', fontWeight: 600 }}>{summary}</div>
                         )}
                         {last.error && (
                           <div style={{ marginTop: 4, color: '#b91c1c' }}>{last.error}</div>
@@ -204,14 +290,14 @@ export default function AdminOperations() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
                   {def.supportsDryRun && (
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4b5563', cursor: 'pointer' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: dryRunOn ? '#b45309' : '#166534', cursor: 'pointer', fontWeight: 600 }}>
                       <input
                         type="checkbox"
-                        checked={Boolean(dryRunByJob[def.job])}
+                        checked={dryRunOn}
                         onChange={(e) => setDryRunByJob((prev) => ({ ...prev, [def.job]: e.target.checked }))}
                         disabled={busy}
                       />
-                      Dry run
+                      {dryRunOn ? 'Dry run ON (preview only)' : 'Dry run OFF (makes real changes)'}
                     </label>
                   )}
                   <button
@@ -219,14 +305,20 @@ export default function AdminOperations() {
                     className="btn-primary"
                     disabled={busy}
                     onClick={() => startJob(def.job, def.supportsDryRun)}
-                    style={{ display: 'inline-flex', gap: 8, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
+                    style={{
+                      display: 'inline-flex',
+                      gap: 8,
+                      alignItems: 'center',
+                      opacity: busy ? 0.6 : 1,
+                      background: !dryRunOn && DESTRUCTIVE_JOBS.has(def.job) ? '#b91c1c' : undefined,
+                    }}
                   >
                     {isThisRunning || startingJob === def.job ? (
                       <Loader2 size={15} className="spin" />
                     ) : (
                       <Play size={15} />
                     )}
-                    {isThisRunning ? 'Running…' : 'Run'}
+                    {isThisRunning ? 'Running…' : dryRunOn && def.supportsDryRun ? 'Preview' : 'Run for real'}
                   </button>
                 </div>
               </div>

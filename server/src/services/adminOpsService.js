@@ -19,30 +19,35 @@ const JOBS = {
   },
   'delete-unpublished': {
     label: 'Delete unpublished products',
-    description: 'Permanently remove products marked not published. Use dry run first. Irreversible.',
+    description: 'Permanently remove products that are not published (Draft). Dry run only previews — uncheck Dry run to delete for real.',
+    supportsDryRun: true,
+    run: async (params = {}) => deleteUnpublishedProducts(params),
+  },
+  'purge-unpublished-and-sync': {
+    label: 'Delete unpublished + push sheet',
+    description: 'Deletes all non-published products from the website DB, then replaces the Google Products tab with published products only. This is the button to use.',
     supportsDryRun: true,
     run: async (params = {}) => {
-      const Product = require('../models/Product')
       const dryRun = params.dryRun === true
-      const products = await Product.find({ isPublished: false })
-        .select('_id name barcode sku stock slug')
-        .lean()
-      if (!dryRun) {
-        const ids = products.map((p) => p._id)
-        if (ids.length) await Product.deleteMany({ _id: { $in: ids } })
-      }
+      const deleted = await deleteUnpublishedProducts({ dryRun })
+      const { replaceWebsiteCatalogOnMasterSheet } = require('./websiteToMasterSheetSyncService')
+      const sheet = await replaceWebsiteCatalogOnMasterSheet({
+        dryRun,
+        includeUnpublished: false,
+      })
       return {
         dryRun,
-        matched: products.length,
-        deleted: dryRun ? 0 : products.length,
-        samples: products.slice(0, 25).map((p) => ({
-          productId: p._id,
-          barcode: p.barcode,
-          sku: p.sku,
-          name: p.name,
-          stock: p.stock,
-          slug: p.slug,
-        })),
+        deleted,
+        sheet: {
+          productCount: sheet.productCount,
+          matrixRows: sheet.matrixRows,
+          write: sheet.write,
+          verification: sheet.verification,
+          preview: sheet.preview,
+        },
+        summary: dryRun
+          ? `Dry run only: would delete ${deleted.matched} unpublished, then write ${sheet.productCount} published rows to the sheet. Nothing was changed.`
+          : `Deleted ${deleted.deleted} unpublished from the site, then wrote ${sheet.productCount} published products to the sheet.`,
       }
     },
   },
@@ -117,6 +122,44 @@ const state = {
   lastRuns: {}, // job -> { job, label, status, startedAt, finishedAt, durationMs, result?, error? }
 }
 
+/** Anything not explicitly published (false, null, missing). */
+async function deleteUnpublishedProducts(params = {}) {
+  const Product = require('../models/Product')
+  const dryRun = params.dryRun === true
+  const filter = { isPublished: { $ne: true } }
+  const products = await Product.find(filter)
+    .select('_id name barcode sku stock slug isPublished')
+    .lean()
+  if (!dryRun) {
+    const ids = products.map((p) => p._id)
+    if (ids.length) await Product.deleteMany({ _id: { $in: ids } })
+  }
+  return {
+    dryRun,
+    matched: products.length,
+    deleted: dryRun ? 0 : products.length,
+    samples: products.slice(0, 25).map((p) => ({
+      productId: p._id,
+      barcode: p.barcode,
+      sku: p.sku,
+      name: p.name,
+      stock: p.stock,
+      slug: p.slug,
+      isPublished: p.isPublished,
+    })),
+  }
+}
+
+async function getCatalogCounts() {
+  const Product = require('../models/Product')
+  const [total, published, unpublished] = await Promise.all([
+    Product.countDocuments({}),
+    Product.countDocuments({ isPublished: true }),
+    Product.countDocuments({ isPublished: { $ne: true } }),
+  ])
+  return { total, published, unpublished }
+}
+
 function getJobDefinitions() {
   return Object.entries(JOBS).map(([job, def]) => ({
     job,
@@ -126,11 +169,13 @@ function getJobDefinitions() {
   }))
 }
 
-function getOpsStatus() {
+async function getOpsStatus() {
+  const counts = await getCatalogCounts()
   return {
     running: state.running,
     lastRuns: state.lastRuns,
     jobs: getJobDefinitions(),
+    counts,
   }
 }
 
@@ -159,6 +204,7 @@ function startOpsJob(job, params = {}) {
         startedAt,
         finishedAt: new Date(),
         durationMs: Date.now() - startedAt.getTime(),
+        params,
         result,
       }
     })
@@ -171,6 +217,7 @@ function startOpsJob(job, params = {}) {
         startedAt,
         finishedAt: new Date(),
         durationMs: Date.now() - startedAt.getTime(),
+        params,
         error: err.message,
       }
     })
@@ -178,7 +225,7 @@ function startOpsJob(job, params = {}) {
       state.running = null
     })
 
-  return { ok: true, job, label: def.label, startedAt }
+  return { ok: true, job, label: def.label, startedAt, dryRun: params.dryRun === true }
 }
 
 module.exports = { startOpsJob, getOpsStatus, getJobDefinitions }
