@@ -1,9 +1,27 @@
 import { useEffect, useState } from 'react'
-import { X, ChevronDown, Printer, Package, Truck, Zap, Search } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { X, ChevronDown, Printer, Package, Truck, Zap, Search, Pencil, Trash2 } from 'lucide-react'
 import api from '../../lib/api'
 import { formatPrice, formatDate } from '../../lib/utils'
 import { isValidUPSTracking } from '../../lib/tracking'
 import toast from 'react-hot-toast'
+
+function buildEditForm(order) {
+  const a = order?.shippingAddress || {}
+  return {
+    line1: a.line1 || '',
+    line2: a.line2 || '',
+    city: a.city || '',
+    state: a.state || '',
+    zip: a.zip || '',
+    country: a.country || 'United States',
+    notes: order?.notes || '',
+    shipping: order?.shipping != null ? String(order.shipping) : '0',
+    fulfillmentMethod: order?.fulfillmentMethod || 'shipping',
+    isPaid: Boolean(order?.isPaid),
+    pickupDisplay: order?.pickup?.display || '',
+  }
+}
 
 const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
 const STATUS_COLOR = { pending: 'yellow', processing: 'blue', shipped: 'indigo', delivered: 'green', cancelled: 'red' }
@@ -16,6 +34,7 @@ const STATUS_LABELS = {
 }
 
 export default function AdminOrders() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [orders, setOrders] = useState([])
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
@@ -30,6 +49,10 @@ export default function AdminOrders() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [shipTracking, setShipTracking] = useState('')
   const [shipping, setShipping] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState(() => buildEditForm(null))
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [ordersPassword, setOrdersPassword] = useState(() => sessionStorage.getItem('adminOrdersPassword') || '')
   const [ordersUnlocked, setOrdersUnlocked] = useState(() => Boolean(sessionStorage.getItem('adminOrdersPassword')))
   const [unlocking, setUnlocking] = useState(false)
@@ -142,6 +165,96 @@ export default function AdminOrders() {
     setPendingStatus('')
     setTrackingNumber('')
     setShipTracking(order.trackingNumber || '')
+    setEditing(false)
+    setEditForm(buildEditForm(order))
+  }
+
+  const closeOrder = () => {
+    setSelected(null)
+    setEditing(false)
+    if (searchParams.get('orderId')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('orderId')
+      setSearchParams(next, { replace: true })
+    }
+  }
+
+  // Deep-link from dashboard: /admin/orders?orderId=...
+  useEffect(() => {
+    const orderId = searchParams.get('orderId')
+    if (!orderId || !ordersUnlocked) return
+    if (selected?._id === orderId) return
+
+    const fromList = orders.find((o) => o._id === orderId)
+    if (fromList) {
+      openOrder(fromList)
+      return
+    }
+
+    api.get(`/orders/${orderId}`, ordersAuthConfig())
+      .then(({ data }) => openOrder(data))
+      .catch((err) => {
+        toast.error(err.response?.data?.message || 'Order not found')
+        const next = new URLSearchParams(searchParams)
+        next.delete('orderId')
+        setSearchParams(next, { replace: true })
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, ordersUnlocked, orders])
+
+  const handleSaveEdit = async () => {
+    if (!selected) return
+    setSavingEdit(true)
+    try {
+      const payload = {
+        shippingAddress: {
+          line1: editForm.line1.trim(),
+          line2: editForm.line2.trim(),
+          city: editForm.city.trim(),
+          state: editForm.state.trim(),
+          zip: editForm.zip.trim(),
+          country: editForm.country.trim() || 'United States',
+        },
+        notes: editForm.notes,
+        shipping: editForm.shipping,
+        fulfillmentMethod: editForm.fulfillmentMethod,
+        isPaid: editForm.isPaid,
+      }
+      if (editForm.fulfillmentMethod === 'pickup') {
+        payload.pickup = { display: editForm.pickupDisplay }
+      }
+      const { data } = await api.put(`/orders/${selected._id}`, payload, ordersAuthConfig())
+      setSelected(data)
+      setEditForm(buildEditForm(data))
+      setEditing(false)
+      toast.success('Order updated')
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update order')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDeleteOrder = async () => {
+    if (!selected) return
+    const code = selected._id.slice(-8).toUpperCase()
+    const ok = window.confirm(
+      `Permanently delete order #${code}?\n\nThis cannot be undone. The order will be removed from the database.`
+    )
+    if (!ok) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/orders/${selected._id}`, ordersAuthConfig())
+      toast.success(`Order #${code} deleted`)
+      closeOrder()
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete order')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   // Quick-ship flow: validates tracking + updates both tracking and status to shipped
@@ -545,11 +658,11 @@ export default function AdminOrders() {
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1c2b1c' }}>Order #{selected._id.slice(-8).toUpperCase()}</h2>
                 <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{formatDate(selected.createdAt)}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
+              <button onClick={closeOrder} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* ── Quick Ship Action Card ── (only shows when order is Confirmed/processing) */}
-              {selected.status === 'processing' && (() => {
+              {selected.status === 'processing' && !editing && (() => {
                 const trk = shipTracking.trim().toUpperCase()
                 const isValid = trk && isValidUPSTracking(trk)
                 const showWarning = trk && !isValid
@@ -695,16 +808,207 @@ export default function AdminOrders() {
                 <p style={{ fontSize: 14, fontWeight: 600, color: '#1c2b1c' }}>{selected.user?.name}</p>
                 <p style={{ fontSize: 13, color: '#6b7280' }}>{selected.user?.email}</p>
               </div>
-              {selected.shippingAddress?.line1 && (
-                <div>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Shipping Address</p>
-                  <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
-                    {selected.shippingAddress.line1}{selected.shippingAddress.line2 ? `, ${selected.shippingAddress.line2}` : ''}<br />
-                    {selected.shippingAddress.city}, {selected.shippingAddress.state} {selected.shippingAddress.zip}<br />
-                    {selected.shippingAddress.country}
+
+              {/* ── Edit Order ── */}
+              <div style={{
+                border: '1px solid #e8eee8',
+                borderRadius: 12,
+                padding: 16,
+                background: editing ? '#f8faf8' : '#fff',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: editing ? 14 : 0 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                    Order details
                   </p>
+                  {!editing ? (
+                    <button
+                      type="button"
+                      onClick={() => { setEditForm(buildEditForm(selected)); setEditing(true) }}
+                      className="btn-admin btn-admin-secondary"
+                      style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Pencil size={13} /> Edit order
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => { setEditing(false); setEditForm(buildEditForm(selected)) }}
+                        className="btn-admin btn-admin-secondary"
+                        style={{ fontSize: 12 }}
+                        disabled={savingEdit}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveEdit}
+                        className="btn-admin btn-admin-primary"
+                        style={{ fontSize: 12 }}
+                        disabled={savingEdit}
+                      >
+                        {savingEdit ? 'Saving…' : 'Save changes'}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {!editing ? (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Shipping address</p>
+                      {selected.shippingAddress?.line1 ? (
+                        <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6 }}>
+                          {selected.shippingAddress.line1}{selected.shippingAddress.line2 ? `, ${selected.shippingAddress.line2}` : ''}<br />
+                          {selected.shippingAddress.city}, {selected.shippingAddress.state} {selected.shippingAddress.zip}<br />
+                          {selected.shippingAddress.country}
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: 13, color: '#dc2626' }}>No shipping address on file</p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
+                      <div>
+                        <span style={{ color: '#9ca3af' }}>Fulfillment: </span>
+                        <strong>{selected.fulfillmentMethod || 'shipping'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#9ca3af' }}>Paid: </span>
+                        <strong style={{ color: selected.isPaid ? '#166534' : '#92400e' }}>
+                          {selected.isPaid ? 'Yes' : 'No'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#9ca3af' }}>Shipping fee: </span>
+                        <strong>{formatPrice(selected.shipping || 0)}</strong>
+                      </div>
+                    </div>
+                    {selected.notes ? (
+                      <div>
+                        <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Notes</p>
+                        <p style={{ fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap' }}>{selected.notes}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Address line 1</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.line1}
+                          onChange={(e) => setEditForm((f) => ({ ...f, line1: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Address line 2</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.line2}
+                          onChange={(e) => setEditForm((f) => ({ ...f, line2: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>City</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.city}
+                          onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>State</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.state}
+                          onChange={(e) => setEditForm((f) => ({ ...f, state: e.target.value.toUpperCase() }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>ZIP</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.zip}
+                          onChange={(e) => setEditForm((f) => ({ ...f, zip: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Country</span>
+                        <input
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.country}
+                          onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Shipping fee ($)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.shipping}
+                          onChange={(e) => setEditForm((f) => ({ ...f, shipping: e.target.value }))}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Fulfillment</span>
+                        <select
+                          className="auth-field"
+                          style={{ margin: 0, width: '100%', fontSize: 13 }}
+                          value={editForm.fulfillmentMethod}
+                          onChange={(e) => setEditForm((f) => ({ ...f, fulfillmentMethod: e.target.value }))}
+                        >
+                          <option value="shipping">Shipping</option>
+                          <option value="pickup">Pickup</option>
+                        </select>
+                      </label>
+                      {editForm.fulfillmentMethod === 'pickup' && (
+                        <label style={{ gridColumn: '1 / -1', fontSize: 12 }}>
+                          <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Pickup notes</span>
+                          <input
+                            className="auth-field"
+                            style={{ margin: 0, width: '100%', fontSize: 13 }}
+                            value={editForm.pickupDisplay}
+                            onChange={(e) => setEditForm((f) => ({ ...f, pickupDisplay: e.target.value }))}
+                          />
+                        </label>
+                      )}
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={editForm.isPaid}
+                          onChange={(e) => setEditForm((f) => ({ ...f, isPaid: e.target.checked }))}
+                        />
+                        <span style={{ color: '#374151', fontWeight: 600 }}>Mark as paid</span>
+                      </label>
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12 }}>
+                        <span style={{ display: 'block', marginBottom: 4, color: '#6b7280', fontWeight: 600 }}>Internal notes</span>
+                        <textarea
+                          className="auth-field"
+                          rows={3}
+                          style={{ margin: 0, width: '100%', fontSize: 13, resize: 'vertical' }}
+                          value={editForm.notes}
+                          onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                          placeholder="Notes for this order…"
+                        />
+                      </label>
+                    </div>
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+                      Changing the shipping fee recalculates the order total (subtotal + tax + shipping).
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Items</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -726,6 +1030,16 @@ export default function AdminOrders() {
                   <span style={{ color: '#6b7280' }}>Subtotal</span>
                   <span style={{ fontWeight: 600 }}>{formatPrice(selected.subtotal)}</span>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: '#6b7280' }}>Shipping</span>
+                  <span style={{ fontWeight: 600 }}>{formatPrice(selected.shipping || 0)}</span>
+                </div>
+                {(selected.tax > 0) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: '#6b7280' }}>Tax</span>
+                    <span style={{ fontWeight: 600 }}>{formatPrice(selected.tax)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: '#1c2b1c' }}>
                   <span>Total</span>
                   <span>{formatPrice(selected.total)}</span>
@@ -847,6 +1161,37 @@ export default function AdminOrders() {
                     <Package size={14} /> UPS Packing Slip
                   </button>
                 </div>
+              </div>
+
+              <div style={{
+                marginTop: 4,
+                paddingTop: 16,
+                borderTop: '1px solid #fecaca',
+              }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Danger zone
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDeleteOrder}
+                  disabled={deleting || editing}
+                  className="btn-admin btn-admin-danger"
+                  style={{
+                    fontSize: 12,
+                    width: '100%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    opacity: deleting || editing ? 0.6 : 1,
+                  }}
+                >
+                  <Trash2 size={14} />
+                  {deleting ? 'Deleting…' : 'Delete this order'}
+                </button>
+                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8, textAlign: 'center' }}>
+                  Permanent — use Cancel status if you only want to void fulfillment.
+                </p>
               </div>
             </div>
           </div>

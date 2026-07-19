@@ -70,6 +70,19 @@ router.get('/', protect, admin, requireOrdersPassword, async (req, res) => {
   res.json({ orders, total, page: Number(page), pages: Math.ceil(total / Number(limit)) })
 })
 
+// GET /api/orders/stats/counts  — admin: get status counts (must be before /:id)
+router.get('/stats/counts', protect, admin, requireOrdersPassword, async (req, res) => {
+  const counts = await Order.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ])
+  const result = { all: 0 }
+  counts.forEach(({ _id, count }) => {
+    result[_id] = count
+    result.all += count
+  })
+  res.json(result)
+})
+
 // GET /api/orders/:id
 router.get('/:id', protect, async (req, res) => {
   const order = await Order.findById(req.params.id)
@@ -85,17 +98,93 @@ router.get('/:id', protect, async (req, res) => {
   res.json(order)
 })
 
-// GET /api/orders/stats/counts  — admin: get status counts
-router.get('/stats/counts', protect, admin, requireOrdersPassword, async (req, res) => {
-  const counts = await Order.aggregate([
-    { $group: { _id: '$status', count: { $sum: 1 } } }
-  ])
-  const result = { all: 0 }
-  counts.forEach(({ _id, count }) => {
-    result[_id] = count
-    result.all += count
-  })
-  res.json(result)
+// PUT /api/orders/:id  — admin: edit order fields (address, notes, shipping, status, paid, tracking)
+router.put('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
+  const previous = await Order.findById(req.params.id)
+  if (!previous) return res.status(404).json({ message: 'Order not found' })
+
+  const body = req.body || {}
+  const update = {}
+
+  if (body.shippingAddress && typeof body.shippingAddress === 'object') {
+    const a = body.shippingAddress
+    update.shippingAddress = {
+      line1: String(a.line1 ?? previous.shippingAddress?.line1 ?? '').trim(),
+      line2: String(a.line2 ?? previous.shippingAddress?.line2 ?? '').trim(),
+      city: String(a.city ?? previous.shippingAddress?.city ?? '').trim(),
+      state: String(a.state ?? previous.shippingAddress?.state ?? '').trim().toUpperCase(),
+      zip: String(a.zip ?? previous.shippingAddress?.zip ?? '').trim(),
+      country: String(a.country ?? previous.shippingAddress?.country ?? 'United States').trim(),
+    }
+  }
+
+  if (typeof body.notes === 'string') {
+    update.notes = body.notes.trim().slice(0, 2000)
+  }
+
+  if (typeof body.trackingNumber === 'string') {
+    update.trackingNumber = body.trackingNumber.trim()
+  }
+
+  if (body.status) {
+    const allowed = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+    if (!allowed.includes(body.status)) {
+      return res.status(400).json({ message: 'Invalid status' })
+    }
+    update.status = body.status
+  }
+
+  if (body.fulfillmentMethod === 'shipping' || body.fulfillmentMethod === 'pickup') {
+    update.fulfillmentMethod = body.fulfillmentMethod
+  }
+
+  if (body.isPaid === true || body.isPaid === false) {
+    update.isPaid = body.isPaid
+    if (body.isPaid && !previous.paidAt) update.paidAt = new Date()
+    if (!body.isPaid) update.paidAt = null
+  }
+
+  if (body.shipping != null && body.shipping !== '') {
+    const shipping = Number(body.shipping)
+    if (!Number.isFinite(shipping) || shipping < 0) {
+      return res.status(400).json({ message: 'Invalid shipping amount' })
+    }
+    update.shipping = shipping
+    const subtotal = Number(previous.subtotal) || 0
+    const tax = Number(previous.tax) || 0
+    update.total = Number((subtotal + tax + shipping).toFixed(2))
+  }
+
+  if (body.pickup && typeof body.pickup === 'object') {
+    update.pickup = {
+      ...(previous.pickup?.toObject?.() || previous.pickup || {}),
+      display: String(body.pickup.display ?? previous.pickup?.display ?? '').trim(),
+    }
+  }
+
+  if (!Object.keys(update).length) {
+    return res.status(400).json({ message: 'No editable fields provided' })
+  }
+
+  const order = await Order.findByIdAndUpdate(req.params.id, { $set: update }, { returnDocument: 'after' })
+    .populate('user', 'name email')
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  if (
+    update.status === 'shipped' &&
+    previous.status !== 'shipped' &&
+    !order.shippedEmailSent
+  ) {
+    await sendShippedEmailIfReady(order, previous)
+  } else if (
+    typeof update.trackingNumber === 'string' &&
+    update.trackingNumber &&
+    update.trackingNumber !== previous.trackingNumber
+  ) {
+    await sendShippedEmailIfReady(order, previous)
+  }
+
+  res.json(order)
 })
 
 // PUT /api/orders/:id/status  — admin: update status

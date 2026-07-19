@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ShoppingBag, Users, DollarSign, Package, TrendingUp, AlertTriangle } from 'lucide-react'
 import api from '../../lib/api'
 import { formatPrice, formatDate } from '../../lib/utils'
@@ -89,22 +90,37 @@ export default function AdminDashboard() {
         </div>
 
         <div className="admin-card">
-          <h2 className="admin-card-title">Recent Orders</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <h2 className="admin-card-title" style={{ margin: 0 }}>Recent Orders</h2>
+            <Link to="/admin/orders" style={{ fontSize: 12, fontWeight: 600, color: '#2d7a3a' }}>View all →</Link>
+          </div>
           {stats.recentOrders?.length === 0 ? (
             <div className="admin-empty"><p>No orders yet.</p></div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {stats.recentOrders?.map((order) => (
-                <div key={order._id} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid #f0f4f0' }}>
+                <Link
+                  key={order._id}
+                  to={`/admin/orders?orderId=${order._id}`}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    paddingBottom: 12,
+                    borderBottom: '1px solid #f0f4f0',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1c2b1c' }}>#{order._id.slice(-6).toUpperCase()}</div>
                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{order.user?.name} · {formatDate(order.createdAt)}</div>
+                    <div style={{ fontSize: 11, color: '#2d7a3a', marginTop: 4, fontWeight: 600 }}>Edit order →</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#1c2b1c' }}>{formatPrice(order.total)}</div>
                     <span className={`admin-badge ${STATUS_COLOR[order.status] || 'gray'}`}>{order.status}</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
