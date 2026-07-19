@@ -6,6 +6,7 @@ import {
   HardDriveDownload,
   ClipboardCheck,
   PackagePlus,
+  Trash2,
   Play,
   Loader2,
 } from 'lucide-react'
@@ -14,6 +15,7 @@ import toast from 'react-hot-toast'
 
 const JOB_ICONS = {
   'sync-sheet': FileSpreadsheet,
+  'delete-unpublished': Trash2,
   'pull-inventory': RefreshCw,
   'normalize-stock': PackagePlus,
   'enrich-images': ImagePlus,
@@ -34,6 +36,10 @@ function summarizeResult(job, result) {
   if (job === 'sync-sheet') {
     return `${result.productCount ?? '—'} products → sheet` +
       (result.verification?.ok === false ? ' (verification warnings)' : '')
+  }
+  if (job === 'delete-unpublished') {
+    const prefix = result.dryRun ? 'Dry run: would delete ' : 'Deleted '
+    return `${prefix}${result.matched ?? result.deleted ?? 0} unpublished product(s)`
   }
   if (job === 'normalize-stock') {
     return `${result.updated ?? result.matched ?? 0} updated (matched ${result.matched ?? 0})`
