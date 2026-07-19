@@ -27,7 +27,10 @@ const inventorySyncRoutes = require('./routes/inventorySyncRoutes')
 const blogRoutes = require('./routes/blogRoutes')
 const adminBlogRoutes = require('./routes/adminBlogRoutes')
 const errorHandler = require('./middleware/errorHandler')
-const { authLimiter, publicFormLimiter } = require('./middleware/rateLimiters')
+const { authLimiter, publicFormLimiter, apiLimiter } = require('./middleware/rateLimiters')
+const securityHeaders = require('./middleware/securityHeaders')
+const { requestGuard } = require('./middleware/requestGuard')
+const { sanitizeRequest } = require('./middleware/sanitizeRequest')
 const { logGa4StartupStatus } = require('./utils/ga4MeasurementProtocol')
 const { shouldServeSpa, getClientDistPath } = require('./middleware/spaGate')
 const createBotProductPrerender = require('./middleware/botProductPrerender')
@@ -41,14 +44,19 @@ const app = express()
 
 // Correct client IP behind reverse proxies (used for GA4 ip_override)
 app.set('trust proxy', 1)
+app.disable('x-powered-by')
 
 connectDB()
+
+app.use(securityHeaders)
+app.use(requestGuard)
 
 // Stripe webhook — must be before express.json()
 app.use('/api/webhooks', webhookRoutes)
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }))
+app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || '1mb' }))
+app.use(sanitizeRequest)
 app.use(cookieParser())
 const { corsOriginCallback } = require('./utils/corsOrigins')
 app.use(
@@ -59,6 +67,7 @@ app.use(
 )
 
 // Routes
+app.use('/api', apiLimiter)
 app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/categories', categoryRoutes)

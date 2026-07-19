@@ -20,4 +20,15 @@ const publicFormLimiter = rateLimit({
   limit: 20,
 })
 
-module.exports = { authLimiter, publicFormLimiter }
+// Broad API throttle (scanners / noisy clients). Webhooks are mounted before this.
+const apiLimiter = rateLimit({
+  ...shared,
+  windowMs: 60 * 1000,
+  limit: Number(process.env.API_RATE_LIMIT_PER_MIN) || 300,
+  skip: (req) => {
+    const url = req.originalUrl || req.url || ''
+    return url.startsWith('/api/health') || url.includes('/webhooks')
+  },
+})
+
+module.exports = { authLimiter, publicFormLimiter, apiLimiter }

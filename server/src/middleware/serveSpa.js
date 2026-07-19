@@ -3,9 +3,9 @@ const express = require('express')
 const fs = require('fs')
 const { isCrawlerRequest } = require('../config/crawlerUserAgents')
 
-/** Do not SPA-fallback for API/admin; prerender blacklist also skips .js/.css — must not apply here. */
+/** Do not SPA-fallback for API. React admin is at /admin/* and needs index.html on refresh. */
 function shouldSpaFallback(pathname) {
-  return !/^\/api\b/.test(pathname) && !/^\/admin\b/.test(pathname)
+  return !/^\/api\b/.test(pathname)
 }
 
 function getPublicOrigin(req) {
