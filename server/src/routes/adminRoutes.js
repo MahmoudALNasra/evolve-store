@@ -13,6 +13,8 @@ const {
 } = require('../services/adminAnalyticsService')
 const { syncMasterSheetToProductsTab } = require('../services/masterSheetSyncService')
 const { syncWebsiteToMasterSheet } = require('../services/websiteToMasterSheetSyncService')
+const { startOpsJob, getOpsStatus } = require('../services/adminOpsService')
+const StoreSettings = require('../models/StoreSettings')
 
 const router = express.Router()
 
@@ -43,7 +45,11 @@ router.get('/stats', protect, admin, async (req, res) => {
     Order.aggregate([{ $match: { isPaid: true, createdAt: { $gte: startOfDay } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
     Order.aggregate([{ $match: { isPaid: true, createdAt: { $gte: startOfMonth } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
     Product.countDocuments(),
-    Product.find({ stock: { $lte: 5 } }).select('name stock sku').limit(10),
+    StoreSettings.get().then((settings) =>
+      Product.find({ stock: { $lte: settings.lowStockThreshold } })
+        .select('name stock sku')
+        .limit(10)
+    ),
     User.countDocuments(),
     User.countDocuments({ createdAt: { $gte: startOfDay } }),
     Order.find({ isPaid: true })
@@ -184,6 +190,32 @@ router.post('/sheets/push-website', protect, admin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message || 'Website → master sheet push failed' })
   }
+})
+
+// GET /api/admin/ops — list jobs + running/last-run status
+router.get('/ops', protect, admin, (req, res) => {
+  res.json(getOpsStatus())
+})
+
+// POST /api/admin/ops/:job — start a long-running ops job (one at a time)
+router.post('/ops/:job', protect, admin, (req, res) => {
+  const started = startOpsJob(req.params.job, req.body || {})
+  if (!started.ok) {
+    return res.status(started.status || 400).json({ message: started.message })
+  }
+  res.status(202).json(started)
+})
+
+// GET /api/admin/settings — persisted store settings
+router.get('/settings', protect, admin, async (req, res) => {
+  const settings = await StoreSettings.get()
+  res.json(settings)
+})
+
+// PUT /api/admin/settings — update store settings
+router.put('/settings', protect, admin, async (req, res) => {
+  const settings = await StoreSettings.update(req.body || {})
+  res.json(settings)
 })
 
 module.exports = router

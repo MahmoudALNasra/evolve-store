@@ -12,14 +12,46 @@ export default function AdminSettings() {
   })
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [categoryModal, setCategoryModal] = useState(null)
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' })
   const [editingCategory, setEditingCategory] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
 
   useEffect(() => {
-    loadCategories()
+    Promise.all([
+      api.get('/admin/settings').then(({ data }) => {
+        setForm({
+          storeName: data.storeName || '',
+          supportEmail: data.supportEmail || '',
+          currency: data.currency || 'USD',
+          lowStockThreshold: Number(data.lowStockThreshold ?? 5),
+        })
+      }),
+      api.get('/categories').then(({ data }) => setCategories(data)),
+    ])
+      .catch(() => toast.error('Failed to load settings'))
+      .finally(() => setLoading(false))
   }, [])
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', form)
+      setForm({
+        storeName: data.storeName || '',
+        supportEmail: data.supportEmail || '',
+        currency: data.currency || 'USD',
+        lowStockThreshold: Number(data.lowStockThreshold ?? 5),
+      })
+      toast.success('Settings saved')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const loadCategories = async () => {
     try {
@@ -27,14 +59,7 @@ export default function AdminSettings() {
       setCategories(data)
     } catch (err) {
       toast.error('Failed to load categories')
-    } finally {
-      setLoading(false)
     }
-  }
-
-  const handleSave = (e) => {
-    e.preventDefault()
-    toast.success('Settings saved (frontend only — connect to API as needed)')
   }
 
   const openAddCategory = () => {
@@ -75,6 +100,14 @@ export default function AdminSettings() {
     } catch (err) {
       toast.error('Failed to delete category')
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="spinner-wrap">
+        <div className="spinner spinner-lg" />
+      </div>
+    )
   }
 
   return (
@@ -122,8 +155,8 @@ export default function AdminSettings() {
           </div>
         </div>
 
-        <button type="submit" className="btn-admin btn-admin-primary">
-          <Save size={16} /> Save Settings
+        <button type="submit" className="btn-admin btn-admin-primary" disabled={saving}>
+          <Save size={16} /> {saving ? 'Saving…' : 'Save Settings'}
         </button>
       </form>
 

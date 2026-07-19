@@ -49,10 +49,29 @@ const getCheckoutClientUrl = (req) => {
   }
 }
 
+async function resolveStripePromotionCode(rawCode) {
+  const code = String(rawCode || '').trim()
+  if (!code) return null
+
+  const list = await stripe.promotionCodes.list({
+    code,
+    active: true,
+    limit: 1,
+  })
+  return list.data[0] || null
+}
+
 // @POST /api/checkout — create Stripe checkout session
 router.post('/', protect, async (req, res) => {
-  const { items, shippingAddress, fulfillmentMethod = 'shipping', pickupTime, shippingRateToken, ga4ClientId } =
-    req.body
+  const {
+    items,
+    shippingAddress,
+    fulfillmentMethod = 'shipping',
+    pickupTime,
+    shippingRateToken,
+    ga4ClientId,
+    promotionCode,
+  } = req.body
   const isPickup = fulfillmentMethod === 'pickup'
 
   if (!items || items.length === 0) {
@@ -71,6 +90,24 @@ router.post('/', protect, async (req, res) => {
     const addressError = validateUSAddress(shippingAddress)
     if (addressError) {
       return res.status(400).json({ message: addressError })
+    }
+  }
+
+  // Resolve promo before reserving stock so a bad code never holds inventory.
+  const enteredCode = String(promotionCode || '').trim()
+  let appliedPromotion = null
+  if (enteredCode) {
+    try {
+      appliedPromotion = await resolveStripePromotionCode(enteredCode)
+    } catch (err) {
+      return res.status(502).json({
+        message: 'Could not verify promotion code with Stripe. Try again or leave the code blank.',
+      })
+    }
+    if (!appliedPromotion) {
+      return res.status(400).json({
+        message: `Promotion code "${enteredCode}" is invalid or inactive. Check the code or leave it blank to enter one on the payment page.`,
+      })
     }
   }
 
@@ -200,7 +237,20 @@ router.post('/', protect, async (req, res) => {
         orderId: order._id.toString(),
         userId: req.user._id.toString(),
         fulfillmentMethod,
+        ...(appliedPromotion
+          ? {
+              promotionCode: appliedPromotion.code,
+              promotionCodeId: appliedPromotion.id,
+            }
+          : {}),
       },
+    }
+
+    // Stripe does not allow discounts + allow_promotion_codes together.
+    if (appliedPromotion) {
+      sessionParams.discounts = [{ promotion_code: appliedPromotion.id }]
+    } else {
+      sessionParams.allow_promotion_codes = true
     }
 
     if (!isPickup) {

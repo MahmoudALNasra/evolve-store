@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, CreditCard, Clock, PackageCheck, Truck, X, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, MapPin, CreditCard, Clock, PackageCheck, Truck, X, Minus, Plus, Tag } from 'lucide-react'
 import useCartStore from '../store/useCartStore'
 import useAuthStore from '../store/useAuthStore'
 import { formatPrice } from '../lib/utils'
@@ -94,6 +94,7 @@ export default function CheckoutPage() {
   const [ratesLoading, setRatesLoading] = useState(false)
   const [dispatchMessage, setDispatchMessage] = useState('')
   const [shippingRateError, setShippingRateError] = useState(null)
+  const [promotionCode, setPromotionCode] = useState('')
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const isPickup = fulfillmentMethod === 'pickup'
@@ -254,6 +255,7 @@ export default function CheckoutPage() {
         fulfillmentMethod,
         pickupTime: isPickup ? pickupTime : undefined,
         shippingRateToken: isPickup ? undefined : selectedRate?.token,
+        promotionCode: promotionCode.trim() || undefined,
       })
       
       console.log('✅ Stripe session created:', data.url)
@@ -858,6 +860,34 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e8eee8' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                  <Tag size={14} /> Promo code
+                </label>
+                <input
+                  type="text"
+                  value={promotionCode}
+                  onChange={(e) => setPromotionCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. WELCOME15"
+                  autoComplete="off"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    color: '#1f2937',
+                    background: '#f9fafb',
+                  }}
+                />
+                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 6, lineHeight: 1.45 }}>
+                  Optional. Leave blank to enter a code on the secure payment page instead.
+                </p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e8eee8' }}>
