@@ -30,7 +30,8 @@ function parseArgs(argv) {
     skipStock: false,
     skipSheet: false,
     forceOptimize: false,
-    publishedOnly: false,
+    // Merchant/Products sheet gets published catalog only by default.
+    publishedOnly: true,
     limit: 50,
   }
 
@@ -42,6 +43,7 @@ function parseArgs(argv) {
     else if (arg === '--skip-sheet') args.skipSheet = true
     else if (arg === '--force-optimize') args.forceOptimize = true
     else if (arg === '--published-only') args.publishedOnly = true
+    else if (arg === '--include-unpublished') args.publishedOnly = false
     else if (arg === '--limit') args.limit = Number(argv[++i]) || 50
   }
 

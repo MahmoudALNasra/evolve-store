@@ -33,6 +33,8 @@ async function upsertWebsiteProduct(websitePayload) {
   const existing = await findExistingProduct(productPayload)
 
   if (!existing) {
+    // Website admin controls publishing. Sheet/inventory sync never auto-publishes.
+    productPayload.isPublished = false
     productPayload.slug = await generateUniqueSlug(Product, productPayload.name)
     const created = await Product.create(productPayload)
     return { product: created, created: true }
@@ -46,6 +48,9 @@ async function upsertWebsiteProduct(websitePayload) {
     productPayload.slug = await generateUniqueSlug(Product, productPayload.name, { excludeId: existing._id })
   }
 
+  // Never let sheet/stock sync flip publish state — admin (website DB) is source of truth.
+  delete productPayload.isPublished
+
   Object.assign(existing, productPayload)
   await existing.save()
   return { product: existing, created: false }
@@ -54,7 +59,7 @@ async function upsertWebsiteProduct(websitePayload) {
 async function updateWebsiteStockByProductId(productId, stock) {
   return Product.findByIdAndUpdate(
     productId,
-    { $set: { stock, isPublished: stock > 0 } },
+    { $set: { stock } },
     { returnDocument: 'after' }
   )
 }

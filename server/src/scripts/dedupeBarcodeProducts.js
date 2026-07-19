@@ -76,7 +76,7 @@ async function dedupeBarcodeGroups(dryRun) {
 
     if (!dryRun && keeper.stock <= 0 && ranked.some((r) => r.product.stock > 0)) {
       const maxStock = Math.max(...ranked.map((r) => Number(r.product.stock) || 0))
-      await Product.updateOne({ _id: keeper._id }, { $set: { stock: maxStock, isPublished: maxStock > 0 } })
+      await Product.updateOne({ _id: keeper._id }, { $set: { stock: maxStock } })
     }
   }
 

@@ -267,10 +267,17 @@ async function applySaleItems(items = [], options = {}) {
       nextStock = Math.max(0, sheetStock - quantity)
       previousStock = sheetStock
     }
+    // Preserve publish flag from the website product (or prior payload). Stock alone
+    // must never republish items the admin intentionally hid.
+    let nextPublished = syncRecord.websitePayload?.isPublished
+    if (syncRecord.websiteProduct) {
+      const live = await Product.findById(syncRecord.websiteProduct).select('isPublished')
+      if (live) nextPublished = live.isPublished
+    }
     const nextPayload = {
       ...syncRecord.websitePayload,
       stock: nextStock,
-      isPublished: nextStock > 0,
+      isPublished: nextPublished === true,
     }
 
     await InventorySyncProduct.updateOne(

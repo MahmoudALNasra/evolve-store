@@ -117,7 +117,8 @@ function verifyReplacedSheet(matrix, readValues) {
  */
 async function replaceWebsiteCatalogOnMasterSheet(options = {}) {
   const dryRun = options.dryRun === true
-  const includeUnpublished = options.includeUnpublished !== false
+  // Default: published-only. Unpublished products must not re-enter Merchant feed.
+  const includeUnpublished = options.includeUnpublished === true
   const sheetId = options.sheetId || getStockSheetId()
   const sheetName = options.sheetName || getStockSheetName()
 

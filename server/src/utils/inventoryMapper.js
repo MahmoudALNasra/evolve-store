@@ -161,7 +161,8 @@ function mapSheetRowToWebsiteProduct(row = {}) {
     barcode: cleanText(row.Barcode),
     stock,
     weight: 0,
-    isPublished: stock > 0,
+    // Publishing is controlled only on the website — never auto-publish from sheet stock.
+    isPublished: false,
     isFeatured: false,
     imageUrls,
     productLinkPath: getSheetProductLinkPath(row),

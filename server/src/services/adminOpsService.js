@@ -7,14 +7,43 @@
 const JOBS = {
   'sync-sheet': {
     label: 'Push catalog to Google Sheet',
-    description: 'Backup the Products tab, then replace it with the full website catalog (prices, stock, images, descriptions).',
+    description: 'Backup the Products tab, then replace it with published website products only (prices, stock, images, descriptions). Unpublished stay off the Merchant feed.',
     supportsDryRun: true,
     run: async (params = {}) => {
       const { replaceWebsiteCatalogOnMasterSheet } = require('./websiteToMasterSheetSyncService')
       return replaceWebsiteCatalogOnMasterSheet({
         dryRun: params.dryRun === true,
-        includeUnpublished: params.includeUnpublished !== false,
+        includeUnpublished: params.includeUnpublished === true,
       })
+    },
+  },
+  'delete-unpublished': {
+    label: 'Delete unpublished products',
+    description: 'Permanently remove products marked not published. Use dry run first. Irreversible.',
+    supportsDryRun: true,
+    run: async (params = {}) => {
+      const Product = require('../models/Product')
+      const dryRun = params.dryRun === true
+      const products = await Product.find({ isPublished: false })
+        .select('_id name barcode sku stock slug')
+        .lean()
+      if (!dryRun) {
+        const ids = products.map((p) => p._id)
+        if (ids.length) await Product.deleteMany({ _id: { $in: ids } })
+      }
+      return {
+        dryRun,
+        matched: products.length,
+        deleted: dryRun ? 0 : products.length,
+        samples: products.slice(0, 25).map((p) => ({
+          productId: p._id,
+          barcode: p.barcode,
+          sku: p.sku,
+          name: p.name,
+          stock: p.stock,
+          slug: p.slug,
+        })),
+      }
     },
   },
   'pull-inventory': {
