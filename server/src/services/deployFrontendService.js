@@ -74,7 +74,8 @@ function getPm2AppName() {
 
 /**
  * Restart the API via PM2 after a short delay so the current HTTP response can finish.
- * Fixed command only — app name from env, never from request input.
+ * Uses the same process PATH (setTimeout) so nvm/pm2 are found — detached `sh -c pm2`
+ * often failed on the droplet because pm2 was not on the minimal PATH.
  */
 function scheduleApiRestart(options = {}) {
   const skipRestart = options.skipRestart === true
@@ -89,24 +90,46 @@ function scheduleApiRestart(options = {}) {
   }
 
   const delaySec = Math.min(30, Math.max(1, Number(process.env.DEPLOY_RESTART_DELAY_SEC) || 3))
+  const delayMs = delaySec * 1000
+  const logPath = path.join(getRepoRoot(), 'server', 'data', 'pm2-restart.log')
 
-  try {
-    const child = process.platform === 'win32'
-      ? spawn(
-        'cmd',
-        ['/c', `timeout /t ${delaySec} /nobreak >nul & pm2 restart ${appName} --update-env`],
-        { detached: true, stdio: 'ignore', windowsHide: true }
-      )
-      : spawn(
-        'sh',
-        ['-c', `sleep ${delaySec} && pm2 restart ${appName} --update-env`],
-        { detached: true, stdio: 'ignore' }
-      )
+  setTimeout(() => {
+    const started = new Date().toISOString()
+    const child = spawn('pm2', ['restart', appName, '--update-env'], {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+      shell: true,
+      windowsHide: true,
+    })
+
+    let out = ''
+    child.stdout?.on('data', (chunk) => { out += chunk.toString() })
+    child.stderr?.on('data', (chunk) => { out += chunk.toString() })
+    child.on('error', (err) => {
+      console.error('[deploy] pm2 restart spawn failed:', err.message)
+      try {
+        require('fs').appendFileSync(
+          logPath,
+          `${started} SPAWN_FAIL app=${appName} ${err.message}\n`,
+          'utf8'
+        )
+      } catch { /* ignore */ }
+    })
+    child.on('close', (code) => {
+      console.log(`[deploy] pm2 restart ${appName} exited code=${code}`)
+      try {
+        require('fs').appendFileSync(
+          logPath,
+          `${started} EXIT code=${code} app=${appName}\n${out}\n`,
+          'utf8'
+        )
+      } catch { /* ignore */ }
+    })
     child.unref()
-    return { scheduled: true, appName, delaySec }
-  } catch (err) {
-    return { scheduled: false, skipped: true, reason: err.message, appName }
-  }
+  }, delayMs)
+
+  return { scheduled: true, appName, delaySec, logPath }
 }
 
 /**

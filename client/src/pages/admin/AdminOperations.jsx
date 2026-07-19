@@ -9,6 +9,7 @@ import {
   Trash2,
   Combine,
   Rocket,
+  RotateCcw,
   Play,
   Loader2,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast'
 
 const JOB_ICONS = {
   'rebuild-frontend': Rocket,
+  'restart-api': RotateCcw,
   'sync-sheet': FileSpreadsheet,
   'delete-unpublished': Trash2,
   'purge-unpublished-and-sync': Combine,
@@ -39,8 +41,8 @@ function formatDuration(ms) {
 
 function summarizeResult(job, result) {
   if (!result || typeof result !== 'object') return null
-  if (job === 'rebuild-frontend') {
-    return result.summary || (result.ok ? 'Storefront rebuilt' : 'Rebuild failed')
+  if (job === 'rebuild-frontend' || job === 'restart-api') {
+    return result.summary || (result.ok ? 'Done' : 'Failed')
   }
   if (job === 'purge-unpublished-and-sync') {
     return result.summary
@@ -109,7 +111,14 @@ export default function AdminOperations() {
 
     if (job === 'rebuild-frontend') {
       const ok = window.confirm(
-        'This will run on the server:\n\n  git pull --ff-only\n  cd client && npm run build\n\nTakes 1–3 minutes. Continue?'
+        'This will run on the server:\n\n  git pull --ff-only\n  cd client && npm run build\n  pm2 restart API\n\nTakes 1–3 minutes. Continue?'
+      )
+      if (!ok) return
+    }
+
+    if (job === 'restart-api') {
+      const ok = window.confirm(
+        'Restart the API process now?\n\nThis loads new server routes (Activity Log, etc.). The admin UI may blink for a few seconds.'
       )
       if (!ok) return
     }
@@ -189,9 +198,10 @@ export default function AdminOperations() {
   const orderedJobs = [...jobs].sort((a, b) => {
     const rank = (job) => {
       if (job === 'rebuild-frontend') return 0
-      if (job === 'purge-unpublished-and-sync') return 1
-      if (job === 'delete-unpublished') return 2
-      if (job === 'sync-sheet') return 3
+      if (job === 'restart-api') return 1
+      if (job === 'purge-unpublished-and-sync') return 2
+      if (job === 'delete-unpublished') return 3
+      if (job === 'sync-sheet') return 4
       return 10
     }
     return rank(a.job) - rank(b.job)
@@ -312,12 +322,14 @@ export default function AdminOperations() {
           const busy = Boolean(running) || Boolean(startingJob)
           const summary = last?.status === 'done' ? summarizeResult(def.job, last.result) : null
           const dryRunOn = Boolean(dryRunByJob[def.job])
-          const highlight = def.job === 'rebuild-frontend' || def.job === 'purge-unpublished-and-sync'
+          const highlight = def.job === 'rebuild-frontend' || def.job === 'restart-api' || def.job === 'purge-unpublished-and-sync'
           const highlightLabel = def.job === 'rebuild-frontend'
             ? '  ← after git push (rebuilds UI + restarts API)'
-            : def.job === 'purge-unpublished-and-sync'
-              ? '  ← use this'
-              : ''
+            : def.job === 'restart-api'
+              ? '  ← if Activity Log 404s'
+              : def.job === 'purge-unpublished-and-sync'
+                ? '  ← use this'
+                : ''
 
           return (
             <div

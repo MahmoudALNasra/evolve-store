@@ -76,7 +76,15 @@ app.use('/webhooks', inventorySyncRoutes)
 app.use('/api/blog', blogRoutes)
 app.use('/api/admin/blog', adminBlogRoutes)
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    features: {
+      // Bump when new admin APIs ship so you can confirm the live process reloaded
+      auditLog: true,
+    },
+  })
+})
 
 // Locally hosted product media — e.g. https://yoursite.com/media/products/{slug}/...
 const mediaRoot = process.env.MEDIA_ROOT || path.join(__dirname, '../media')

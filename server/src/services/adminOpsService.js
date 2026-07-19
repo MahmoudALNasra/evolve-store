@@ -23,6 +23,22 @@ const JOBS = {
       return result
     },
   },
+  'restart-api': {
+    label: 'Restart API only',
+    description: 'Schedules pm2 restart for evolve-api (loads new server routes without rebuilding the storefront). Use when Activity Log / API says “not found” after a pull.',
+    supportsDryRun: false,
+    run: async () => {
+      const { scheduleApiRestart, getPm2AppName } = require('./deployFrontendService')
+      const restart = scheduleApiRestart()
+      return {
+        ok: true,
+        summary: restart.scheduled
+          ? `API restart scheduled in ${restart.delaySec}s (${restart.appName || getPm2AppName()}). Refresh in a few seconds.`
+          : `API restart not scheduled: ${restart.reason || 'unknown'}`,
+        restart,
+      }
+    },
+  },
   'sync-sheet': {
     label: 'Push catalog to Google Sheet',
     description: 'Backup the Products tab, then replace it with published website products only.',
