@@ -340,10 +340,33 @@ async function optimizeProductsBatch(options = {}) {
   return { scanned: products.length, optimized, skipped, errors, dryRun, reportPath: outPath, report }
 }
 
+async function countRemainingNeedsWork(options = {}) {
+  const Product = require('../models/Product')
+  const includeUnpublished = options.includeUnpublished === true
+  const baseFilter = includeUnpublished ? {} : { isPublished: true }
+  const products = await Product.find(baseFilter)
+    .select('name description seoMetaDescription seoFaqs')
+    .lean()
+
+  if (options.onlyBadTitles) {
+    return products.filter((p) => shouldFixProductName(p.name)).length
+  }
+  return products.filter(
+    (p) => needsDescriptionOptimization(p) || shouldFixProductName(p.name)
+  ).length
+}
+
 async function optimizeAllProducts(options = {}) {
   const batchSize = Number(options.limit || 50)
   let skip = 0
   const totals = { batches: 0, scanned: 0, optimized: 0, skipped: 0, errors: 0, dryRun: options.dryRun === true, reportPaths: [] }
+
+  const targeted = options.onlyNeedsWork || options.onlyBadTitles
+  // Hard ceiling so a stuck product can never loop forever and burn API credits.
+  const Product = require('../models/Product')
+  const totalDocs = await Product.estimatedDocumentCount()
+  const maxBatches = Math.ceil(totalDocs / batchSize) + 3
+  let prevRemaining = targeted ? await countRemainingNeedsWork(options) : Infinity
 
   while (true) {
     const result = await optimizeProductsBatch({ ...options, limit: batchSize, skip })
@@ -364,16 +387,39 @@ async function optimizeAllProducts(options = {}) {
 
     if (!options.onlyNeedsWork) {
       skip += result.scanned
+    } else if (options.dryRun) {
+      // Dry run never persists, so re-querying from 0 would loop on the same
+      // rows. Paginate through the pool once instead.
+      skip += result.scanned
     } else if (result.optimized === 0) {
       break
     } else {
       skip = 0
     }
 
-    if (options.onlyNeedsWork && result.optimized === 0) break
-    if (options.onlyBadTitles && result.optimized === 0) break
+    if (!options.dryRun && options.onlyNeedsWork && result.optimized === 0) break
+    if (!options.dryRun && options.onlyBadTitles && result.optimized === 0) break
     if (!options.all) break
+    if (options.dryRun && targeted && result.scanned < batchSize) break
     if (!options.onlyNeedsWork && result.scanned < batchSize) break
+
+    // No-progress + hard-cap guards for targeted (needs-work / bad-title) loops.
+    if (targeted && !options.dryRun) {
+      const remaining = await countRemainingNeedsWork(options)
+      if (remaining >= prevRemaining) {
+        console.warn(
+          `Stopping: no progress (remaining needs-work ${remaining} did not drop below ${prevRemaining}). ` +
+          `${remaining} product(s) could not be auto-fixed.`
+        )
+        break
+      }
+      prevRemaining = remaining
+      if (remaining === 0) break
+    }
+    if (totals.batches >= maxBatches) {
+      console.warn(`Stopping: reached max batch cap (${maxBatches}).`)
+      break
+    }
   }
 
   return totals

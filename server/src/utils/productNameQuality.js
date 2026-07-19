@@ -19,18 +19,28 @@ function shouldFixProductName(name) {
   return false
 }
 
+// Must stay <= the shouldFixProductName length ceiling (140) so a normalized
+// name never re-triggers a "bad title" and loops the optimizer forever.
+const MAX_NAME_LENGTH = 120
+
 function normalizeProductName(name) {
-  return String(name || '')
+  const cleaned = String(name || '')
     .replace(/\s+/g, ' ')
     .replace(/\s*\|\s*Amazon\.com.*$/i, '')
     .replace(/\s*:\s*Amazon\.com.*$/i, '')
     .replace(/\s*\.\.\.\s*$/, '')
     .trim()
-    .slice(0, 180)
+
+  if (cleaned.length <= MAX_NAME_LENGTH) return cleaned
+
+  const slice = cleaned.slice(0, MAX_NAME_LENGTH)
+  const lastSpace = slice.lastIndexOf(' ')
+  return (lastSpace > MAX_NAME_LENGTH * 0.5 ? slice.slice(0, lastSpace) : slice).trim()
 }
 
 module.exports = {
   shouldFixProductName,
   normalizeProductName,
+  MAX_NAME_LENGTH,
   BAD_NAME_PATTERNS,
 }
