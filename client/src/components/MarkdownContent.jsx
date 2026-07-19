@@ -43,7 +43,7 @@ export default function MarkdownContent({ content }) {
 
   return (
     <div
-      className="blog-markdown prose"
+      className="blog-markdown"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

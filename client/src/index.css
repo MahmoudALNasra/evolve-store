@@ -3505,3 +3505,181 @@ img { display: block; max-width: 100%; height: auto; }
   background: radial-gradient(circle, #ef4444 0%, rgba(239, 68, 68, 0.15) 70%);
   pointer-events: none;
 }
+
+/* ════════════════════════════════════
+   BLOG CONTRAST LOCK (must stay last)
+   Force readable dark text on light paper.
+   Beats storefront dark-shell white text.
+════════════════════════════════════ */
+.storefront-shell .blog-page,
+.storefront-shell .blog-article-page {
+  background: #f4f6f2 !important;
+  color: #1a2118 !important;
+  isolation: isolate;
+}
+.storefront-shell .blog-page h2,
+.storefront-shell .blog-page h3,
+.storefront-shell .blog-page h4,
+.storefront-shell .blog-page p,
+.storefront-shell .blog-page li,
+.storefront-shell .blog-page label,
+.storefront-shell .blog-article-page h1,
+.storefront-shell .blog-article-page h2,
+.storefront-shell .blog-article-page h3,
+.storefront-shell .blog-article-page h4,
+.storefront-shell .blog-article-page p,
+.storefront-shell .blog-article-page li,
+.storefront-shell .blog-article-page label {
+  color: #1a2118;
+}
+.storefront-shell .blog-hero,
+.storefront-shell .blog-hero * {
+  color: #ffffff !important;
+}
+.storefront-shell .blog-hero .blog-hero-kicker {
+  color: #f0d78a !important;
+}
+.storefront-shell .blog-hero .blog-hero-copy {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.storefront-shell .blog-card,
+.storefront-shell .blog-card--dark,
+.storefront-shell .blog-sidebar-card,
+.storefront-shell .blog-tldr-card,
+.storefront-shell .blog-related-product-card,
+.storefront-shell .blog-card-body {
+  background: #ffffff !important;
+  color: #1a2118 !important;
+  position: relative;
+  z-index: 1;
+}
+.storefront-shell .blog-card-image-wrap,
+.storefront-shell .blog-card-featured-media {
+  position: relative;
+  z-index: 0;
+  background: #e8eee4 !important;
+}
+.storefront-shell .blog-card-featured-overlay {
+  display: none !important;
+}
+.storefront-shell .blog-card-featured-content {
+  position: static !important;
+  inset: auto !important;
+  background: #ffffff !important;
+  color: #1a2118 !important;
+  padding: 18px !important;
+}
+.storefront-shell .blog-card-title,
+.storefront-shell .blog-card-title a,
+.storefront-shell .blog-card-featured-title,
+.storefront-shell .blog-card-featured-title a,
+.storefront-shell .blog-card-excerpt,
+.storefront-shell .blog-card-meta,
+.storefront-shell .blog-card-link,
+.storefront-shell .blog-card-pill,
+.storefront-shell .blog-card-featured-date,
+.storefront-shell .blog-results-bar,
+.storefront-shell .blog-search-label,
+.storefront-shell .blog-category-list a,
+.storefront-shell .blog-sidebar-card h3,
+.storefront-shell .blog-article-header h1,
+.storefront-shell .blog-article-kicker,
+.storefront-shell .blog-article-meta,
+.storefront-shell .blog-article-breadcrumb,
+.storefront-shell .blog-article-breadcrumb a,
+.storefront-shell .blog-tldr-label,
+.storefront-shell .blog-tldr-title,
+.storefront-shell .blog-tldr-list,
+.storefront-shell .blog-tldr-list li,
+.storefront-shell .blog-in-this-briefing,
+.storefront-shell .blog-in-this-briefing h2,
+.storefront-shell .blog-in-this-briefing a,
+.storefront-shell .blog-related-product h2,
+.storefront-shell .blog-related-product-card h3,
+.storefront-shell .blog-related-product-card p,
+.storefront-shell .blog-related-product-link,
+.storefront-shell .blog-article-source,
+.storefront-shell .blog-article-source a,
+.storefront-shell .blog-disclaimer,
+.storefront-shell .blog-share-btn,
+.storefront-shell .blog-empty,
+.storefront-shell .blog-empty-page,
+.storefront-shell .blog-empty-page h1,
+.storefront-shell .blog-empty-page a {
+  color: #1a2118 !important;
+}
+.storefront-shell .blog-card-excerpt,
+.storefront-shell .blog-card-meta,
+.storefront-shell .blog-article-meta,
+.storefront-shell .blog-article-breadcrumb,
+.storefront-shell .blog-results-bar,
+.storefront-shell .blog-disclaimer,
+.storefront-shell .blog-article-source {
+  color: #3d4638 !important;
+}
+.storefront-shell .blog-card-link,
+.storefront-shell .blog-card-pill,
+.storefront-shell .blog-article-kicker,
+.storefront-shell .blog-in-this-briefing a,
+.storefront-shell .blog-related-product-link,
+.storefront-shell .blog-article-source a,
+.storefront-shell .blog-category-list a.active {
+  color: #3f5a1f !important;
+}
+.storefront-shell .blog-search-input {
+  background: #ffffff !important;
+  color: #1a2118 !important;
+  border: 1px solid #cfd6c8 !important;
+}
+.storefront-shell .blog-search-input::placeholder {
+  color: #6b7464 !important;
+}
+.storefront-shell .blog-pagination button {
+  background: #ffffff !important;
+  color: #1a2118 !important;
+  border: 1px solid #cfd6c8 !important;
+}
+.storefront-shell .blog-pagination button.active {
+  background: #2d4a2d !important;
+  color: #ffffff !important;
+  border-color: #2d4a2d !important;
+}
+
+.storefront-shell .blog-post-content,
+.storefront-shell .blog-markdown,
+.storefront-shell .blog-markdown p,
+.storefront-shell .blog-markdown li,
+.storefront-shell .blog-markdown td,
+.storefront-shell .blog-markdown th {
+  color: #243022 !important;
+  background: transparent !important;
+}
+.storefront-shell .blog-markdown h1,
+.storefront-shell .blog-markdown h2,
+.storefront-shell .blog-markdown h3,
+.storefront-shell .blog-markdown h4,
+.storefront-shell .blog-post-content h1,
+.storefront-shell .blog-post-content h2,
+.storefront-shell .blog-post-content h3,
+.storefront-shell .blog-post-content h4 {
+  color: #142016 !important;
+}
+.storefront-shell .blog-markdown a,
+.storefront-shell .blog-post-content a {
+  color: #3f5a1f !important;
+}
+.storefront-shell .blog-markdown strong,
+.storefront-shell .blog-post-content strong {
+  color: #142016 !important;
+}
+.storefront-shell .blog-article-shell {
+  background: transparent;
+  color: #1a2118 !important;
+}
+.storefront-shell .blog-card-featured-cta,
+.storefront-shell .blog-card-featured-cta * {
+  color: #1a2118 !important;
+  background: #eef3e8 !important;
+  border-color: #b7c4a6 !important;
+}
