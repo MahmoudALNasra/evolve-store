@@ -53,7 +53,11 @@ function verifyReplacedSheet(matrix, readValues) {
   const expectedDataRows = Math.max(0, matrix.length - 1)
   const actualDataRows = Math.max(0, readValues.length - 1)
 
+  // Fatal issues mean the write itself is wrong and must block the sync.
+  // Warnings are legitimate data gaps in the catalog that should not undo a
+  // successful write (e.g. a product genuinely has no description yet).
   const issues = []
+  const warnings = []
   if (actualHeader.join('|') !== expectedHeader.join('|')) {
     issues.push('Header mismatch after write')
   }
@@ -62,6 +66,7 @@ function verifyReplacedSheet(matrix, readValues) {
   }
 
   const barcodes = new Set()
+  const duplicateBarcodes = []
   let stockOneCount = 0
   let missingName = 0
   let missingDesc = 0
@@ -74,7 +79,7 @@ function verifyReplacedSheet(matrix, readValues) {
     const stock = Number(row[9]) || 0
 
     if (barcode) {
-      if (barcodes.has(barcode)) issues.push(`Duplicate barcode in sheet: ${barcode}`)
+      if (barcodes.has(barcode)) duplicateBarcodes.push(barcode)
       barcodes.add(barcode)
     }
     if (!name) missingName += 1
@@ -82,9 +87,15 @@ function verifyReplacedSheet(matrix, readValues) {
     if (stock === 1) stockOneCount += 1
   }
 
+  // Fatal: structural / requested-transform failures.
   if (missingName > 0) issues.push(`${missingName} rows missing Name`)
-  if (missingDesc > 0) issues.push(`${missingDesc} rows missing Desc.`)
   if (stockOneCount > 0) issues.push(`${stockOneCount} rows still have Stock=1`)
+
+  // Warnings: catalog data quality, not a write failure.
+  if (missingDesc > 0) warnings.push(`${missingDesc} rows missing Desc.`)
+  if (duplicateBarcodes.length > 0) {
+    warnings.push(`${duplicateBarcodes.length} duplicate barcode(s): ${[...new Set(duplicateBarcodes)].slice(0, 10).join(', ')}`)
+  }
 
   return {
     ok: issues.length === 0,
@@ -94,7 +105,9 @@ function verifyReplacedSheet(matrix, readValues) {
     stockOneCount,
     missingName,
     missingDesc,
+    duplicateBarcodes: duplicateBarcodes.length,
     issues,
+    warnings,
   }
 }
 

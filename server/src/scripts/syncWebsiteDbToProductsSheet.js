@@ -164,6 +164,11 @@ async function main() {
       preview: report.sheet.preview,
     }, null, 2))
 
+    if (!args.dryRun && report.sheet.verification?.warnings?.length) {
+      console.warn('\nSheet verification warnings (non-blocking):')
+      console.warn(report.sheet.verification.warnings)
+    }
+
     if (!args.dryRun && report.sheet.verification && !report.sheet.verification.ok) {
       console.error('\nSheet verification failed:')
       console.error(report.sheet.verification.issues)
