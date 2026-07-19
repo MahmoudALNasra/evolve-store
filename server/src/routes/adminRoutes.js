@@ -15,8 +15,11 @@ const { syncMasterSheetToProductsTab } = require('../services/masterSheetSyncSer
 const { syncWebsiteToMasterSheet } = require('../services/websiteToMasterSheetSyncService')
 const { runOpsJob, getOpsStatus } = require('../services/adminOpsService')
 const StoreSettings = require('../models/StoreSettings')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq, listAuditEvents } = require('../services/auditLogService')
 
 const router = express.Router()
+router.use(auditWriteLogger({ actorType: 'admin' }))
 
 // GET /api/admin/stats  — dashboard summary
 router.get('/stats', protect, admin, async (req, res) => {
@@ -204,10 +207,17 @@ router.get('/ops', protect, admin, async (req, res) => {
 // POST /api/admin/ops/:job — run a job (awaits short jobs; long jobs return 202)
 router.post('/ops/:job', protect, admin, async (req, res) => {
   try {
-    const outcome = await runOpsJob(req.params.job, req.body || {})
+    const outcome = await runOpsJob(req.params.job, req.body || {}, {
+      actorId: req.user?._id,
+      actorEmail: req.user?.email,
+      actorName: req.user?.name,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    })
     if (!outcome.ok) {
       return res.status(outcome.status || 400).json({ message: outcome.message, ...outcome })
     }
+    res.locals.auditLogged = true
     res.status(outcome.waited ? 200 : 202).json(outcome)
   } catch (err) {
     res.status(500).json({ message: err.message || 'Ops job failed' })
@@ -222,8 +232,27 @@ router.get('/settings', protect, admin, async (req, res) => {
 
 // PUT /api/admin/settings — update store settings
 router.put('/settings', protect, admin, async (req, res) => {
+  const before = await StoreSettings.get()
   const settings = await StoreSettings.update(req.body || {})
+  void logAuditFromReq(req, {
+    action: 'settings.update',
+    entityType: 'settings',
+    entityId: 'store',
+    summary: 'Updated store settings',
+    before: before?.toObject ? before.toObject() : before,
+    after: settings?.toObject ? settings.toObject() : settings,
+  })
+  res.locals.auditLogged = true
   res.json(settings)
+})
+
+// GET /api/admin/audit — paginated activity / backup log
+router.get('/audit', protect, admin, async (req, res) => {
+  try {
+    res.json(await listAuditEvents(req.query))
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Failed to load audit log' })
+  }
 })
 
 module.exports = router

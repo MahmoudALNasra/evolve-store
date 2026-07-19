@@ -11,6 +11,7 @@ const {
   appendUtmsToUrl,
   extractUtmsFromQuery,
 } = require('../utils/emailLoginToken')
+const { logAudit, logAuditFromReq } = require('../services/auditLogService')
 
 const router = express.Router()
 
@@ -30,6 +31,21 @@ router.post('/register', async (req, res) => {
   const isFirst = (await User.countDocuments()) === 0
   const user = await User.create({ name, email, password, role: isFirst ? 'admin' : 'user' })
 
+  void logAudit({
+    actorType: user.role === 'admin' ? 'admin' : 'user',
+    actorId: user._id,
+    actorEmail: user.email,
+    actorName: user.name,
+    action: 'auth.register',
+    entityType: 'user',
+    entityId: user._id,
+    summary: `Registered new account (${user.role})`,
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+    requestMethod: 'POST',
+    requestPath: '/api/auth/register',
+  })
+
   res.status(201).json({
     _id: user._id,
     name: user.name,
@@ -47,11 +63,55 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Please provide email and password' })
 
   const user = await User.findOne({ email }).select('+password')
-  if (!user || !user.password)
+  if (!user || !user.password) {
+    void logAudit({
+      actorType: 'user',
+      actorEmail: email,
+      action: 'auth.login_failed',
+      entityType: 'auth',
+      summary: 'Login failed — invalid credentials',
+      status: 'denied',
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      requestMethod: 'POST',
+      requestPath: '/api/auth/login',
+    })
     return res.status(401).json({ message: 'Invalid credentials' })
+  }
 
   const match = await user.matchPassword(password)
-  if (!match) return res.status(401).json({ message: 'Invalid credentials' })
+  if (!match) {
+    void logAudit({
+      actorType: 'user',
+      actorId: user._id,
+      actorEmail: user.email,
+      actorName: user.name,
+      action: 'auth.login_failed',
+      entityType: 'auth',
+      summary: 'Login failed — bad password',
+      status: 'denied',
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      requestMethod: 'POST',
+      requestPath: '/api/auth/login',
+    })
+    return res.status(401).json({ message: 'Invalid credentials' })
+  }
+
+  void logAudit({
+    actorType: user.role === 'admin' ? 'admin' : 'user',
+    actorId: user._id,
+    actorEmail: user.email,
+    actorName: user.name,
+    action: 'auth.login',
+    entityType: 'user',
+    entityId: user._id,
+    summary: 'Logged in with email/password',
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+    requestMethod: 'POST',
+    requestPath: '/api/auth/login',
+  })
 
   res.json({
     _id: user._id,
@@ -105,6 +165,13 @@ router.get(
     const token = generateToken(req.user._id)
     // Get redirect from OAuth state parameter
     const redirect = req.query.state || '/'
+    void logAuditFromReq(req, {
+      actorType: req.user.role === 'admin' ? 'admin' : 'user',
+      action: 'auth.google_login',
+      entityType: 'user',
+      entityId: req.user._id,
+      summary: 'Logged in with Google',
+    })
     res.redirect(`${process.env.CLIENT_URL}/oauth-success?token=${token}&redirect=${encodeURIComponent(redirect)}`)
   }
 )

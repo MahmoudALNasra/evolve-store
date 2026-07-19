@@ -12,10 +12,13 @@ const { normalizeProductPayload } = require('../utils/normalizeProductFields')
 const { getStorefrontCategoryNames } = require('../services/categoryListService')
 const { protect, admin } = require('../middleware/auth')
 const { upload, uploadExcel } = require('../config/cloudinary')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq } = require('../services/auditLogService')
 
 const reviewRoutes = require('./reviewRoutes')
 
 const router = express.Router()
+router.use(auditWriteLogger({ actorType: 'admin' }))
 
 function normalizeCategoryName(category) {
   return String(category || '').trim() || 'Uncategorized'
@@ -157,6 +160,14 @@ router.post('/', protect, admin, async (req, res) => {
   if (payload.category) await ensureCategoriesExist([payload.category])
   applyAutoTagsToPayload(payload)
   const product = await Product.create(payload)
+  void logAuditFromReq(req, {
+    action: 'product.create',
+    entityType: 'product',
+    entityId: product._id,
+    summary: `Created product "${product.name}"`,
+    after: { name: product.name, price: product.price, stock: product.stock, isPublished: product.isPublished, isFeatured: product.isFeatured },
+  })
+  res.locals.auditLogged = true
   res.status(201).json(product)
 })
 
@@ -296,8 +307,24 @@ router.put('/:id', protect, admin, async (req, res) => {
   if (payload.category) await ensureCategoriesExist([payload.category])
   applyAutoTagsToPayload(payload)
   const update = unsetSku ? { $set: payload, $unset: { sku: 1 } } : payload
+  const before = await Product.findById(req.params.id).lean()
   const product = await Product.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true })
   if (!product) return res.status(404).json({ message: 'Product not found' })
+  void logAuditFromReq(req, {
+    action: 'product.update',
+    entityType: 'product',
+    entityId: product._id,
+    summary: `Updated product "${product.name}"`,
+    before: before ? {
+      name: before.name, price: before.price, stock: before.stock,
+      isPublished: before.isPublished, isFeatured: before.isFeatured, category: before.category,
+    } : {},
+    after: {
+      name: product.name, price: product.price, stock: product.stock,
+      isPublished: product.isPublished, isFeatured: product.isFeatured, category: product.category,
+    },
+  })
+  res.locals.auditLogged = true
   res.json(product)
 })
 
@@ -311,6 +338,14 @@ router.put('/:id/restock', protect, admin, async (req, res) => {
     { returnDocument: 'after' }
   )
   if (!product) return res.status(404).json({ message: 'Product not found' })
+  void logAuditFromReq(req, {
+    action: 'product.restock',
+    entityType: 'product',
+    entityId: product._id,
+    summary: `Restocked "${product.name}" by +${qty} (now ${product.stock})`,
+    after: { stock: product.stock, qtyAdded: Number(qty) },
+  })
+  res.locals.auditLogged = true
   res.json(product)
 })
 
@@ -318,6 +353,14 @@ router.put('/:id/restock', protect, admin, async (req, res) => {
 router.delete('/:id', protect, admin, async (req, res) => {
   const product = await Product.findByIdAndDelete(req.params.id)
   if (!product) return res.status(404).json({ message: 'Product not found' })
+  void logAuditFromReq(req, {
+    action: 'product.delete',
+    entityType: 'product',
+    entityId: product._id,
+    summary: `Deleted product "${product.name}"`,
+    before: { name: product.name, sku: product.sku, barcode: product.barcode },
+  })
+  res.locals.auditLogged = true
   res.json({ message: 'Product deleted' })
 })
 

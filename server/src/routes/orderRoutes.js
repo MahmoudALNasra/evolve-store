@@ -4,8 +4,11 @@ const Order = require('../models/Order')
 const Product = require('../models/Product')
 const { protect, admin } = require('../middleware/auth')
 const { sendOrderShipped } = require('../services/emailService')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq } = require('../services/auditLogService')
 
 const router = express.Router()
+router.use(auditWriteLogger())
 
 function getAdminOrdersPassword() {
   return process.env.ADMIN_ORDERS_PASSWORD || 'change-this-orders-password'
@@ -184,6 +187,28 @@ router.put('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
     await sendShippedEmailIfReady(order, previous)
   }
 
+  void logAuditFromReq(req, {
+    action: 'order.update',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Edited order #${String(order._id).slice(-8).toUpperCase()}`,
+    before: {
+      status: previous.status,
+      trackingNumber: previous.trackingNumber,
+      isPaid: previous.isPaid,
+      shipping: previous.shipping,
+      total: previous.total,
+    },
+    after: {
+      status: order.status,
+      trackingNumber: order.trackingNumber,
+      isPaid: order.isPaid,
+      shipping: order.shipping,
+      total: order.total,
+      fields: Object.keys(update),
+    },
+  })
+  res.locals.auditLogged = true
   res.json(order)
 })
 
@@ -207,6 +232,15 @@ router.put('/:id/status', protect, admin, requireOrdersPassword, async (req, res
     await sendShippedEmailIfReady(order, previous)
   }
 
+  void logAuditFromReq(req, {
+    action: 'order.status',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Order #${String(order._id).slice(-8).toUpperCase()} status ${previous.status} → ${status}`,
+    before: { status: previous.status },
+    after: { status },
+  })
+  res.locals.auditLogged = true
   res.json(order)
 })
 
@@ -230,6 +264,15 @@ router.put('/:id/tracking', protect, admin, requireOrdersPassword, async (req, r
     await sendShippedEmailIfReady(order, previous)
   }
 
+  void logAuditFromReq(req, {
+    action: 'order.tracking',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Order #${String(order._id).slice(-8).toUpperCase()} tracking updated`,
+    before: { trackingNumber: previous.trackingNumber, status: previous.status },
+    after: { trackingNumber, status: order.status },
+  })
+  res.locals.auditLogged = true
   res.json(order)
 })
 
@@ -237,6 +280,14 @@ router.put('/:id/tracking', protect, admin, requireOrdersPassword, async (req, r
 router.delete('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
   const order = await Order.findByIdAndDelete(req.params.id)
   if (!order) return res.status(404).json({ message: 'Order not found' })
+  void logAuditFromReq(req, {
+    action: 'order.delete',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Deleted order #${String(order._id).slice(-8).toUpperCase()}`,
+    before: { status: order.status, total: order.total, isPaid: order.isPaid },
+  })
+  res.locals.auditLogged = true
   res.json({ message: 'Order deleted' })
 })
 

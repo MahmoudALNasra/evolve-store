@@ -11,9 +11,12 @@ const {
 } = require('../services/blogGenerationService')
 const { auditProductImages, auditProductsBatch } = require('../services/productImageAuditService')
 
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+
 const router = express.Router()
 
 router.use(protect, admin)
+router.use(auditWriteLogger({ actorType: 'admin' }))
 
 function isBlogGenerationEnabled() {
   return process.env.BLOG_GENERATION_ENABLED === 'true'

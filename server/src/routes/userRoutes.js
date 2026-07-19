@@ -1,8 +1,11 @@
 const express = require('express')
 const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq } = require('../services/auditLogService')
 
 const router = express.Router()
+router.use(auditWriteLogger())
 
 // GET /api/users  — admin: all users
 router.get('/', protect, admin, async (req, res) => {
@@ -23,11 +26,21 @@ router.get('/', protect, admin, async (req, res) => {
 // PUT /api/users/profile  — update own profile
 router.put('/profile', protect, async (req, res) => {
   const { name, avatar } = req.body
+  const before = { name: req.user.name, avatar: req.user.avatar }
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { name, avatar },
     { returnDocument: 'after', runValidators: true }
   )
+  void logAuditFromReq(req, {
+    action: 'user.profile_update',
+    entityType: 'user',
+    entityId: user._id,
+    summary: 'Updated account profile',
+    before,
+    after: { name: user.name, avatar: user.avatar },
+  })
+  res.locals.auditLogged = true
   res.json(user)
 })
 
@@ -55,6 +68,13 @@ router.put('/password', protect, async (req, res) => {
 
   user.password = newPassword
   await user.save()
+  void logAuditFromReq(req, {
+    action: 'user.password_change',
+    entityType: 'user',
+    entityId: user._id,
+    summary: 'Changed account password',
+  })
+  res.locals.auditLogged = true
   res.json({ message: 'Password updated' })
 })
 
@@ -63,8 +83,18 @@ router.put('/:id/role', protect, admin, async (req, res) => {
   const { role } = req.body
   if (!['user', 'admin'].includes(role))
     return res.status(400).json({ message: 'Invalid role' })
+  const previous = await User.findById(req.params.id).select('name email role')
   const user = await User.findByIdAndUpdate(req.params.id, { role }, { returnDocument: 'after' })
   if (!user) return res.status(404).json({ message: 'User not found' })
+  void logAuditFromReq(req, {
+    action: 'user.role_change',
+    entityType: 'user',
+    entityId: user._id,
+    summary: `Changed role for ${user.email}: ${previous?.role} → ${role}`,
+    before: { role: previous?.role },
+    after: { role },
+  })
+  res.locals.auditLogged = true
   res.json(user)
 })
 
@@ -72,6 +102,14 @@ router.put('/:id/role', protect, admin, async (req, res) => {
 router.delete('/:id', protect, admin, async (req, res) => {
   const user = await User.findByIdAndDelete(req.params.id)
   if (!user) return res.status(404).json({ message: 'User not found' })
+  void logAuditFromReq(req, {
+    action: 'user.delete',
+    entityType: 'user',
+    entityId: user._id,
+    summary: `Deleted user ${user.email}`,
+    before: { name: user.name, email: user.email, role: user.role },
+  })
+  res.locals.auditLogged = true
   res.json({ message: 'User deleted' })
 })
 

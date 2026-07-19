@@ -10,8 +10,11 @@ const { getClientIp } = require('../utils/ga4UserData')
 const { resolveShippingFromToken } = require('../services/shipping')
 const { PICKUP_ADDRESS, validatePickupTime, formatPickupTime } = require('../utils/pickupTimes')
 const { calculateSalesTaxFromItems } = require('../utils/salesTax')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq } = require('../services/auditLogService')
 
 const router = express.Router()
+router.use(auditWriteLogger({ actorType: 'user' }))
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 // Valid US state codes
@@ -285,6 +288,19 @@ router.post('/', protect, async (req, res) => {
       })
     }
 
+    void logAuditFromReq(req, {
+      action: 'checkout.start',
+      entityType: 'order',
+      entityId: order._id,
+      summary: `Started checkout (${isPickup ? 'pickup' : 'shipping'}) total $${Number(order.total).toFixed(2)}`,
+      after: {
+        total: order.total,
+        itemCount: order.items?.length,
+        fulfillmentMethod: order.fulfillmentMethod,
+        stripeSessionId: session.id,
+      },
+    })
+    res.locals.auditLogged = true
     res.json({ url: session.url })
   } catch (err) {
     if (order) {

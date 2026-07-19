@@ -199,7 +199,7 @@ async function getOpsStatus() {
   }
 }
 
-function recordRun({ job, label, startedAt, params, result, error }) {
+function recordRun({ job, label, startedAt, params, result, error, auditCtx }) {
   state.lastRuns[job] = {
     job,
     label,
@@ -211,13 +211,52 @@ function recordRun({ job, label, startedAt, params, result, error }) {
     result,
     error,
   }
+
+  try {
+    const { logAudit } = require('./auditLogService')
+    void logAudit({
+      actorType: 'admin',
+      actorId: auditCtx?.actorId,
+      actorEmail: auditCtx?.actorEmail,
+      actorName: auditCtx?.actorName,
+      action: `ops.${job}`,
+      entityType: 'ops',
+      entityId: job,
+      summary: error
+        ? `Ops job "${label}" failed: ${error}`
+        : `Ops job "${label}" ${params?.dryRun ? '(dry run) ' : ''}completed`,
+      status: error ? 'error' : 'success',
+      meta: {
+        dryRun: params?.dryRun === true,
+        durationMs: Date.now() - startedAt.getTime(),
+        resultSummary: result?.summary || result?.message || null,
+        matched: result?.matched ?? result?.deleted?.matched,
+        productCount: result?.productCount ?? result?.sheet?.productCount,
+      },
+      after: result && typeof result === 'object'
+        ? {
+          ok: !error,
+          summary: result.summary,
+          dryRun: result.dryRun,
+          deleted: result.deleted,
+          productCount: result.productCount,
+        }
+        : {},
+      ip: auditCtx?.ip,
+      userAgent: auditCtx?.userAgent,
+      requestMethod: 'POST',
+      requestPath: `/api/admin/ops/${job}`,
+    })
+  } catch (err) {
+    console.error('[audit] ops log failed:', err.message)
+  }
 }
 
 /**
  * Run a job. Short jobs await and return the result.
  * Long jobs (async:true) start in background and return 202-style payload.
  */
-async function runOpsJob(job, params = {}) {
+async function runOpsJob(job, params = {}, auditCtx = {}) {
   const def = JOBS[job]
   if (!def) {
     return { ok: false, status: 400, message: `Unknown job "${job}"` }
@@ -237,10 +276,10 @@ async function runOpsJob(job, params = {}) {
   // Long-running: fire-and-forget
   if (def.async === true) {
     def.run(params)
-      .then((result) => recordRun({ job, label: def.label, startedAt, params, result }))
+      .then((result) => recordRun({ job, label: def.label, startedAt, params, result, auditCtx }))
       .catch((err) => {
         console.error(`Admin ops job "${job}" failed:`, err)
-        recordRun({ job, label: def.label, startedAt, params, error: err.message })
+        recordRun({ job, label: def.label, startedAt, params, error: err.message, auditCtx })
       })
       .finally(() => {
         state.running = null
@@ -260,7 +299,7 @@ async function runOpsJob(job, params = {}) {
   // Default: wait for completion and return result + fresh counts
   try {
     const result = await def.run(params)
-    recordRun({ job, label: def.label, startedAt, params, result })
+    recordRun({ job, label: def.label, startedAt, params, result, auditCtx })
     const counts = await getCatalogCounts()
     return {
       ok: true,
@@ -277,7 +316,7 @@ async function runOpsJob(job, params = {}) {
   } catch (err) {
     console.error(`Admin ops job "${job}" failed:`, err)
     const result = err.deployResult || undefined
-    recordRun({ job, label: def.label, startedAt, params, result, error: err.message })
+    recordRun({ job, label: def.label, startedAt, params, result, error: err.message, auditCtx })
     return {
       ok: false,
       status: 500,

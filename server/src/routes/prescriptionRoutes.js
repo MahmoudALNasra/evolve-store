@@ -3,8 +3,11 @@ const jwt = require('jsonwebtoken')
 const Prescription = require('../models/Prescription')
 const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
+const { logAuditFromReq } = require('../services/auditLogService')
 
 const router = express.Router()
+router.use(auditWriteLogger())
 
 // Optionally attach req.user when a valid token is present (does not block request)
 const optionalAuth = async (req, _res, next) => {
@@ -88,6 +91,16 @@ router.post('/', optionalAuth, async (req, res) => {
         : [],
     notes: notes || '',
   })
+
+  void logAuditFromReq(req, {
+    actorType: req.user ? (req.user.role === 'admin' ? 'admin' : 'user') : 'user',
+    action: `prescription.${type}_submit`,
+    entityType: 'prescription',
+    entityId: doc._id,
+    summary: `Submitted ${type} prescription request for ${patientName}`,
+    after: { type: doc.type, email, status: doc.status },
+  })
+  res.locals.auditLogged = true
 
   res.status(201).json({
     message:

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Pill, FileText, BarChart3, Wrench } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Pill, FileText, BarChart3, Wrench, ScrollText } from 'lucide-react'
 import Logo from '../Logo'
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/operations', label: 'Operations', icon: Wrench },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/admin/activity', label: 'Activity Log', icon: ScrollText },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/prescriptions', label: 'Prescriptions', icon: Pill },
   { to: '/admin/settings', label: 'Settings', icon: Settings },

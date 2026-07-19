@@ -2,8 +2,10 @@ const express = require('express')
 const Category = require('../models/Category')
 const Product = require('../models/Product')
 const { protect, admin } = require('../middleware/auth')
+const { auditWriteLogger } = require('../middleware/auditWriteLogger')
 
 const router = express.Router()
+router.use(auditWriteLogger({ actorType: 'admin' }))
 
 // Get all categories
 router.get('/', async (req, res) => {
