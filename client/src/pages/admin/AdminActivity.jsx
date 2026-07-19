@@ -51,8 +51,24 @@ export default function AdminActivity() {
         setTotal(data.total || 0)
         setPages(data.pages || 1)
       })
-      .catch((err) => {
-        const message = err.response?.data?.message || 'Failed to load activity log'
+      .catch(async (err) => {
+        const status = err.response?.status
+        let message = err.response?.data?.message || 'Failed to load activity log'
+        if (status === 404) {
+          message = 'Activity API not found on this server. Run Pull + rebuild + restart API, then hard-refresh.'
+        } else if (status === 503) {
+          message = err.response?.data?.message || 'Supabase is not configured on the server.'
+        } else if (!err.response) {
+          message = 'Network error talking to the API. Is the server up?'
+        } else {
+          try {
+            const health = await api.get('/admin/audit/health')
+            if (health.data?.message) message = `${message} (${health.data.message})`
+          } catch (healthErr) {
+            const healthMsg = healthErr.response?.data?.message
+            if (healthMsg) message = healthMsg
+          }
+        }
         setError(message)
         setEvents([])
         toast.error(message)
@@ -111,9 +127,10 @@ export default function AdminActivity() {
           <div className="admin-empty">
             <ScrollText size={28} style={{ opacity: 0.4, marginBottom: 8 }} />
             <p>{error}</p>
-            <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>
-              If the table is missing, run <code>npm run setup:audit</code> on the server
-              (or paste <code>server/sql/audit_events.sql</code> in the Supabase SQL editor).
+            <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8, maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+              SQL alone is not enough — the API must be on the latest code with the same
+              <code> SUPABASE_*</code> keys. Use Operations → Pull + rebuild + restart API, then hard-refresh.
+              Empty log after that is OK until someone changes a product/order.
             </p>
           </div>
         ) : (

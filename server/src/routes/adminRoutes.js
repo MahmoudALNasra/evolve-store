@@ -246,6 +246,30 @@ router.put('/settings', protect, admin, async (req, res) => {
   res.json(settings)
 })
 
+// GET /api/admin/audit/health — quick Supabase table check
+router.get('/audit/health', protect, admin, async (req, res) => {
+  try {
+    const { isSupabaseConfigured } = require('../config/supabase')
+    if (!isSupabaseConfigured()) {
+      return res.status(503).json({
+        ok: false,
+        message: 'Supabase is not configured on this server (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).',
+      })
+    }
+    const result = await listAuditEvents({ page: 1, limit: 1 })
+    res.json({
+      ok: true,
+      table: 'audit_events',
+      total: result.total,
+      message: result.total === 0
+        ? 'Table is ready. No events yet — edit a product or order, then refresh Activity Log.'
+        : `Table is ready with ${result.total} event(s).`,
+    })
+  } catch (err) {
+    res.status(err.status || 500).json({ ok: false, message: err.message || 'Audit health check failed' })
+  }
+})
+
 // GET /api/admin/audit — paginated activity / backup log
 router.get('/audit', protect, admin, async (req, res) => {
   try {

@@ -178,7 +178,16 @@ async function listAuditEvents({
 
   const { data, error, count } = await query
   if (error) {
-    const err = new Error(error.message || 'Failed to load audit events')
+    const code = error.code || ''
+    let message = error.message || 'Failed to load audit events'
+    if (code === 'PGRST205' || /schema cache|does not exist|Could not find the table/i.test(message)) {
+      message =
+        'audit_events table not found in Supabase API. Re-run server/sql/audit_events.sql, then in Supabase: Settings → API → Reload schema (or wait 1–2 min).'
+    } else if (/JWT|Invalid API key|permission/i.test(message)) {
+      message = 'Supabase service role key rejected. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.'
+    }
+    console.error('[audit] list failed:', code, error.message)
+    const err = new Error(message)
     err.status = 500
     throw err
   }
