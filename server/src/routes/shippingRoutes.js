@@ -4,6 +4,11 @@ const Product = require('../models/Product')
 const { getLiveShippingRates } = require('../services/shipping')
 const { guessShipLocation } = require('../services/geoLocationService')
 const { getDeliveryEstimate } = require('../services/deliveryEstimateService')
+const {
+  isPlacesConfigured,
+  suggestAddresses,
+  getAddressDetails,
+} = require('../services/placesAutocompleteService')
 
 const router = express.Router()
 
@@ -20,8 +25,8 @@ function validateUSAddress(addr) {
     return 'Enter the house/building number before the street name, e.g., 123 Main St'
   }
   if (!addr?.city?.trim()) return 'City is required'
-  if (!addr?.state || !US_STATE_CODES.has(addr.state)) return 'Valid US state is required'
-  if (!addr?.zip || !/^\d{5}(-\d{4})?$/.test(addr.zip)) return 'Valid US ZIP is required'
+  if (!addr?.state || !US_STATE_CODES.has(String(addr.state).toUpperCase())) return 'Valid US state is required'
+  if (!addr?.zip || !/^\d{5}(-\d{4})?$/.test(String(addr.zip).trim())) return 'Valid US ZIP is required'
   return null
 }
 
@@ -56,7 +61,8 @@ function normalizeShippoError(err) {
       resolution: 'Check the street address, city, state, and ZIP code. Use a USPS-standard address when possible.',
       suggestions: [
         'Confirm the ZIP code matches the city and state.',
-        'Avoid abbreviations that may confuse validation, then request rates again.',
+        'Pick an address from the Google suggestions when available.',
+        'Avoid PO boxes if UPS Ground is required.',
       ],
     }
   }
@@ -98,6 +104,39 @@ function normalizeShippoError(err) {
     ],
   }
 }
+
+// GET /api/shipping/address-autocomplete?q=123+main
+router.get('/address-autocomplete', protect, async (req, res) => {
+  try {
+    const result = await suggestAddresses(req.query.q, {
+      sessionToken: req.query.sessionToken,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('Address autocomplete error:', err.response?.data || err.message)
+    res.status(502).json({
+      configured: isPlacesConfigured(),
+      suggestions: [],
+      message: err.message || 'Address suggestions unavailable',
+    })
+  }
+})
+
+// GET /api/shipping/address-details?placeId=...
+router.get('/address-details', protect, async (req, res) => {
+  const placeId = String(req.query.placeId || '').trim()
+  if (!placeId) return res.status(400).json({ message: 'placeId is required' })
+
+  try {
+    const result = await getAddressDetails(placeId, {
+      sessionToken: req.query.sessionToken,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('Address details error:', err.response?.data || err.message)
+    res.status(502).json({ message: err.message || 'Could not load address details' })
+  }
+})
 
 // GET /api/shipping/guess-location — account address or IP-based city/ZIP (US only)
 router.get('/guess-location', optionalAuth, async (req, res) => {
@@ -143,7 +182,17 @@ function buildFallbackOnly() {
 // POST /api/shipping/rates
 router.post('/rates', protect, async (req, res) => {
   const { shippingAddress, items } = req.body || {}
-  const addressError = validateUSAddress(shippingAddress)
+  const normalizedAddress = {
+    ...shippingAddress,
+    line1: String(shippingAddress?.line1 || '').trim(),
+    line2: String(shippingAddress?.line2 || '').trim(),
+    city: String(shippingAddress?.city || '').trim(),
+    state: String(shippingAddress?.state || '').trim().toUpperCase(),
+    zip: String(shippingAddress?.zip || '').trim(),
+    country: 'United States',
+  }
+
+  const addressError = validateUSAddress(normalizedAddress)
   if (addressError) return res.status(400).json({ message: addressError })
 
   if (!items?.length) return res.status(400).json({ message: 'Cart is empty' })
@@ -167,7 +216,7 @@ router.post('/rates', protect, async (req, res) => {
   try {
     const result = await getLiveShippingRates({
       subtotal,
-      address: shippingAddress,
+      address: normalizedAddress,
       user: req.user,
     })
 

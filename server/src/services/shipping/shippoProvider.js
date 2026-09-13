@@ -14,14 +14,21 @@ function shippoHeaders() {
   }
 }
 
+function cleanStreet(value) {
+  return String(value || '')
+    .replace(/#/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function toShippoFrom() {
   return {
     name: SHIP_FROM.name,
-    street1: SHIP_FROM.line1,
+    street1: cleanStreet(SHIP_FROM.line1),
     city: SHIP_FROM.city,
     state: SHIP_FROM.state,
-    zip: SHIP_FROM.zip,
-    country: SHIP_FROM.country,
+    zip: String(SHIP_FROM.zip || '').split('-')[0],
+    country: 'US',
     phone: SHIP_FROM.phone,
     email: SHIP_FROM.email,
   }
@@ -31,13 +38,13 @@ function toShippoTo(address = {}, user = {}) {
   const zip = String(address.zip || '').split('-')[0]
   return {
     name: user.name || 'Customer',
-    street1: address.line1,
-    street2: address.line2 || '',
-    city: address.city,
-    state: address.state,
+    street1: cleanStreet(address.line1),
+    street2: cleanStreet(address.line2),
+    city: String(address.city || '').trim(),
+    state: String(address.state || '').trim().toUpperCase(),
     zip,
     country: 'US',
-    phone: address.phone || '0000000000',
+    phone: address.phone || user.phone || '2105550100',
     email: user.email || 'customer@example.com',
   }
 }
@@ -78,6 +85,11 @@ async function createShipmentWithRates({ toAddress, user, weightLb }) {
     { headers: shippoHeaders(), timeout: 30000 }
   )
 
+  const messages = data.messages || []
+  if (messages.length) {
+    console.warn('Shippo shipment messages:', messages)
+  }
+
   const rates = (data.rates || [])
     .map(mapRate)
     .filter((r) => Number.isFinite(r.amount) && r.amount >= 0)
@@ -86,6 +98,7 @@ async function createShipmentWithRates({ toAddress, user, weightLb }) {
   return {
     shipmentId: data.object_id,
     rates,
+    messages,
   }
 }
 

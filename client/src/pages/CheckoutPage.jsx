@@ -167,6 +167,9 @@ export default function CheckoutPage() {
         setShippingRateError(null)
         const rates = data.rates || []
         setShippingRates(rates)
+        if (data.note) {
+          setDispatchMessage((prev) => [prev, data.note].filter(Boolean).join(' '))
+        }
         setSelectedRate((prev) => {
           if (prev) {
             const refreshedRate = rates.find((r) => r.objectId === prev.objectId)

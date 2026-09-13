@@ -15,6 +15,38 @@ function isUpsGroundRate(rate) {
   return provider.includes('ups') && service.includes('ground')
 }
 
+function buildEstimateResponse(numericSubtotal, address, note) {
+  const estimate = getShippingQuote(numericSubtotal, address)
+  const rate = {
+    objectId: 'estimate',
+    amount: estimate.amount,
+    originalAmount: estimate.originalAmount ?? estimate.amount,
+    freeShippingApplied: Boolean(estimate.isFree),
+    label: estimate.label,
+    provider: 'Estimate',
+    service: estimate.label,
+    estimatedDays: null,
+  }
+  return {
+    mode: 'estimate',
+    dispatch: getDispatchInfo(),
+    rates: [
+      {
+        ...rate,
+        token: signShippingRateSelection({
+          mode: 'estimate',
+          amount: rate.amount,
+          originalAmount: rate.originalAmount,
+          freeShippingApplied: rate.freeShippingApplied,
+          label: rate.label,
+          zip: address.zip,
+        }),
+      },
+    ],
+    note,
+  }
+}
+
 async function getLiveShippingRates({ subtotal, address, user }) {
   const numericSubtotal = Number(subtotal) || 0
 
@@ -33,73 +65,66 @@ async function getLiveShippingRates({ subtotal, address, user }) {
   }
 
   if (!shippo.isConfigured()) {
-    const estimate = getShippingQuote(numericSubtotal, address)
-    const rate = {
-      objectId: 'estimate',
-      amount: estimate.amount,
-      originalAmount: estimate.originalAmount ?? estimate.amount,
-      freeShippingApplied: Boolean(estimate.isFree),
-      label: estimate.label,
-      provider: 'Estimate',
-      service: estimate.label,
-      estimatedDays: null,
+    return buildEstimateResponse(
+      numericSubtotal,
+      address,
+      'Live carrier rates unavailable; showing estimate.'
+    )
+  }
+
+  try {
+    const { shipmentId, rates, messages } = await shippo.createShipmentWithRates({
+      toAddress: address,
+      user,
+    })
+
+    const upsGroundRates = rates.filter(isUpsGroundRate).slice(0, 3)
+
+    if (!upsGroundRates.length) {
+      console.warn(
+        'No UPS Ground rates for address; falling back to estimate.',
+        { zip: address.zip, messages }
+      )
+      return buildEstimateResponse(
+        numericSubtotal,
+        address,
+        'Live UPS Ground rates were unavailable for this address; showing an estimate so you can continue.'
+      )
     }
+
+    const dispatch = getDispatchInfo()
+
     return {
-      mode: 'estimate',
-      dispatch: getDispatchInfo(),
-      rates: [
-        {
-          ...rate,
+      mode: 'live',
+      shipmentId,
+      dispatch,
+      rates: upsGroundRates.map((rate) => {
+        const cappedRate = applyFreeShippingCap(rate)
+        return {
+          ...cappedRate,
           token: signShippingRateSelection({
-            mode: 'estimate',
-            amount: rate.amount,
-            originalAmount: rate.originalAmount,
-            freeShippingApplied: rate.freeShippingApplied,
-            label: rate.label,
+            mode: 'live',
+            shipmentId,
+            rateObjectId: cappedRate.objectId,
+            amount: cappedRate.amount,
+            originalAmount: cappedRate.originalAmount,
+            carrierAmount: cappedRate.carrierAmount,
+            freeShippingApplied: cappedRate.freeShippingApplied,
+            label: cappedRate.label,
+            provider: cappedRate.provider,
+            service: cappedRate.service,
             zip: address.zip,
           }),
-        },
-      ],
-      note: 'Live carrier rates unavailable; showing estimate.',
+        }
+      }),
     }
-  }
-
-  const { shipmentId, rates } = await shippo.createShipmentWithRates({
-    toAddress: address,
-    user,
-  })
-
-  const upsGroundRates = rates.filter(isUpsGroundRate).slice(0, 3)
-
-  if (!upsGroundRates.length) {
-    throw new Error('No UPS Ground shipping rates available for this address')
-  }
-
-  const dispatch = getDispatchInfo()
-
-  return {
-    mode: 'live',
-    shipmentId,
-    dispatch,
-    rates: upsGroundRates.map((rate) => {
-      const cappedRate = applyFreeShippingCap(rate)
-      return {
-        ...cappedRate,
-        token: signShippingRateSelection({
-          mode: 'live',
-          shipmentId,
-          rateObjectId: cappedRate.objectId,
-          amount: cappedRate.amount,
-          originalAmount: cappedRate.originalAmount,
-          carrierAmount: cappedRate.carrierAmount,
-          freeShippingApplied: cappedRate.freeShippingApplied,
-          label: cappedRate.label,
-          provider: cappedRate.provider,
-          service: cappedRate.service,
-          zip: address.zip,
-        }),
-      }
-    }),
+  } catch (err) {
+    console.error('Shippo live rates failed; falling back to estimate:', err.response?.data || err.message)
+    return buildEstimateResponse(
+      numericSubtotal,
+      address,
+      'Carrier rating failed for this address; showing an estimate so you can continue checkout.'
+    )
   }
 }
 
