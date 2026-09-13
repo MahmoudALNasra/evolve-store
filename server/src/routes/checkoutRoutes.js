@@ -316,7 +316,7 @@ router.post('/', protect, async (req, res) => {
 })
 
 // @GET /api/checkout/session/:sessionId — success-page fallback if Stripe webhook is delayed/missing locally.
-// Public by design: Stripe's session id is an unguessable token, and this returns only minimal status.
+// Public by design: Stripe's session id is an unguessable token. Returns a confirmation-safe order summary.
 router.get('/session/:sessionId', async (req, res) => {
   const session = await stripe.checkout.sessions.retrieve(req.params.sessionId)
   const orderId = session.metadata?.orderId
@@ -338,6 +338,21 @@ router.get('/session/:sessionId', async (req, res) => {
     isPaid: order.isPaid,
     status: order.status,
     confirmationEmailSent: order.confirmationEmailSent,
+    order: {
+      _id: order._id,
+      createdAt: order.createdAt,
+      status: order.status,
+      isPaid: order.isPaid,
+      fulfillmentMethod: order.fulfillmentMethod,
+      shippingAddress: order.shippingAddress,
+      pickup: order.pickup,
+      shippingMethod: order.shippingMethod,
+      items: order.items,
+      subtotal: order.subtotal,
+      tax: order.tax,
+      shipping: order.shipping,
+      total: order.total,
+    },
   })
 })
 

@@ -87,7 +87,6 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/oauth-success" element={<OAuthSuccess />} />
-        <Route path="/order-success" element={<OrderSuccessPage />} />
 
         {/* Admin panel */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
@@ -109,6 +108,7 @@ export default function App() {
         <Route path="/product/:slug" element={<StorefrontLayout><ProductPage /></StorefrontLayout>} />
         <Route path="/cart" element={<StorefrontLayout><CartPage /></StorefrontLayout>} />
         <Route path="/checkout" element={<StorefrontLayout><ProtectedRoute><CheckoutPage /></ProtectedRoute></StorefrontLayout>} />
+        <Route path="/order-success" element={<StorefrontLayout><OrderSuccessPage /></StorefrontLayout>} />
         <Route path="/orders" element={<StorefrontLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/orders/:id" element={<StorefrontLayout><ProtectedRoute><OrderDetailsPage /></ProtectedRoute></StorefrontLayout>} />
         <Route path="/account" element={<StorefrontLayout><ProtectedRoute><AccountPage /></ProtectedRoute></StorefrontLayout>} />

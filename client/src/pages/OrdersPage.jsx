@@ -22,6 +22,17 @@ const STATUS_LABELS = {
   cancelled: 'Cancelled',
 }
 
+const STATUS_STEPS = ['Confirmed', 'Processing', 'Shipped', 'Delivered']
+
+function statusStepIndex(status, isPickup) {
+  if (status === 'cancelled') return -1
+  if (status === 'pending') return 0
+  if (status === 'processing') return 1
+  if (status === 'shipped') return isPickup ? 3 : 2
+  if (status === 'delivered') return 3
+  return 0
+}
+
 const FILTERS = [
   { key: 'all', label: 'All Orders' },
   { key: 'processing', label: 'Active' },
@@ -42,7 +53,6 @@ export default function OrdersPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Stats
   const stats = useMemo(() => ({
     total: orders.length,
     active: orders.filter((o) => ['pending', 'processing'].includes(o.status)).length,
@@ -50,7 +60,6 @@ export default function OrdersPage() {
     delivered: orders.filter((o) => o.status === 'delivered').length,
   }), [orders])
 
-  // Filtered orders
   const filteredOrders = useMemo(() => {
     let result = orders
     if (filter !== 'all') {
@@ -64,13 +73,12 @@ export default function OrdersPage() {
       const q = search.trim().toLowerCase()
       result = result.filter((o) =>
         o._id.toLowerCase().includes(q) ||
-        o.items.some((i) => i.name.toLowerCase().includes(q))
+        o.items.some((i) => i.name.toLowerCase().includes(q)),
       )
     }
     return result
   }, [orders, filter, search])
 
-  // Count per filter for badges
   const filterCounts = useMemo(() => ({
     all: orders.length,
     processing: orders.filter((o) => ['pending', 'processing'].includes(o.status)).length,
@@ -79,35 +87,25 @@ export default function OrdersPage() {
     cancelled: orders.filter((o) => o.status === 'cancelled').length,
   }), [orders])
 
-  if (loading) return <div className="spinner-wrap" style={{ minHeight: '60vh' }}><div className="spinner spinner-lg" /></div>
+  if (loading) {
+    return (
+      <div className="spinner-wrap" style={{ minHeight: '60vh' }}>
+        <div className="spinner spinner-lg" />
+      </div>
+    )
+  }
 
-  // Empty state - no orders at all
   if (orders.length === 0) {
     return (
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
-        <h1 className="page-title">My Orders</h1>
-        <div style={{
-          background: 'white',
-          borderRadius: 16,
-          border: '1px solid #e8eee8',
-          padding: '80px 40px',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            width: 80,
-            height: 80,
-            background: 'linear-gradient(135deg, #d1f4e0 0%, #a7e9c5 100%)',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px'
-          }}>
-            <Package size={40} style={{ color: '#2d7a3a' }} strokeWidth={1.5} />
+      <div className="orders-page-shell">
+        <h1 className="checkout-page-title">My Orders</h1>
+        <div className="checkout-card" style={{ textAlign: 'center', padding: '64px 40px', marginTop: 24 }}>
+          <div className="order-success-check" style={{ marginBottom: 20 }}>
+            <Package size={36} strokeWidth={1.5} />
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>No orders yet</h2>
-          <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>
-            When you place your first order, it will appear here. Start exploring our health products!
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#fff', marginBottom: 8 }}>No orders yet</h2>
+          <p className="checkout-page-sub" style={{ marginBottom: 24, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
+            When you place your first order, it will appear here with tracking and a clear status bar.
           </p>
           <Link to="/shop" className="btn-primary" style={{ display: 'inline-flex' }}>
             <ShoppingBag size={16} /> Browse Products
@@ -118,112 +116,54 @@ export default function OrdersPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>My Orders</h1>
-        <p style={{ color: '#6b7280', fontSize: 15 }}>
-          Track and manage all your orders in one place
-        </p>
+    <div className="orders-page-shell">
+      <div style={{ marginBottom: 28 }}>
+        <h1 className="checkout-page-title">My Orders</h1>
+        <p className="checkout-page-sub">Track status, open details, and manage everything in one place.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 16,
-        marginBottom: 32
-      }}>
-        <StatCard icon={Package} label="Total Orders" value={stats.total} color="#2d7a3a" bg="#d1f4e0" />
-        <StatCard icon={Clock} label="Active" value={stats.active} color="#2563eb" bg="#dbeafe" />
-        <StatCard icon={Truck} label="In Transit" value={stats.shipped} color="#7c3aed" bg="#ede9fe" />
-        <StatCard icon={CheckCircle} label="Delivered" value={stats.delivered} color="#059669" bg="#d1fae5" />
+      <div className="orders-stats-grid">
+        <StatCard icon={Package} label="Total Orders" value={stats.total} />
+        <StatCard icon={Clock} label="Active" value={stats.active} />
+        <StatCard icon={Truck} label="In Transit" value={stats.shipped} />
+        <StatCard icon={CheckCircle} label="Delivered" value={stats.delivered} />
       </div>
 
-      {/* Filter Tabs + Search */}
-      <div style={{
-        display: 'flex',
-        gap: 16,
-        marginBottom: 20,
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="orders-toolbar">
+        <div className="orders-filters">
           {FILTERS.map((f) => {
             const count = filterCounts[f.key] || 0
             const isActive = filter === f.key
             return (
               <button
                 key={f.key}
+                type="button"
+                className={`orders-filter-btn${isActive ? ' is-active' : ''}`}
                 onClick={() => setFilter(f.key)}
-                style={{
-                  padding: '8px 14px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: `1.5px solid ${isActive ? '#2d7a3a' : '#e5e7eb'}`,
-                  borderRadius: 10,
-                  background: isActive ? '#2d7a3a' : 'white',
-                  color: isActive ? 'white' : '#374151',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8
-                }}
               >
                 {f.label}
-                {count > 0 && (
-                  <span style={{
-                    fontSize: 11,
-                    padding: '2px 7px',
-                    borderRadius: 10,
-                    background: isActive ? 'rgba(255,255,255,0.25)' : '#f3f4f6',
-                    color: isActive ? 'white' : '#6b7280',
-                    fontWeight: 700
-                  }}>
-                    {count}
-                  </span>
-                )}
+                {count > 0 && <span className="orders-filter-count">{count}</span>}
               </button>
             )
           })}
         </div>
 
-        <div style={{ position: 'relative', minWidth: 220 }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+        <div className="orders-search-wrap">
+          <Search size={15} className="orders-search-icon" aria-hidden="true" />
           <input
             type="text"
+            className="checkout-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search orders..."
-            style={{
-              width: '100%',
-              padding: '9px 12px 9px 36px',
-              fontSize: 13,
-              border: '1.5px solid #e5e7eb',
-              borderRadius: 10,
-              outline: 'none',
-              transition: 'border-color 0.15s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#2d7a3a'}
-            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+            placeholder="Search orders…"
           />
         </div>
       </div>
 
-      {/* Orders List */}
       {filteredOrders.length === 0 ? (
-        <div style={{
-          background: 'white',
-          borderRadius: 16,
-          border: '1px solid #e8eee8',
-          padding: '60px 40px',
-          textAlign: 'center',
-          color: '#9ca3af'
-        }}>
+        <div className="checkout-card" style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
           <Search size={40} style={{ margin: '0 auto 16px', opacity: 0.4 }} strokeWidth={1.5} />
-          <p style={{ fontSize: 15, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>No matching orders</p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.75)', marginBottom: 4 }}>No matching orders</p>
           <p style={{ fontSize: 13 }}>Try adjusting your filter or search term</p>
         </div>
       ) : (
@@ -237,124 +177,55 @@ export default function OrdersPage() {
   )
 }
 
-// ─── Stat Card ───────────────────────────────
-function StatCard({ icon: Icon, label, value, color, bg }) {
+function StatCard({ icon: Icon, label, value }) {
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: 14,
-      border: '1px solid #e8eee8',
-      padding: 20,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14
-    }}>
-      <div style={{
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        background: bg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }}>
-        <Icon size={20} style={{ color }} />
+    <div className="checkout-card orders-stat-card">
+      <div className="checkout-card-icon">
+        <Icon size={20} />
       </div>
       <div>
-        <p style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
-          {label}
-        </p>
-        <p style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>{value}</p>
+        <p className="orders-stat-label">{label}</p>
+        <p className="orders-stat-value">{value}</p>
       </div>
     </div>
   )
 }
 
-// ─── Order Card ──────────────────────────────
 function OrderCard({ order }) {
   const tracking = order.trackingNumber ? getTrackingInfo(order.trackingNumber) : null
   const itemCount = order.items.reduce((s, i) => s + i.quantity, 0)
   const visibleItems = order.items.slice(0, 4)
   const extraCount = order.items.length - visibleItems.length
+  const step = statusStepIndex(order.status, order.fulfillmentMethod === 'pickup')
 
   return (
-    <Link
-      to={`/orders/${order._id}`}
-      style={{
-        textDecoration: 'none',
-        color: 'inherit',
-        display: 'block'
-      }}
-    >
-      <div
-        style={{
-          background: 'white',
-          borderRadius: 14,
-          border: '1px solid #e8eee8',
-          padding: 20,
-          transition: 'all 0.2s',
-          cursor: 'pointer'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#2d7a3a'
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(45, 122, 58, 0.08)'
-          e.currentTarget.style.transform = 'translateY(-1px)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = '#e8eee8'
-          e.currentTarget.style.boxShadow = 'none'
-          e.currentTarget.style.transform = 'translateY(0)'
-        }}
-      >
-        {/* Top row: Order info + status + total */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 16,
-          paddingBottom: 16,
-          marginBottom: 16,
-          borderBottom: '1px solid #f3f4f6',
-          flexWrap: 'wrap'
-        }}>
+    <Link to={`/orders/${order._id}`} className="orders-card-link">
+      <article className="checkout-card orders-order-card">
+        <div className="orders-card-top">
           <div>
-            <p style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: '#9ca3af',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginBottom: 4
-            }}>
-              Order #{order._id.slice(-8).toUpperCase()}
-            </p>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>
-              {formatDate(order.createdAt)}
-            </p>
+            <p className="orders-card-id">Order #{order._id.slice(-8).toUpperCase()}</p>
+            <p className="orders-card-date">{formatDate(order.createdAt)}</p>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="orders-card-meta">
             <span className={`admin-badge ${STATUS_COLOR[order.status] || 'gray'}`}>
               {STATUS_LABELS[order.status] || order.status}
             </span>
-            <span style={{ fontWeight: 700, fontSize: 18, color: '#1c2b1c' }}>
-              {formatPrice(order.total)}
-            </span>
+            <span className="orders-card-total">{formatPrice(order.total)}</span>
           </div>
         </div>
 
-        {/* Items row */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-            {/* Thumbnail stack */}
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+        {order.status !== 'cancelled' && (
+          <ul className="order-status-track" aria-label="Order status">
+            {STATUS_STEPS.map((label, index) => {
+              const state = index < step ? 'is-done' : index === step ? 'is-current' : ''
+              return <li key={label} className={state}>{label}</li>
+            })}
+          </ul>
+        )}
+
+        <div className="orders-card-bottom">
+          <div className="orders-card-items">
+            <div className="orders-thumb-stack">
               {visibleItems.map((item, idx) => (
                 <ProductImage
                   key={item._id || idx}
@@ -363,116 +234,46 @@ function OrderCard({ order }) {
                   variant="orderRow"
                   width={44}
                   height={44}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 10,
-                    objectFit: 'cover',
-                    border: '2px solid white',
-                    boxShadow: '0 0 0 1px #e8eee8',
-                    marginLeft: idx === 0 ? 0 : -10,
-                    zIndex: visibleItems.length - idx,
-                    background: 'white'
-                  }}
+                  className="orders-thumb"
+                  style={{ marginLeft: idx === 0 ? 0 : -10, zIndex: visibleItems.length - idx }}
                 />
               ))}
               {extraCount > 0 && (
-                <div style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  background: '#f3f4f6',
-                  border: '2px solid white',
-                  boxShadow: '0 0 0 1px #e8eee8',
-                  marginLeft: -10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: '#6b7280'
-                }}>
-                  +{extraCount}
-                </div>
+                <div className="orders-thumb-more" style={{ marginLeft: -10 }}>+{extraCount}</div>
               )}
             </div>
-
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#1a1a1a',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                marginBottom: 2
-              }}>
+              <p className="orders-card-title">
                 {order.items[0]?.name}
                 {order.items.length > 1 && (
-                  <span style={{ color: '#9ca3af', fontWeight: 500 }}> and {order.items.length - 1} more</span>
+                  <span> and {order.items.length - 1} more</span>
                 )}
               </p>
-              <p style={{ fontSize: 12, color: '#6b7280' }}>
+              <p className="checkout-hint">
                 {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                {tracking && (
-                  <>
-                    {' · '}
-                    <span style={{ color: '#2d7a3a', fontWeight: 600 }}>
-                      <Truck size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 3 }} />
-                      UPS tracking available
-                    </span>
-                  </>
-                )}
+                {tracking && ' · Tracking available'}
               </p>
             </div>
           </div>
 
-          {/* Right actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="orders-card-actions">
             {tracking && (
               <a
                 href={tracking.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#2d7a3a',
-                  padding: '8px 14px',
-                  border: '1.5px solid #2d7a3a',
-                  borderRadius: 8,
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#2d7a3a'
-                  e.currentTarget.style.color = 'white'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = '#2d7a3a'
-                }}
+                className="orders-track-btn"
               >
                 <Truck size={13} /> Track
               </a>
             )}
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#2d7a3a'
-            }}>
+            <span className="orders-details-link">
               Details <ChevronRight size={15} />
             </span>
           </div>
         </div>
-      </div>
+      </article>
     </Link>
   )
 }
