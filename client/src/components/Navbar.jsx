@@ -12,7 +12,6 @@ function navLinkClass({ isActive }) {
 
 export default function Navbar() {
   const { pathname } = useLocation()
-  const isHome = pathname === '/'
   const isShopRoute = pathname === '/shop' || pathname.startsWith('/product')
   const { user, logout } = useAuthStore()
   const items = useCartStore((s) => s.items)
@@ -20,15 +19,7 @@ export default function Navbar() {
   const cartCount = items.reduce((s, i) => s + i.quantity, 0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
   const userMenuRef = useRef(null)
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   useEffect(() => {
     if (!userMenuOpen) return
@@ -52,11 +43,9 @@ export default function Navbar() {
 
   const closeAll = () => { setMenuOpen(false); setUserMenuOpen(false) }
 
-  const navbarClass = [
-    'navbar',
-    isHome && !scrolled ? 'navbar--transparent' : 'navbar--solid',
-    scrolled ? 'navbar--scrolled' : '',
-  ].filter(Boolean).join(' ')
+  // Always solid — transparent + backdrop-filter over the Aurora WebGL hero
+  // caused the header to flash/flicker while scrolling the homepage.
+  const navbarClass = 'navbar navbar--solid'
 
   const mobileLinks = [
     { to: '/shop', label: 'Shop All Products', end: false },
