@@ -32,6 +32,12 @@ body {
   width: 100%;
   margin: 0;
 }
+/* Storefront is dark — keep document bg dark so WebGL/compositor gaps don't flash cream */
+html:has(.storefront-shell),
+html:has(.storefront-shell) body,
+html:has(.storefront-shell) #root {
+  background: #0d0d0b;
+}
 #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 
 a { text-decoration: none; color: inherit; }

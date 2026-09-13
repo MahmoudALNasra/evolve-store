@@ -107,6 +107,13 @@ void main() {
 }
 `
 
+function hexStopsToRgb(stops) {
+  return stops.map((hex) => {
+    const c = new Color(hex)
+    return [c.r, c.g, c.b]
+  })
+}
+
 export default function Aurora({
   colorStops = ['#0d0d0d', '#C9A84C', '#1a1810'],
   amplitude = 1.0,
@@ -118,6 +125,7 @@ export default function Aurora({
   propsRef.current = { colorStops, amplitude, blend, speed }
   const ctnDom = useRef(null)
 
+  // Mount WebGL once — never recreate on parent re-renders (scroll state, etc.)
   useEffect(() => {
     const ctn = ctnDom.current
     if (!ctn) return
@@ -125,6 +133,7 @@ export default function Aurora({
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (prefersReduced) return
 
+    const initial = propsRef.current
     const renderer = new Renderer({
       alpha: true,
       premultipliedAlpha: true,
@@ -154,20 +163,15 @@ export default function Aurora({
       delete geometry.attributes.uv
     }
 
-    const colorStopsArray = colorStops.map((hex) => {
-      const c = new Color(hex)
-      return [c.r, c.g, c.b]
-    })
-
     program = new Program(gl, {
       vertex: VERT,
       fragment: FRAG,
       uniforms: {
         uTime: { value: 0 },
-        uAmplitude: { value: amplitude },
-        uColorStops: { value: colorStopsArray },
+        uAmplitude: { value: initial.amplitude },
+        uColorStops: { value: hexStopsToRgb(initial.colorStops) },
         uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
-        uBlend: { value: blend },
+        uBlend: { value: initial.blend },
       },
     })
 
@@ -175,32 +179,62 @@ export default function Aurora({
     ctn.appendChild(gl.canvas)
 
     let animateId = 0
+    let inView = true
+    let pageVisible = document.visibilityState !== 'hidden'
+
     const update = (t) => {
+      if (!inView || !pageVisible) {
+        animateId = 0
+        return
+      }
       animateId = requestAnimationFrame(update)
-      const { speed: s = 1.0 } = propsRef.current
-      program.uniforms.uTime.value = t * 0.01 * s * 0.1
-      program.uniforms.uAmplitude.value = propsRef.current.amplitude ?? amplitude
-      program.uniforms.uBlend.value = propsRef.current.blend ?? blend
-      const stops = propsRef.current.colorStops ?? colorStops
-      program.uniforms.uColorStops.value = stops.map((hex) => {
-        const c = new Color(hex)
-        return [c.r, c.g, c.b]
-      })
+      const props = propsRef.current
+      program.uniforms.uTime.value = t * 0.01 * (props.speed ?? 1) * 0.1
+      program.uniforms.uAmplitude.value = props.amplitude ?? 1
+      program.uniforms.uBlend.value = props.blend ?? 0.55
+      program.uniforms.uColorStops.value = hexStopsToRgb(props.colorStops)
       renderer.render({ scene: mesh })
     }
-    animateId = requestAnimationFrame(update)
 
+    const startLoop = () => {
+      if (!animateId && inView && pageVisible) {
+        animateId = requestAnimationFrame(update)
+      }
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting
+        if (inView) startLoop()
+      },
+      { root: null, threshold: 0.01 },
+    )
+    io.observe(ctn)
+
+    const onVisibility = () => {
+      pageVisible = document.visibilityState !== 'hidden'
+      if (pageVisible) startLoop()
+      else if (animateId) {
+        cancelAnimationFrame(animateId)
+        animateId = 0
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    startLoop()
     resize()
 
     return () => {
-      cancelAnimationFrame(animateId)
+      if (animateId) cancelAnimationFrame(animateId)
+      io.disconnect()
+      document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('resize', resize)
       if (ctn && gl.canvas.parentNode === ctn) {
         ctn.removeChild(gl.canvas)
       }
       gl.getExtension('WEBGL_lose_context')?.loseContext()
     }
-  }, [amplitude, blend, colorStops])
+  }, [])
 
   return <div ref={ctnDom} className={`aurora-canvas ${className}`.trim()} aria-hidden="true" />
 }

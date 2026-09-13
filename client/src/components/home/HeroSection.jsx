@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { ArrowRight, CheckCircle, ChevronDown } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Aurora from '@/components/ui/Aurora'
@@ -13,12 +13,19 @@ const TRUST_ITEMS = [
   '30-day returns',
 ]
 
+const HERO_COLOR_STOPS = ['#0a0a0a', '#C9A84C', '#1c1a14']
+
 export default function HeroSection() {
   const reduced = useReducedMotion()
-  const [showScrollHint, setShowScrollHint] = useState(true)
+  const scrollHintRef = useRef(null)
 
+  // Avoid setState on scroll — that re-rendered Hero and remounted Aurora (white flash).
   useEffect(() => {
-    const onScroll = () => setShowScrollHint(window.scrollY < 100)
+    const onScroll = () => {
+      const el = scrollHintRef.current
+      if (!el) return
+      el.style.opacity = window.scrollY < 100 ? '1' : '0'
+    }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -28,7 +35,7 @@ export default function HeroSection() {
     <section className="hero-section hero-section--aurora">
       <div className="hero-aurora-wrap">
         <Aurora
-          colorStops={['#0a0a0a', '#C9A84C', '#1c1a14']}
+          colorStops={HERO_COLOR_STOPS}
           amplitude={1.15}
           blend={0.52}
           speed={0.85}
@@ -92,17 +99,16 @@ export default function HeroSection() {
         </BlurIn>
 
         {!reduced && (
-          <motion.div
-            className="hero-scroll-hint"
-            animate={{ y: [0, 8, 0], opacity: showScrollHint ? 1 : 0 }}
-            transition={{
-              y: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' },
-              opacity: { duration: 0.25 },
-            }}
-            aria-hidden={!showScrollHint}
-          >
-            <ChevronDown size={24} />
-          </motion.div>
+          <div ref={scrollHintRef} className="hero-scroll-hint" aria-hidden="true">
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{
+                y: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' },
+              }}
+            >
+              <ChevronDown size={24} />
+            </motion.div>
+          </div>
         )}
       </div>
     </section>
