@@ -8,7 +8,7 @@ const {
   buildProductJsonLd,
   buildBreadcrumbJsonLd,
   getProductImages,
-  getProductDescription,
+  getProductMetaDescription,
 } = require('../utils/productSeoServer')
 
 let cachedIndexHtml = null
@@ -71,7 +71,7 @@ function buildHeadInjection(meta, product) {
 
 function buildBodySnapshot(product) {
   const images = getProductImages(product)
-  const description = escapeHtml(getProductDescription(product))
+  const description = escapeHtml(getProductMetaDescription(product))
   const price = Number(product.price).toFixed(2)
   const img = escapeHtml(images[0])
 

@@ -73,6 +73,11 @@ async function suggestAddresses(input, { sessionToken } = {}) {
   if (data.status && data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     const err = new Error(data.error_message || `Places autocomplete failed: ${data.status}`)
     err.code = data.status
+    if (/referer restrictions/i.test(String(data.error_message || ''))) {
+      err.code = 'REFERER_RESTRICTED_KEY'
+      err.message =
+        'GOOGLE_MAPS_API_KEY is restricted by HTTP referrer. Create a server key restricted by IP (droplet IP), with Places API enabled.'
+    }
     throw err
   }
 

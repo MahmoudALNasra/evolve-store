@@ -15,6 +15,26 @@ function isUpsGroundRate(rate) {
   return provider.includes('ups') && service.includes('ground')
 }
 
+function isUsDomesticParcelRate(rate) {
+  const provider = String(rate.provider || '').toLowerCase()
+  const service = String(rate.service || '').toLowerCase()
+  if (provider.includes('ups') || provider.includes('usps') || provider.includes('fedex')) {
+    // Prefer ground / priority / first / parcel — skip overnight when possible
+    if (/ground|priority|first|parcel|media|retail|advantage|surepost|smartpost/i.test(service)) {
+      return true
+    }
+    // Any UPS/USPS/FedEx rate is better than estimate when Ground is rate-limited
+    return true
+  }
+  return false
+}
+
+function pickCarrierRates(rates = []) {
+  const upsGround = rates.filter(isUpsGroundRate).slice(0, 3)
+  if (upsGround.length) return upsGround
+  return rates.filter(isUsDomesticParcelRate).slice(0, 3)
+}
+
 function buildEstimateResponse(numericSubtotal, address, note) {
   const estimate = getShippingQuote(numericSubtotal, address)
   const rate = {
@@ -78,17 +98,17 @@ async function getLiveShippingRates({ subtotal, address, user }) {
       user,
     })
 
-    const upsGroundRates = rates.filter(isUpsGroundRate).slice(0, 3)
+    const carrierRates = pickCarrierRates(rates)
 
-    if (!upsGroundRates.length) {
+    if (!carrierRates.length) {
       console.warn(
-        'No UPS Ground rates for address; falling back to estimate.',
-        { zip: address.zip, messages }
+        'No US domestic carrier rates for address; falling back to estimate.',
+        { zip: address.zip, messageCount: (messages || []).length }
       )
       return buildEstimateResponse(
         numericSubtotal,
         address,
-        'Live UPS Ground rates were unavailable for this address; showing an estimate so you can continue.'
+        'Live carrier rates were unavailable (UPS may be rate-limited); showing an estimate so you can continue.'
       )
     }
 
@@ -98,7 +118,7 @@ async function getLiveShippingRates({ subtotal, address, user }) {
       mode: 'live',
       shipmentId,
       dispatch,
-      rates: upsGroundRates.map((rate) => {
+      rates: carrierRates.map((rate) => {
         const cappedRate = applyFreeShippingCap(rate)
         return {
           ...cappedRate,

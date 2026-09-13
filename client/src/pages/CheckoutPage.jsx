@@ -156,7 +156,7 @@ export default function CheckoutPage() {
       return
     }
 
-    const timer = setTimeout(async () => {
+    const timer =       setTimeout(async () => {
       setRatesLoading(true)
       try {
         const { data } = await api.post('/shipping/rates', {
@@ -184,7 +184,7 @@ export default function CheckoutPage() {
       } finally {
         setRatesLoading(false)
       }
-    }, 600)
+    }, 1200)
 
     return () => clearTimeout(timer)
   }, [isPickup, shippingAddress, items, subtotal])
