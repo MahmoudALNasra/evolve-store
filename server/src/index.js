@@ -40,6 +40,7 @@ const createSpaMiddleware = require('./middleware/serveSpa')
 const { startCheckoutReconciliation } = require('./services/checkoutReconciliationService')
 const { startInventorySyncScheduler } = require('./services/inventorySyncService')
 const { logEmailStartupStatus } = require('./services/emailService')
+const { logPlacesStartupStatus } = require('./services/placesAutocompleteService')
 
 const app = express()
 
@@ -128,6 +129,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   logGa4StartupStatus()
   logEmailStartupStatus()
+  logPlacesStartupStatus()
   startCheckoutReconciliation()
   startInventorySyncScheduler()
 })

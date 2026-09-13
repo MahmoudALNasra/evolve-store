@@ -124,9 +124,20 @@ async function getAddressDetails(placeId, { sessionToken } = {}) {
   }
 }
 
+function logPlacesStartupStatus() {
+  if (isPlacesConfigured()) {
+    console.log('Address autocomplete: Google Places configured (GOOGLE_MAPS_API_KEY)')
+  } else {
+    console.warn(
+      'Address autocomplete: NOT configured — set GOOGLE_MAPS_API_KEY in server/.env and enable Places API'
+    )
+  }
+}
+
 module.exports = {
   isPlacesConfigured,
   suggestAddresses,
   getAddressDetails,
   parseAddressComponents,
+  logPlacesStartupStatus,
 }

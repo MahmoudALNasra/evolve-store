@@ -228,9 +228,42 @@ router.post('/rates', protect, async (req, res) => {
       note: result.note,
     })
   } catch (err) {
-    console.error('Shipping rates error:', err.response?.data || err.message)
-    const normalized = normalizeShippoError(err)
-    res.status(normalized.status).json(normalized)
+    // Never block checkout on carrier address quirks — return estimate rates instead.
+    console.error('Shipping rates error; returning estimate fallback:', err.response?.data || err.message)
+    try {
+      const { getShippingQuote } = require('../utils/shippingRates')
+      const { getDispatchInfo } = require('../utils/shippingCutoff')
+      const { signShippingRateSelection } = require('../utils/shippingRateToken')
+      const estimate = getShippingQuote(subtotal, normalizedAddress)
+      const rate = {
+        objectId: 'estimate',
+        amount: estimate.amount,
+        originalAmount: estimate.originalAmount ?? estimate.amount,
+        freeShippingApplied: Boolean(estimate.isFree),
+        label: estimate.label,
+        provider: 'Estimate',
+        service: estimate.label,
+        estimatedDays: null,
+        token: signShippingRateSelection({
+          mode: 'estimate',
+          amount: estimate.amount,
+          originalAmount: estimate.originalAmount ?? estimate.amount,
+          freeShippingApplied: Boolean(estimate.isFree),
+          label: estimate.label,
+          zip: normalizedAddress.zip,
+        }),
+      }
+      return res.json({
+        mode: 'estimate',
+        dispatch: getDispatchInfo(),
+        rates: [rate],
+        note: 'Carrier could not rate this address exactly; showing an estimate so you can continue.',
+      })
+    } catch (fallbackErr) {
+      console.error('Estimate fallback also failed:', fallbackErr.message)
+      const normalized = normalizeShippoError(err)
+      return res.status(normalized.status).json(normalized)
+    }
   }
 })
 
