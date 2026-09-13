@@ -146,6 +146,21 @@ function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') return PLACEHOLDER
   const trimmed = url.trim()
   if (trimmed.startsWith('//')) return `https:${trimmed}`
+
+  // Rewrite absolute legacy hosts (http://IP/media/...) to same-origin /media/...
+  // so HTTPS pages are not blocked by mixed content / dead IP routes.
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      const parsed = new URL(trimmed)
+      if (parsed.pathname.startsWith('/media/')) {
+        const origin = getMediaOrigin()
+        return origin ? `${origin}${parsed.pathname}${parsed.search}` : parsed.pathname
+      }
+    }
+  } catch {
+    /* keep original */
+  }
+
   if (trimmed.startsWith('/media/')) {
     const origin = getMediaOrigin()
     return origin ? `${origin}${trimmed}` : trimmed
