@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { X, ChevronDown, Printer, Package, Truck, Zap, Search, Pencil, Trash2 } from 'lucide-react'
+import { X, ChevronDown, Printer, Package, Truck, Zap, Search, Pencil, Trash2, Mail } from 'lucide-react'
 import api from '../../lib/api'
 import { formatPrice, formatDate } from '../../lib/utils'
 import { isValidUPSTracking } from '../../lib/tracking'
@@ -49,6 +49,7 @@ export default function AdminOrders() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [shipTracking, setShipTracking] = useState('')
   const [shipping, setShipping] = useState(false)
+  const [resendingConfirmation, setResendingConfirmation] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(() => buildEditForm(null))
   const [savingEdit, setSavingEdit] = useState(false)
@@ -292,6 +293,24 @@ export default function AdminOrders() {
     toast.success('Tracking number updated')
     setSelected((o) => ({ ...o, trackingNumber: trackingNumber.trim() }))
     load()
+  }
+
+  const handleResendConfirmation = async () => {
+    if (!selected?.isPaid) {
+      toast.error('Order must be paid before sending a confirmation email')
+      return
+    }
+    setResendingConfirmation(true)
+    try {
+      const { data } = await api.post(`/orders/${selected._id}/resend-confirmation`, {}, ordersAuthConfig())
+      toast.success(`Confirmation emailed to ${data.email}`)
+      setSelected((o) => ({ ...o, confirmationEmailSent: true }))
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resend confirmation email')
+    } finally {
+      setResendingConfirmation(false)
+    }
   }
 
   const printInvoice = () => {
@@ -657,8 +676,24 @@ export default function AdminOrders() {
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1c2b1c' }}>Order #{selected._id.slice(-8).toUpperCase()}</h2>
                 <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{formatDate(selected.createdAt)}</p>
+                <p style={{ fontSize: 11, marginTop: 4, color: selected.confirmationEmailSent ? '#15803d' : '#b45309' }}>
+                  Confirmation email: {selected.confirmationEmailSent ? 'sent' : 'not sent'}
+                </p>
               </div>
-              <button onClick={closeOrder} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {selected.isPaid && (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendingConfirmation}
+                    className="btn-admin btn-admin-sm btn-admin-secondary"
+                    title="Resend customer confirmation email"
+                  >
+                    <Mail size={14} /> {resendingConfirmation ? 'Sending…' : 'Resend email'}
+                  </button>
+                )}
+                <button onClick={closeOrder} className="btn-admin btn-admin-sm btn-admin-secondary"><X size={16} /></button>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* ── Quick Ship Action Card ── (only shows when order is Confirmed/processing) */}

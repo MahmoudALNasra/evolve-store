@@ -1,6 +1,41 @@
 const Product = require('../models/Product')
+const User = require('../models/User')
 const { sendOrderConfirmation, sendNewOrderNotification } = require('./emailService')
 const { applySaleItems } = require('./inventorySyncService')
+
+/**
+ * Resolve a user-like object with email for transactional mail.
+ * Handles unpopulated ObjectIds and falls back to Stripe customer email.
+ */
+async function resolveRecipient(order, session) {
+  let userDoc = order.user
+
+  if (userDoc && typeof userDoc === 'object' && userDoc.email) {
+    return userDoc
+  }
+
+  const userId = userDoc?._id || userDoc
+  if (userId) {
+    userDoc = await User.findById(userId).select('name email')
+  }
+
+  const stripeEmail =
+    session?.customer_details?.email ||
+    session?.customer_email ||
+    ''
+
+  if (userDoc?.email) return userDoc
+
+  if (stripeEmail) {
+    return {
+      _id: userDoc?._id || userId || undefined,
+      name: userDoc?.name || session?.customer_details?.name || 'Customer',
+      email: stripeEmail,
+    }
+  }
+
+  return userDoc || null
+}
 
 /**
  * Idempotently mark a Stripe Checkout order as paid, reduce stock once,
@@ -29,19 +64,35 @@ async function fulfillPaidCheckoutOrder(order, session) {
 
   await order.save()
 
-  if (!order.confirmationEmailSent && order.user) {
-    const sent = await sendOrderConfirmation(order, order.user)
-    if (sent) {
-      order.confirmationEmailSent = true
-      await order.save()
+  const recipient = await resolveRecipient(order, session)
+
+  if (!order.confirmationEmailSent) {
+    try {
+      if (!recipient?.email) {
+        console.warn(
+          `Order confirmation email skipped for ${order._id}: no customer email on user or Stripe session`
+        )
+      } else {
+        const sent = await sendOrderConfirmation(order, recipient)
+        if (sent) {
+          order.confirmationEmailSent = true
+          await order.save()
+        }
+      }
+    } catch (err) {
+      console.error(`Order confirmation email threw for ${order._id}:`, err.message)
     }
   }
 
   if (!order.newOrderEmailSent) {
-    const sent = await sendNewOrderNotification(order, order.user)
-    if (sent) {
-      order.newOrderEmailSent = true
-      await order.save()
+    try {
+      const sent = await sendNewOrderNotification(order, recipient)
+      if (sent) {
+        order.newOrderEmailSent = true
+        await order.save()
+      }
+    } catch (err) {
+      console.error(`New order notification threw for ${order._id}:`, err.message)
     }
   }
 
@@ -64,4 +115,4 @@ async function fulfillPaidCheckoutOrder(order, session) {
   return { ok: true, order }
 }
 
-module.exports = { fulfillPaidCheckoutOrder }
+module.exports = { fulfillPaidCheckoutOrder, resolveRecipient }

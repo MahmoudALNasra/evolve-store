@@ -276,6 +276,47 @@ router.put('/:id/tracking', protect, admin, requireOrdersPassword, async (req, r
   res.json(order)
 })
 
+// POST /api/orders/:id/resend-confirmation  — admin: resend customer confirmation email
+router.post('/:id/resend-confirmation', protect, admin, requireOrdersPassword, async (req, res) => {
+  const { isEmailConfigured, sendOrderConfirmation } = require('../services/emailService')
+  const { resolveRecipient } = require('../services/orderFulfillmentService')
+
+  if (!isEmailConfigured()) {
+    return res.status(503).json({
+      message: 'Email provider is not configured. Set RESEND_API_KEY and EMAIL_FROM on the server.',
+    })
+  }
+
+  const order = await Order.findById(req.params.id).populate('user', 'name email')
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+  if (!order.isPaid) {
+    return res.status(400).json({ message: 'Order is not paid yet — confirmation emails send after payment' })
+  }
+
+  const recipient = await resolveRecipient(order, null)
+  if (!recipient?.email) {
+    return res.status(400).json({ message: 'No customer email on this order' })
+  }
+
+  const sent = await sendOrderConfirmation(order, recipient)
+  if (!sent) {
+    return res.status(502).json({ message: 'Email provider rejected the send — check server logs / Resend domain' })
+  }
+
+  order.confirmationEmailSent = true
+  await order.save()
+
+  void logAuditFromReq(req, {
+    action: 'order.resend_confirmation',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Resent confirmation for order #${String(order._id).slice(-8).toUpperCase()} to ${recipient.email}`,
+    after: { email: recipient.email, confirmationEmailSent: true },
+  })
+  res.locals.auditLogged = true
+  res.json({ ok: true, email: recipient.email, confirmationEmailSent: true })
+})
+
 // DELETE /api/orders/:id  — admin only
 router.delete('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
   const order = await Order.findByIdAndDelete(req.params.id)

@@ -1,5 +1,5 @@
 const axios = require('axios')
-const { getTransporter, isEmailConfigured, isResendConfigured } = require('../config/email')
+const { getTransporter, isEmailConfigured, isResendConfigured, isSmtpConfigured } = require('../config/email')
 const { buildContactMessageEmail } = require('../templates/contactMessageEmail')
 const { buildOrderConfirmationEmail } = require('../templates/orderConfirmationEmail')
 const { buildNewOrderNotificationEmail } = require('../templates/newOrderNotificationEmail')
@@ -10,6 +10,18 @@ const getFromAddress = () => {
   const name = process.env.EMAIL_FROM_NAME || 'Evolve Specialty Pharmacy & Wellness'
   const email = process.env.EMAIL_FROM
   return `"${name}" <${email}>`
+}
+
+const formatProviderError = (err) => {
+  const status = err.response?.status
+  const data = err.response?.data
+  const detail =
+    typeof data === 'string'
+      ? data
+      : data
+        ? JSON.stringify(data)
+        : ''
+  return [err.message, status ? `status=${status}` : '', detail].filter(Boolean).join(' | ')
 }
 
 const sendWithResend = async ({ to, subject, text, html }) => {
@@ -43,7 +55,7 @@ const sendMail = async ({ to, subject, text, html }) => {
 
   const transport = getTransporter()
   if (!transport) {
-    console.warn('Email skipped: no email provider configured (set RESEND_API_KEY or SMTP_* in .env)')
+    console.warn('Email skipped: no email provider configured (set RESEND_API_KEY + EMAIL_FROM, or SMTP_* + EMAIL_FROM)')
     return false
   }
 
@@ -58,18 +70,39 @@ const sendMail = async ({ to, subject, text, html }) => {
   return true
 }
 
+async function buildOrdersCtaUrl(user, order) {
+  const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '')
+  const fallback = `${clientUrl}/orders`
+
+  if (!user?._id) return fallback
+
+  try {
+    return await createEmailLoginUrl({
+      userId: user._id,
+      orderId: order._id,
+      redirect: '/orders',
+    })
+  } catch (err) {
+    console.warn(`Email login URL failed for order ${order._id}; using plain /orders link:`, err.message)
+    return fallback
+  }
+}
+
 const sendOrderConfirmation = async (order, user) => {
   if (!user?.email) {
     console.warn('Order confirmation email skipped: no user email')
     return false
   }
 
+  if (!isEmailConfigured()) {
+    console.warn(
+      `Order confirmation email skipped for ${order._id}: email provider not configured (RESEND_API_KEY+EMAIL_FROM or SMTP_*+EMAIL_FROM)`
+    )
+    return false
+  }
+
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
-  const ordersUrl = await createEmailLoginUrl({
-    userId: user._id,
-    orderId: order._id,
-    redirect: '/orders',
-  })
+  const ordersUrl = await buildOrdersCtaUrl(user, order)
   const { subject, text, html } = buildOrderConfirmationEmail({
     order,
     userName: user.name || 'Customer',
@@ -83,7 +116,7 @@ const sendOrderConfirmation = async (order, user) => {
     console.log(`📧 Order confirmation sent to ${user.email} for order ${order._id}`)
     return true
   } catch (err) {
-    console.error('Order confirmation email failed:', err.message)
+    console.error('Order confirmation email failed:', formatProviderError(err))
     return false
   }
 }
@@ -104,7 +137,7 @@ const sendOrderShipped = async (order, user) => {
     console.log(`📧 Shipped notification sent to ${user.email} for order ${order._id}`)
     return true
   } catch (err) {
-    console.error('Shipped email failed:', err.message)
+    console.error('Shipped email failed:', formatProviderError(err))
     return false
   }
 }
@@ -120,7 +153,7 @@ const sendNewOrderNotification = async (order, user) => {
     console.log(`📧 New order notification sent to ${to} for order ${order._id}`)
     return true
   } catch (err) {
-    console.error('New order notification email failed:', err.message)
+    console.error('New order notification email failed:', formatProviderError(err))
     return false
   }
 }
@@ -135,9 +168,25 @@ const sendContactMessage = async (payload) => {
     console.log(`📧 Contact form message sent to ${to} from ${payload.email}`)
     return true
   } catch (err) {
-    console.error('Contact form email failed:', err.message)
+    console.error('Contact form email failed:', formatProviderError(err))
     return false
   }
+}
+
+function logEmailStartupStatus() {
+  if (isResendConfigured()) {
+    console.log(`Email: Resend configured (from ${process.env.EMAIL_FROM})`)
+    return
+  }
+  if (isSmtpConfigured()) {
+    console.log(
+      `Email: SMTP configured (${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}) — note DigitalOcean often blocks outbound SMTP; prefer Resend`
+    )
+    return
+  }
+  console.warn(
+    'Email: NOT configured — order confirmations will not send. Set RESEND_API_KEY + EMAIL_FROM (recommended) or SMTP_* + EMAIL_FROM'
+  )
 }
 
 module.exports = {
@@ -146,4 +195,5 @@ module.exports = {
   sendOrderConfirmation,
   sendNewOrderNotification,
   sendOrderShipped,
+  logEmailStartupStatus,
 }

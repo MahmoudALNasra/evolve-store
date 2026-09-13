@@ -39,6 +39,7 @@ const createPrerenderMiddleware = require('./middleware/prerenderCrawlers')
 const createSpaMiddleware = require('./middleware/serveSpa')
 const { startCheckoutReconciliation } = require('./services/checkoutReconciliationService')
 const { startInventorySyncScheduler } = require('./services/inventorySyncService')
+const { logEmailStartupStatus } = require('./services/emailService')
 
 const app = express()
 
@@ -126,6 +127,7 @@ const PORT = process.env.PORT || 5000
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   logGa4StartupStatus()
+  logEmailStartupStatus()
   startCheckoutReconciliation()
   startInventorySyncScheduler()
 })
