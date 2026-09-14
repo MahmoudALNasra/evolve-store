@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, CheckCircle, Clock } from 'lucide-react'
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, CheckCircle, Clock, Pencil } from 'lucide-react'
+import toast from 'react-hot-toast'
 import api from '../lib/api'
 import { formatPrice, formatDate } from '../lib/utils'
 import ProductImage from '../components/ProductImage'
 import { getTrackingInfo } from '../lib/tracking'
+import { US_STATES } from '../lib/usStates'
 
 const STATUS_COLOR = {
   pending: 'yellow',
@@ -30,25 +32,70 @@ const STATUS_ICONS = {
   cancelled: null,
 }
 
+function formatTaxRate(rate) {
+  if (rate == null || Number.isNaN(Number(rate))) return '8.25'
+  return String((Number(rate) * 100).toFixed(2)).replace(/\.00$/, '')
+}
+
 export default function OrderDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [savingAddress, setSavingAddress] = useState(false)
+  const [addressForm, setAddressForm] = useState({
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'United States',
+  })
 
   useEffect(() => {
     api.get(`/orders/${id}`)
-      .then(({ data }) => setOrder(data))
+      .then(({ data }) => {
+        setOrder(data)
+        setAddressForm({
+          line1: data.shippingAddress?.line1 || '',
+          line2: data.shippingAddress?.line2 || '',
+          city: data.shippingAddress?.city || '',
+          state: data.shippingAddress?.state || '',
+          zip: data.shippingAddress?.zip || '',
+          country: data.shippingAddress?.country || 'United States',
+        })
+      })
       .catch((err) => {
         console.error('Failed to load order:', err)
         navigate('/orders')
       })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, navigate])
+
+  const saveAddress = async (e) => {
+    e.preventDefault()
+    setSavingAddress(true)
+    try {
+      const { data } = await api.put(`/orders/${id}/shipping-address`, {
+        shippingAddress: addressForm,
+      })
+      setOrder(data)
+      setEditingAddress(false)
+      toast.success('Shipping address updated')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update address')
+      if (err.response?.data?.addressEdit) {
+        setOrder((prev) => ({ ...prev, addressEdit: err.response.data.addressEdit }))
+      }
+    } finally {
+      setSavingAddress(false)
+    }
+  }
 
   if (loading) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner-wrap" style={{ minHeight: '60vh' }}>
         <div className="spinner spinner-lg" />
       </div>
     )
@@ -58,299 +105,207 @@ export default function OrderDetailsPage() {
 
   const StatusIcon = STATUS_ICONS[order.status]
   const isPickup = order.fulfillmentMethod === 'pickup'
+  const discount = Number(order.discount || 0)
+  const tax = Number(order.tax || 0)
+  const amountPaid = Number(order.amountPaid || order.total || 0)
+  const addressEdit = order.addressEdit || {}
+  const tracking = order.trackingNumber ? getTrackingInfo(order.trackingNumber) : null
+  const taxRateLabel = formatTaxRate(order.salesTaxRate)
 
   return (
-    <div style={{ background: '#f9fafb', minHeight: '100vh', padding: '40px 24px' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <Link
-            to="/orders"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              color: '#2d7a3a',
-              fontWeight: 600,
-              fontSize: 14,
-              textDecoration: 'none',
-              marginBottom: 16
-            }}
-          >
-            <ArrowLeft size={16} /> Back to Orders
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <div>
-              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
-                Order #{order._id.slice(-8).toUpperCase()}
-              </h1>
-              <p style={{ color: '#6b7280', fontSize: 14 }}>
-                Placed on {formatDate(order.createdAt)}
-              </p>
-            </div>
-            <span className={`admin-badge ${STATUS_COLOR[order.status] || 'gray'}`} style={{ fontSize: 14, padding: '8px 16px' }}>
-              {STATUS_LABELS[order.status] || order.status}
-            </span>
-          </div>
-        </div>
-
-        {/* Order Timeline */}
-        <div className="card" style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 20 }}>Order Status</h2>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
-            {/* Timeline Line */}
-            <div style={{
-              position: 'absolute',
-              top: 20,
-              left: 20,
-              right: 20,
-              height: 2,
-              background: '#e5e7eb',
-              zIndex: 0
-            }}>
-              <div style={{
-                height: '100%',
-                background: 'linear-gradient(90deg, #2d7a3a 0%, #a7e9c5 100%)',
-                width: order.status === 'pending' ? '0%' : order.status === 'processing' ? '33%' : order.status === 'shipped' ? '66%' : '100%',
-                transition: 'width 0.5s'
-              }} />
-            </div>
-
-            {/* Steps */}
-            {['pending', 'processing', 'shipped', 'delivered'].map((status, idx) => {
-              const Icon = STATUS_ICONS[status]
-              const isActive = ['pending', 'processing', 'shipped', 'delivered'].indexOf(order.status) >= idx
-              const isCurrent = order.status === status
-
-              return (
-                <div key={status} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
-                  <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    background: isActive ? 'linear-gradient(135deg, #2d7a3a 0%, #3a9447 100%)' : '#f3f4f6',
-                    border: isCurrent ? '3px solid #a7e9c5' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 8,
-                    transition: 'all 0.3s'
-                  }}>
-                    {Icon && <Icon size={18} style={{ color: isActive ? 'white' : '#9ca3af' }} />}
-                  </div>
-                  <p style={{
-                    fontSize: 11,
-                    fontWeight: isCurrent ? 700 : 600,
-                    color: isActive ? '#2d7a3a' : '#9ca3af',
-                    textAlign: 'center'
-                  }}>
-                    {STATUS_LABELS[status]}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Tracking Number */}
-          {order.trackingNumber && (() => {
-            const tracking = getTrackingInfo(order.trackingNumber)
-            return (
-              <div style={{
-                marginTop: 24,
-                padding: 16,
-                background: '#f0f9f4',
-                borderRadius: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                flexWrap: 'wrap'
-              }}>
-                <Truck size={20} style={{ color: '#2d7a3a', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
-                    UPS Tracking Number
-                  </p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#2d7a3a', fontFamily: 'monospace' }}>
-                    {order.trackingNumber}
-                  </p>
-                </div>
-                <a
-                  href={tracking.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-primary"
-                  style={{ fontSize: 13, padding: '8px 16px' }}
-                >
-                  Track on UPS
-                </a>
-              </div>
-            )
-          })()}
-        </div>
-
-        <div className="responsive-side-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 24 }}>
-          {/* Left Column */}
+    <div className="orders-page-shell">
+      <div style={{ marginBottom: 28 }}>
+        <Link to="/orders" className="checkout-back" style={{ textDecoration: 'none' }}>
+          <ArrowLeft size={16} /> Back to Orders
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
           <div>
-            {/* Order Items */}
-            <div className="card" style={{ marginBottom: 24 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 16 }}>Order Items</h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {order.items.map((item) => (
-                  <div key={item._id} style={{
-                    display: 'flex',
-                    gap: 16,
-                    padding: 16,
-                    background: '#f9fafb',
-                    borderRadius: 10,
-                    border: '1px solid #e8eee8'
-                  }}>
-                    <ProductImage
-                      src={item.image}
-                      alt={item.name}
-                      variant="order"
-                      width={80}
-                      height={80}
-                      style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 10,
-                        objectFit: 'cover',
-                        border: '1px solid #e8eee8',
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                        {item.name}
-                      </h3>
-                      <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 8 }}>
-                        Quantity: {item.quantity}
-                      </p>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: '#2d7a3a' }}>
-                        {formatPrice(item.price)} each
-                      </p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: 16, fontWeight: 700, color: '#1c2b1c' }}>
-                        {formatPrice(item.price * item.quantity)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <h1 className="checkout-page-title">Order #{order._id.slice(-8).toUpperCase()}</h1>
+            <p className="checkout-page-sub">Placed on {formatDate(order.createdAt)}</p>
+          </div>
+          <span className={`admin-badge ${STATUS_COLOR[order.status] || 'gray'}`}>
+            {STATUS_LABELS[order.status] || order.status}
+          </span>
+        </div>
+      </div>
 
-            {/* Fulfillment Details */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  background: 'linear-gradient(135deg, #d1f4e0 0%, #a7e9c5 100%)',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <MapPin size={18} style={{ color: '#2d7a3a' }} />
+      <div className="checkout-layout">
+        <div>
+          <div className="checkout-card">
+            <h2 style={{ marginBottom: 16 }}>Items</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {order.items.map((item) => (
+                <div key={item._id || item.name} className="order-line">
+                  <ProductImage
+                    src={item.image}
+                    alt={item.name}
+                    variant="order"
+                    width={72}
+                    height={72}
+                    style={{ borderRadius: 10, objectFit: 'cover' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <p className="checkout-summary-name">{item.name}</p>
+                    <p className="checkout-hint">
+                      Qty {item.quantity} · {formatPrice(item.price)} each
+                      {item.isTaxable ? ' · Taxable' : ''}
+                    </p>
+                  </div>
+                  <p className="checkout-summary-price">{formatPrice(item.price * item.quantity)}</p>
                 </div>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>
-                  {isPickup ? 'Pickup Details' : 'Shipping Address'}
-                </h2>
-              </div>
-              
-              {isPickup ? (
-                <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
-                  {order.pickup?.display && <p><strong>Pickup time:</strong> {order.pickup.display}</p>}
-                  <p>{order.pickup?.address?.name || 'Evolve Specialty Pharmacy & Wellness'}</p>
-                  <p>{order.pickup?.address?.line1}</p>
-                  <p>
-                    {order.pickup?.address?.city}
-                    {order.pickup?.address?.state && `, ${order.pickup.address.state}`}
-                    {order.pickup?.address?.zip && ` ${order.pickup.address.zip}`}
-                  </p>
-                  <p style={{ color: '#6b7280', marginTop: 8 }}>Open Monday - Friday, 9:00 AM - 5:00 PM</p>
-                </div>
-              ) : order.shippingAddress && (order.shippingAddress.line1 || order.shippingAddress.city) ? (
-                <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
-                  {order.shippingAddress.line1 && <p>{order.shippingAddress.line1}</p>}
-                  {order.shippingAddress.line2 && <p>{order.shippingAddress.line2}</p>}
-                  {order.shippingAddress.city && (
-                    <p>
-                      {order.shippingAddress.city}
-                      {order.shippingAddress.state && `, ${order.shippingAddress.state}`}
-                      {order.shippingAddress.zip && ` ${order.shippingAddress.zip}`}
+              ))}
+            </div>
+          </div>
+
+          <div className="checkout-card">
+            <div className="checkout-card-title-row" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="checkout-card-icon"><MapPin size={18} /></div>
+                <div>
+                  <h2>{isPickup ? 'Pickup Details' : 'Shipping Address'}</h2>
+                  {!isPickup && addressEdit.editableUntil && (
+                    <p className="checkout-card-sub">
+                      {addressEdit.canEdit
+                        ? `Editable until ${new Date(addressEdit.editableUntil).toLocaleString()}`
+                        : 'Edit window closed'}
                     </p>
                   )}
-                  {order.shippingAddress.country && <p>{order.shippingAddress.country}</p>}
                 </div>
-              ) : (
-                <p style={{ fontSize: 14, color: '#9ca3af', fontStyle: 'italic' }}>
-                  No shipping address provided
-                </p>
+              </div>
+              {!isPickup && addressEdit.canEdit && !editingAddress && (
+                <button type="button" className="btn-outline" style={{ padding: '8px 14px', fontSize: 13 }} onClick={() => setEditingAddress(true)}>
+                  <Pencil size={14} /> Modify address
+                </button>
               )}
             </div>
-          </div>
 
-          {/* Right Column - Order Summary */}
-          <div>
-            <div className="card" style={{ position: 'sticky', top: 24 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', marginBottom: 16 }}>Order Summary</h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #e8eee8' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                  <span style={{ color: '#6b7280' }}>Subtotal</span>
-                  <span style={{ fontWeight: 600, color: '#374151' }}>{formatPrice(order.subtotal)}</span>
+            {isPickup ? (
+              <div className="checkout-hint" style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.6 }}>
+                {order.pickup?.display && <p><strong>Pickup time:</strong> {order.pickup.display}</p>}
+                <p>{order.pickup?.address?.name || 'Evolve Specialty Pharmacy & Wellness'}</p>
+                <p>{order.pickup?.address?.line1}</p>
+                <p>
+                  {[order.pickup?.address?.city, order.pickup?.address?.state, order.pickup?.address?.zip]
+                    .filter(Boolean)
+                    .join(', ')}
+                </p>
+              </div>
+            ) : editingAddress ? (
+              <form onSubmit={saveAddress} className="checkout-fields">
+                <div className="checkout-field">
+                  <label className="checkout-label">Street *</label>
+                  <input className="checkout-input" value={addressForm.line1} onChange={(e) => setAddressForm({ ...addressForm, line1: e.target.value })} required />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                  <span style={{ color: '#6b7280' }}>{isPickup ? 'Pickup' : 'Shipping'}</span>
-                  <span style={{ fontWeight: 600, color: '#2d7a3a' }}>
-                    {order.shipping > 0 ? formatPrice(order.shipping) : 'Free'}
-                  </span>
+                <div className="checkout-field">
+                  <label className="checkout-label">Apt / suite</label>
+                  <input className="checkout-input" value={addressForm.line2} onChange={(e) => setAddressForm({ ...addressForm, line2: e.target.value })} />
                 </div>
-                {order.tax > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                    <span style={{ color: '#6b7280' }}>Tax</span>
-                    <span style={{ fontWeight: 600, color: '#374151' }}>{formatPrice(order.tax)}</span>
+                <div className="checkout-field">
+                  <label className="checkout-label">City *</label>
+                  <input className="checkout-input" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} required />
+                </div>
+                <div className="checkout-row-2">
+                  <div className="checkout-field">
+                    <label className="checkout-label">State *</label>
+                    <select className="checkout-select" value={addressForm.state} onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} required>
+                      <option value="">Select…</option>
+                      {US_STATES.map((s) => (
+                        <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
+                      ))}
+                    </select>
                   </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, marginBottom: 20 }}>
-                <span style={{ fontWeight: 700, color: '#1a1a1a' }}>Total</span>
-                <span style={{ fontWeight: 700, color: '#2d7a3a' }}>{formatPrice(order.total)}</span>
-              </div>
-
-              {/* Payment Status */}
-              <div style={{
-                padding: 12,
-                background: order.isPaid ? '#f0f9f4' : '#fef3c7',
-                borderRadius: 10,
-                marginBottom: 16
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <CreditCard size={16} style={{ color: order.isPaid ? '#2d7a3a' : '#d97706' }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: order.isPaid ? '#2d7a3a' : '#d97706' }}>
-                    {order.isPaid ? 'Payment Confirmed' : 'Payment Pending'}
-                  </span>
+                  <div className="checkout-field">
+                    <label className="checkout-label">ZIP *</label>
+                    <input className="checkout-input" value={addressForm.zip} onChange={(e) => setAddressForm({ ...addressForm, zip: e.target.value })} required />
+                  </div>
                 </div>
-                {order.isPaid && order.paidAt && (
-                  <p style={{ fontSize: 12, color: '#6b7280', marginLeft: 24 }}>
-                    Paid on {formatDate(order.paidAt)}
+                <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                  <button type="submit" className="btn-primary" disabled={savingAddress}>
+                    {savingAddress ? 'Saving…' : 'Save address'}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={() => setEditingAddress(false)}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+                  {order.shippingAddress?.line1 && <p>{order.shippingAddress.line1}</p>}
+                  {order.shippingAddress?.line2 && <p>{order.shippingAddress.line2}</p>}
+                  <p>
+                    {[order.shippingAddress?.city, order.shippingAddress?.state, order.shippingAddress?.zip]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                  {order.shippingAddress?.country && <p>{order.shippingAddress.country}</p>}
+                </div>
+                {!addressEdit.canEdit && (
+                  <p className="checkout-hint" style={{ marginTop: 12 }}>
+                    {addressEdit.message || `To change this address, email ${addressEdit.supportEmail || 'info@evolvepharmacy.com'}.`}
+                    {' '}
+                    <a href={`mailto:${addressEdit.supportEmail || 'info@evolvepharmacy.com'}`} style={{ color: 'var(--brand-primary-light)' }}>
+                      {addressEdit.supportEmail || 'info@evolvepharmacy.com'}
+                    </a>
                   </p>
                 )}
-              </div>
-
-              {/* Order Info */}
-              <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
-                <p><strong>Order ID:</strong> {order._id}</p>
-                <p><strong>Payment Method:</strong> {order.paymentMethod || 'Stripe'}</p>
-                {order.notes && <p><strong>Notes:</strong> {order.notes}</p>}
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
+
+        <aside>
+          <div className="checkout-card checkout-summary">
+            <h3 style={{ marginBottom: 16 }}>Order summary</h3>
+
+            <div className="checkout-totals">
+              <div className="checkout-totals-line">
+                <span>Subtotal</span>
+                <strong>{formatPrice(order.subtotal)}</strong>
+              </div>
+              {discount > 0 && (
+                <div className="checkout-totals-line">
+                  <span>Discount{order.discountCode ? ` (${order.discountCode})` : ''}</span>
+                  <strong style={{ color: 'var(--brand-primary-light)' }}>-{formatPrice(discount)}</strong>
+                </div>
+              )}
+              <div className="checkout-totals-line">
+                <span>{isPickup ? 'Pickup' : (order.shippingMethod?.label || 'Shipping')}</span>
+                <strong>{order.shipping > 0 ? formatPrice(order.shipping) : 'Free'}</strong>
+              </div>
+              <div className="checkout-totals-line">
+                <span>Sales Tax ({taxRateLabel}%)</span>
+                <strong>{formatPrice(tax)}</strong>
+              </div>
+            </div>
+
+            <div className="checkout-total">
+              <span>Amount paid</span>
+              <span>{formatPrice(amountPaid)}</span>
+            </div>
+
+            <div className="checkout-secure" style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <CreditCard size={16} />
+                <strong>{order.isPaid ? 'Payment confirmed' : 'Payment pending'}</strong>
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.9 }}>
+                {order.paymentMethodLabel || order.paymentMethod || 'Card'}
+                {order.paidAt ? ` · ${formatDate(order.paidAt)}` : ''}
+              </div>
+            </div>
+
+            {tracking && (
+              <a href={tracking.url} target="_blank" rel="noopener noreferrer" className="btn-outline" style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}>
+                <Truck size={14} /> Track package
+              </a>
+            )}
+
+            {StatusIcon && (
+              <p className="checkout-hint">
+                Status: {STATUS_LABELS[order.status]}
+              </p>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   )

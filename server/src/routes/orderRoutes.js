@@ -88,6 +88,10 @@ router.get('/stats/counts', protect, admin, requireOrdersPassword, async (req, r
 
 // GET /api/orders/:id
 router.get('/:id', protect, async (req, res) => {
+  const { getAddressEditState } = require('../utils/addressEditWindow')
+  const { formatPaymentMethodLabel } = require('../services/stripeOrderReconcile')
+  const { SALES_TAX_RATE } = require('../utils/salesTax')
+
   const order = await Order.findById(req.params.id)
     .populate('user', 'name email')
     .populate('items.product', 'name images price')
@@ -98,7 +102,65 @@ router.get('/:id', protect, async (req, res) => {
   if (!isOwner && req.user.role === 'admin' && !passwordsMatch(req.get('x-admin-orders-password'), getAdminOrdersPassword())) {
     return res.status(403).json({ message: 'Orders password required' })
   }
-  res.json(order)
+
+  const plain = order.toObject()
+  plain.addressEdit = getAddressEditState(order)
+  plain.paymentMethodLabel = formatPaymentMethodLabel(order)
+  plain.salesTaxRate = SALES_TAX_RATE
+  res.json(plain)
+})
+
+// PUT /api/orders/:id/shipping-address — customer self-service within edit window
+router.put('/:id/shipping-address', protect, async (req, res) => {
+  const { getAddressEditState } = require('../utils/addressEditWindow')
+
+  const order = await Order.findById(req.params.id)
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  const isOwner = order.user.toString() === req.user._id.toString()
+  if (!isOwner) return res.status(403).json({ message: 'Access denied' })
+
+  const editState = getAddressEditState(order)
+  if (!editState.canEdit) {
+    return res.status(403).json({
+      message: editState.message,
+      addressEdit: editState,
+    })
+  }
+
+  const a = req.body?.shippingAddress || req.body || {}
+  const next = {
+    line1: String(a.line1 || '').trim(),
+    line2: String(a.line2 || '').trim(),
+    city: String(a.city || '').trim(),
+    state: String(a.state || '').trim().toUpperCase(),
+    zip: String(a.zip || '').trim(),
+    country: String(a.country || 'United States').trim() || 'United States',
+  }
+
+  if (!next.line1 || !/\d/.test(next.line1)) {
+    return res.status(400).json({ message: 'Enter a street address with a house/building number' })
+  }
+  if (!next.city) return res.status(400).json({ message: 'City is required' })
+  if (!/^[A-Z]{2}$/.test(next.state)) return res.status(400).json({ message: 'Valid US state is required' })
+  if (!/^\d{5}(-\d{4})?$/.test(next.zip)) return res.status(400).json({ message: 'Valid US ZIP is required' })
+
+  order.shippingAddress = next
+  order.addressLastEditedAt = new Date()
+  await order.save()
+
+  void logAuditFromReq(req, {
+    action: 'order.customer_address_update',
+    entityType: 'order',
+    entityId: order._id,
+    summary: `Customer updated shipping address for order #${String(order._id).slice(-8).toUpperCase()}`,
+    after: { shippingAddress: next },
+  })
+  res.locals.auditLogged = true
+
+  const plain = order.toObject()
+  plain.addressEdit = getAddressEditState(order)
+  res.json(plain)
 })
 
 // PUT /api/orders/:id  — admin: edit order fields (address, notes, shipping, status, paid, tracking)

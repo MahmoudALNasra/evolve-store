@@ -189,10 +189,13 @@ router.post('/', protect, async (req, res) => {
         }
       : undefined,
     subtotal,
+    discount: 0,
+    discountCode: appliedPromotion?.code || '',
     tax,
     shipping,
     shippingMethod: isPickup ? {} : shippingMethod,
     total,
+    amountPaid: 0,
     paymentMethod: 'stripe',
     status: 'pending',
     stockReduced: true,
@@ -349,9 +352,14 @@ router.get('/session/:sessionId', async (req, res) => {
       shippingMethod: order.shippingMethod,
       items: order.items,
       subtotal: order.subtotal,
+      discount: order.discount,
+      discountCode: order.discountCode,
       tax: order.tax,
       shipping: order.shipping,
       total: order.total,
+      amountPaid: order.amountPaid || order.total,
+      paymentMethod: order.paymentMethod,
+      paymentDetails: order.paymentDetails,
     },
   })
 })

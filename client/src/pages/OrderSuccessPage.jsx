@@ -173,6 +173,12 @@ export default function OrderSuccessPage() {
                 <span>Subtotal</span>
                 <strong>{formatPrice(order.subtotal || 0)}</strong>
               </div>
+              {Number(order.discount || 0) > 0 && (
+                <div className="checkout-totals-line">
+                  <span>Discount{order.discountCode ? ` (${order.discountCode})` : ''}</span>
+                  <strong style={{ color: 'var(--brand-primary-light)' }}>-{formatPrice(order.discount)}</strong>
+                </div>
+              )}
               <div className="checkout-totals-line">
                 <span>{order.fulfillmentMethod === 'pickup' ? 'Pickup' : 'Shipping'}</span>
                 <strong>
@@ -182,12 +188,12 @@ export default function OrderSuccessPage() {
                 </strong>
               </div>
               <div className="checkout-totals-line">
-                <span>Tax</span>
+                <span>Sales Tax</span>
                 <strong>{formatPrice(order.tax || 0)}</strong>
               </div>
               <div className="checkout-total" style={{ marginTop: 8, marginBottom: 0 }}>
-                <span>Total</span>
-                <span>{formatPrice(order.total || 0)}</span>
+                <span>Amount paid</span>
+                <span>{formatPrice(order.amountPaid || order.total || 0)}</span>
               </div>
             </div>
           </div>

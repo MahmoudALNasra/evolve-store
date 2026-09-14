@@ -2,6 +2,7 @@ const Product = require('../models/Product')
 const User = require('../models/User')
 const { sendOrderConfirmation, sendNewOrderNotification } = require('./emailService')
 const { applySaleItems } = require('./inventorySyncService')
+const { reconcileOrderFromStripeSession } = require('./stripeOrderReconcile')
 
 /**
  * Resolve a user-like object with email for transactional mail.
@@ -44,6 +45,8 @@ async function resolveRecipient(order, session) {
 async function fulfillPaidCheckoutOrder(order, session) {
   if (!order) return { ok: false, reason: 'order_not_found' }
 
+  const alreadyPaid = Boolean(order.isPaid)
+
   if (!order.isPaid) {
     order.isPaid = true
     order.paidAt = new Date()
@@ -51,8 +54,14 @@ async function fulfillPaidCheckoutOrder(order, session) {
   }
 
   if (session?.payment_intent) {
-    order.stripePaymentIntentId = session.payment_intent
+    order.stripePaymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent.id || order.stripePaymentIntentId
   }
+
+  // Align stored totals / payment method with what Stripe actually charged.
+  await reconcileOrderFromStripeSession(order, session)
 
   // Backward compatibility for orders created before checkout began reserving stock.
   if (!order.stockReduced) {
@@ -66,6 +75,8 @@ async function fulfillPaidCheckoutOrder(order, session) {
 
   const recipient = await resolveRecipient(order, session)
 
+  // Always attempt confirmation after reconcile so totals/payment details are accurate.
+  // (Skip only if already sent.)
   if (!order.confirmationEmailSent) {
     try {
       if (!recipient?.email) {
@@ -112,7 +123,7 @@ async function fulfillPaidCheckoutOrder(order, session) {
     }
   }
 
-  return { ok: true, order }
+  return { ok: true, order, alreadyPaid }
 }
 
 module.exports = { fulfillPaidCheckoutOrder, resolveRecipient }
