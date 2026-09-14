@@ -131,7 +131,7 @@ export default function AdminOrders() {
     // Confirmation for destructive action
     if (pendingStatus === 'cancelled') {
       const ok = window.confirm(
-        `Cancel order #${selected._id.slice(-8).toUpperCase()}?\n\nThis action cannot be undone. The customer will be notified.`
+        `Cancel order #${String(selected._id).slice(-8).toUpperCase()}?\n\nReserved inventory will be added back to stock.`
       )
       if (!ok) return
     }
@@ -150,7 +150,11 @@ export default function AdminOrders() {
     setUpdatingStatus(true)
     try {
       await api.put(`/orders/${selected._id}/status`, { status: pendingStatus }, ordersAuthConfig())
-      toast.success(`Status updated to ${STATUS_LABELS[pendingStatus]}`)
+      toast.success(
+        pendingStatus === 'cancelled'
+          ? 'Order cancelled — stock restored'
+          : `Status updated to ${STATUS_LABELS[pendingStatus]}`
+      )
       setSelected((o) => ({ ...o, status: pendingStatus }))
       setPendingStatus('')
       load()
@@ -249,7 +253,7 @@ export default function AdminOrders() {
     setDeleting(true)
     try {
       await api.delete(`/orders/${selected._id}`, ordersAuthConfig())
-      toast.success(`Order #${code} deleted`)
+      toast.success(`Order #${code} deleted — stock restored`)
       closeOrder()
       load()
     } catch (err) {

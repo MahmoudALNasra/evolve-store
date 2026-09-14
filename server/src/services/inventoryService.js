@@ -1,14 +1,21 @@
 const Product = require('../models/Product')
 
-async function releaseReservedStock(order) {
+/**
+ * Restore inventory for an order that previously reserved/reduced stock.
+ * Idempotent via `order.stockReduced`.
+ */
+async function releaseReservedStock(order, { save = true } = {}) {
   if (!order?.stockReduced) return false
 
-  for (const item of order.items) {
+  for (const item of order.items || []) {
+    if (!item?.product || !item?.quantity) continue
     await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } })
   }
 
   order.stockReduced = false
-  await order.save()
+  if (save && typeof order.save === 'function') {
+    await order.save()
+  }
   return true
 }
 
@@ -43,4 +50,21 @@ async function reserveStockForItems(items) {
   }
 }
 
-module.exports = { reserveStockForItems, releaseReservedStock }
+/**
+ * Restore stock when an order is cancelled, refunded, or deleted.
+ * Safe to call multiple times.
+ */
+async function restoreStockForCancelledOrRefundedOrder(order, reason = 'cancel') {
+  if (!order) return false
+  const restored = await releaseReservedStock(order)
+  if (restored) {
+    console.log(`📦 Stock restored for order ${order._id} (${reason})`)
+  }
+  return restored
+}
+
+module.exports = {
+  reserveStockForItems,
+  releaseReservedStock,
+  restoreStockForCancelledOrRefundedOrder,
+}

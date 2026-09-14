@@ -6,6 +6,7 @@ const { protect, admin } = require('../middleware/auth')
 const { sendOrderShipped } = require('../services/emailService')
 const { auditWriteLogger } = require('../middleware/auditWriteLogger')
 const { logAuditFromReq } = require('../services/auditLogService')
+const { restoreStockForCancelledOrRefundedOrder } = require('../services/inventoryService')
 
 const router = express.Router()
 router.use(auditWriteLogger())
@@ -235,6 +236,19 @@ router.put('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
     .populate('user', 'name email')
   if (!order) return res.status(404).json({ message: 'Order not found' })
 
+  const becameCancelled = update.status === 'cancelled' && previous.status !== 'cancelled'
+  const becameUnpaid = update.isPaid === false && previous.isPaid === true
+  if (becameCancelled || becameUnpaid) {
+    // Reload mutable doc so stockReduced flag can be cleared idempotently
+    const live = await Order.findById(req.params.id)
+    if (live) {
+      await restoreStockForCancelledOrRefundedOrder(
+        live,
+        becameCancelled ? 'admin_cancel' : 'admin_refund_unpaid'
+      )
+    }
+  }
+
   if (
     update.status === 'shipped' &&
     previous.status !== 'shipped' &&
@@ -402,6 +416,10 @@ router.put('/:id/status', protect, admin, requireOrdersPassword, async (req, res
   const previous = await Order.findById(req.params.id)
   if (!previous) return res.status(404).json({ message: 'Order not found' })
 
+  if (status === 'cancelled' && previous.status !== 'cancelled') {
+    await restoreStockForCancelledOrRefundedOrder(previous, 'admin_status_cancel')
+  }
+
   const order = await Order.findByIdAndUpdate(req.params.id, { status }, { returnDocument: 'after' }).populate(
     'user',
     'name email'
@@ -421,8 +439,8 @@ router.put('/:id/status', protect, admin, requireOrdersPassword, async (req, res
     entityType: 'order',
     entityId: order._id,
     summary: `Order #${String(order._id).slice(-8).toUpperCase()} status ${previous.status} → ${status}`,
-    before: { status: previous.status },
-    after: { status },
+    before: { status: previous.status, stockReduced: previous.stockReduced },
+    after: { status, stockReduced: order.stockReduced },
   })
   res.locals.auditLogged = true
   res.json(order)
@@ -501,19 +519,29 @@ router.post('/:id/resend-confirmation', protect, admin, requireOrdersPassword, a
   res.json({ ok: true, email: recipient.email, confirmationEmailSent: true })
 })
 
-// DELETE /api/orders/:id  — admin only
+// DELETE /api/orders/:id  — admin only (restores reserved stock first)
 router.delete('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
-  const order = await Order.findByIdAndDelete(req.params.id)
+  const order = await Order.findById(req.params.id)
   if (!order) return res.status(404).json({ message: 'Order not found' })
+
+  const stockRestored = await restoreStockForCancelledOrRefundedOrder(order, 'admin_delete')
+  await Order.findByIdAndDelete(req.params.id)
+
   void logAuditFromReq(req, {
     action: 'order.delete',
     entityType: 'order',
     entityId: order._id,
-    summary: `Deleted order #${String(order._id).slice(-8).toUpperCase()}`,
-    before: { status: order.status, total: order.total, isPaid: order.isPaid },
+    summary: `Deleted order #${String(order._id).slice(-8).toUpperCase()}${stockRestored ? ' (stock restored)' : ''}`,
+    before: {
+      status: order.status,
+      total: order.total,
+      isPaid: order.isPaid,
+      stockReduced: order.stockReduced,
+      stockRestored,
+    },
   })
   res.locals.auditLogged = true
-  res.json({ message: 'Order deleted' })
+  res.json({ message: 'Order deleted', stockRestored })
 })
 
 module.exports = router

@@ -3,10 +3,42 @@ const Stripe = require('stripe')
 const Order = require('../models/Order')
 const { trackPurchase, trackGa4EventSafe } = require('../services/ga4AnalyticsService')
 const { fulfillPaidCheckoutOrder } = require('../services/orderFulfillmentService')
-const { releaseReservedStock } = require('../services/inventoryService')
+const { restoreStockForCancelledOrRefundedOrder } = require('../services/inventoryService')
 
 const router = express.Router()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+async function findOrderForStripeObject(obj = {}) {
+  const paymentIntentId = typeof obj.payment_intent === 'string'
+    ? obj.payment_intent
+    : obj.payment_intent?.id || ''
+  const sessionId = obj.id && String(obj.id).startsWith('cs_') ? obj.id : ''
+  const metaOrderId = obj.metadata?.orderId
+
+  if (metaOrderId) {
+    const byMeta = await Order.findById(metaOrderId)
+    if (byMeta) return byMeta
+  }
+  if (paymentIntentId) {
+    const byPi = await Order.findOne({ stripePaymentIntentId: paymentIntentId })
+    if (byPi) return byPi
+  }
+  if (sessionId) {
+    const bySession = await Order.findOne({ stripeSessionId: sessionId })
+    if (bySession) return bySession
+  }
+  return null
+}
+
+async function restoreStockAfterStripeRefund(order, reason) {
+  if (!order) return false
+  const restored = await restoreStockForCancelledOrRefundedOrder(order, reason)
+  if (order.status !== 'cancelled') {
+    order.status = 'cancelled'
+  }
+  await order.save()
+  return restored
+}
 
 // Stripe webhook endpoint
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -60,8 +92,51 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         const order = await Order.findById(orderId)
         if (order && !order.isPaid) {
           order.status = 'cancelled'
-          await releaseReservedStock(order)
+          await restoreStockForCancelledOrRefundedOrder(order, 'checkout_expired')
           await order.save()
+        }
+        break
+      }
+
+      case 'charge.refunded': {
+        const charge = event.data.object
+        const fullyRefunded = Boolean(charge.refunded)
+          || Number(charge.amount_refunded || 0) >= Number(charge.amount || 0)
+        if (!fullyRefunded) {
+          console.log(`Partial Stripe refund for charge ${charge.id} — stock left reserved`)
+          break
+        }
+        const order = await findOrderForStripeObject(charge)
+        if (order) {
+          order.isPaid = false
+          order.paidAt = null
+          order.amountPaid = 0
+          await restoreStockAfterStripeRefund(order, 'stripe_charge_refunded')
+          console.log(`✅ Stock restored after Stripe refund for order ${order._id}`)
+        } else {
+          console.warn(`⚠️ charge.refunded: no order for PI ${charge.payment_intent}`)
+        }
+        break
+      }
+
+      case 'refund.updated':
+      case 'refund.created': {
+        const refund = event.data.object
+        if (refund.status && refund.status !== 'succeeded') break
+        // Prefer charge.refunded for full-order restock; only act when refund has order metadata
+        const orderId = refund.metadata?.orderId
+        if (!orderId) break
+        const order = await Order.findById(orderId)
+        if (order) {
+          order.isPaid = false
+          order.paidAt = null
+          order.amountPaid = Math.max(0, Number(order.amountPaid || order.total || 0) - Number(refund.amount || 0) / 100)
+          if (Number(order.amountPaid) <= 0.009) {
+            order.amountPaid = 0
+            await restoreStockAfterStripeRefund(order, 'stripe_refund')
+          } else {
+            await order.save()
+          }
         }
         break
       }
