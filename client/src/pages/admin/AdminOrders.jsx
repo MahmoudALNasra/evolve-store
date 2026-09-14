@@ -50,6 +50,7 @@ export default function AdminOrders() {
   const [shipTracking, setShipTracking] = useState('')
   const [shipping, setShipping] = useState(false)
   const [resendingConfirmation, setResendingConfirmation] = useState(false)
+  const [creatingLabel, setCreatingLabel] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(() => buildEditForm(null))
   const [savingEdit, setSavingEdit] = useState(false)
@@ -310,6 +311,51 @@ export default function AdminOrders() {
       toast.error(err.response?.data?.message || 'Failed to resend confirmation email')
     } finally {
       setResendingConfirmation(false)
+    }
+  }
+
+  const handleCreateUpsLabel = async () => {
+    if (!selected || selected.fulfillmentMethod === 'pickup') {
+      toast.error('Pickup orders do not need a shipping label')
+      return
+    }
+    setCreatingLabel(true)
+    try {
+      const { data } = await api.post(`/orders/${selected._id}/shipping-label`, {}, ordersAuthConfig())
+      setSelected((o) => ({
+        ...o,
+        ...data.order,
+        trackingNumber: data.trackingNumber || o.trackingNumber,
+        shippingMethod: data.order?.shippingMethod || o.shippingMethod,
+        status: data.order?.status || o.status,
+      }))
+      if (data.trackingNumber) setTrackingNumber(data.trackingNumber)
+      toast.success(data.reused ? 'Opening existing UPS label' : 'UPS label created — print the PDF')
+      if (data.labelUrl) {
+        // Prefer blob print so the system print dialog opens for thermal/4x6 labels
+        try {
+          const pdfRes = await fetch(data.labelUrl)
+          const blob = await pdfRes.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          const printWin = window.open(blobUrl, '_blank', 'noopener,noreferrer')
+          if (printWin) {
+            const triggerPrint = () => {
+              try { printWin.focus(); printWin.print() } catch { /* ignore */ }
+            }
+            printWin.addEventListener('load', triggerPrint)
+            setTimeout(triggerPrint, 1200)
+          } else {
+            window.open(data.labelUrl, '_blank', 'noopener,noreferrer')
+          }
+        } catch {
+          window.open(data.labelUrl, '_blank', 'noopener,noreferrer')
+        }
+      }
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create UPS label')
+    } finally {
+      setCreatingLabel(false)
     }
   }
 
@@ -1188,14 +1234,31 @@ export default function AdminOrders() {
               </div>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Print Documents</p>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {selected.fulfillmentMethod !== 'pickup' && (
+                    <button
+                      type="button"
+                      onClick={handleCreateUpsLabel}
+                      disabled={creatingLabel}
+                      className="btn-admin btn-admin-primary"
+                      style={{ fontSize: 12, flex: 1, minWidth: 140 }}
+                    >
+                      <Truck size={14} /> {creatingLabel ? 'Creating…' : (selected.shippingMethod?.labelUrl ? 'Print UPS Label' : 'Create UPS Label')}
+                    </button>
+                  )}
                   <button onClick={printInvoice} className="btn-admin btn-admin-secondary" style={{ fontSize: 12, flex: 1 }}>
                     <Printer size={14} /> Invoice
                   </button>
                   <button onClick={printPackingSlip} className="btn-admin btn-admin-secondary" style={{ fontSize: 12, flex: 1 }}>
-                    <Package size={14} /> UPS Packing Slip
+                    <Package size={14} /> Packing Slip
                   </button>
                 </div>
+                {selected.shippingMethod?.labelUrl && (
+                  <p style={{ fontSize: 12, color: '#166534', marginTop: 8 }}>
+                    Label ready{selected.trackingNumber ? ` · ${selected.trackingNumber}` : ''}.{' '}
+                    <a href={selected.shippingMethod.labelUrl} target="_blank" rel="noopener noreferrer">Open PDF</a>
+                  </p>
+                )}
               </div>
 
               <div style={{

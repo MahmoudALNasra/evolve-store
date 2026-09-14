@@ -233,7 +233,8 @@ router.post('/', protect, async (req, res) => {
 
     const checkoutClientUrl = getCheckoutClientUrl(req)
     const sessionParams = {
-      payment_method_types: ['card'],
+      // Cards + Stripe Link; bank/ACH appears when enabled in the Stripe Dashboard.
+      payment_method_types: ['card', 'link'],
       line_items: lineItems,
       mode: 'payment',
       success_url: `${checkoutClientUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,

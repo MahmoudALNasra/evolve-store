@@ -274,6 +274,128 @@ router.put('/:id', protect, admin, requireOrdersPassword, async (req, res) => {
   res.json(order)
 })
 
+// POST /api/orders/:id/shipping-label — admin: purchase UPS/Shippo label PDF
+router.post('/:id/shipping-label', protect, admin, requireOrdersPassword, async (req, res) => {
+  const shippo = require('../services/shipping/shippoProvider')
+
+  if (!shippo.isConfigured()) {
+    return res.status(503).json({ message: 'Shippo is not configured (SHIPPO_API_KEY missing)' })
+  }
+
+  const order = await Order.findById(req.params.id).populate('user', 'name email')
+  if (!order) return res.status(404).json({ message: 'Order not found' })
+  if (order.fulfillmentMethod === 'pickup') {
+    return res.status(400).json({ message: 'Pickup orders do not need a shipping label' })
+  }
+
+  // Reuse existing purchased label
+  if (order.shippingMethod?.labelUrl && order.trackingNumber) {
+    return res.json({
+      ok: true,
+      reused: true,
+      labelUrl: order.shippingMethod.labelUrl,
+      trackingNumber: order.trackingNumber,
+      trackingUrl: order.shippingMethod.trackingUrlProvider || '',
+    })
+  }
+
+  let rateObjectId = order.shippingMethod?.rateObjectId
+  const carrierHint = [
+    order.shippingMethod?.carrier,
+    order.shippingMethod?.provider,
+    order.shippingMethod?.label,
+    order.shippingMethod?.service,
+  ].map((v) => String(v || '').toLowerCase()).join(' ')
+  const isUpsRate = carrierHint.includes('ups')
+  const needsUpsRate = !rateObjectId
+    || order.shippingMethod?.provider === 'estimate'
+    || !isUpsRate
+
+  if (needsUpsRate) {
+    // Create a fresh UPS shipment/rate for label purchase (prefer configured UPS carrier account)
+    try {
+      const { rates, messages } = await shippo.createShipmentWithRates({
+        toAddress: order.shippingAddress,
+        user: order.user,
+      })
+      const upsGround = rates.find((r) =>
+        String(r.provider || '').toLowerCase().includes('ups')
+        && String(r.service || '').toLowerCase().includes('ground')
+      )
+      const upsAny = rates.find((r) => String(r.provider || '').toLowerCase().includes('ups'))
+      const pick = upsGround || upsAny
+      if (!pick) {
+        const hint = (messages || []).map((m) => m.text).filter(Boolean).slice(0, 2).join(' ')
+        return res.status(502).json({
+          message: hint
+            || 'No UPS rates available. Connect a US UPS carrier account in Shippo and set SHIPPO_UPS_CARRIER_ACCOUNT_ID.',
+        })
+      }
+      rateObjectId = pick.objectId
+      order.shippingMethod = {
+        ...(order.shippingMethod?.toObject?.() || order.shippingMethod || {}),
+        provider: 'shippo',
+        rateObjectId: pick.objectId,
+        carrier: pick.provider,
+        service: pick.service,
+        label: pick.label,
+        amount: pick.amount,
+      }
+    } catch (err) {
+      console.error('Shippo rate refresh for label failed:', err.response?.data || err.message)
+      return res.status(502).json({
+        message: err.message || 'Could not get UPS rates for label purchase. Check Shippo UPS account / rate limits.',
+      })
+    }
+  }
+
+  try {
+    const label = await shippo.purchaseLabel({ rateObjectId, labelFileType: 'PDF_4x6' })
+    if (!label.labelUrl) {
+      return res.status(502).json({ message: 'Shippo returned no label PDF URL' })
+    }
+    order.trackingNumber = label.trackingNumber || order.trackingNumber
+    order.shippingMethod = {
+      ...(order.shippingMethod?.toObject?.() || order.shippingMethod || {}),
+      labelUrl: label.labelUrl,
+      labelTransactionId: label.transactionId,
+      trackingUrlProvider: label.trackingUrl || '',
+      carrier: label.carrier || order.shippingMethod?.carrier || 'UPS',
+    }
+    if (order.status === 'processing' || order.status === 'pending') {
+      order.status = 'shipped'
+    }
+    await order.save()
+
+    if (!order.shippedEmailSent && order.trackingNumber) {
+      await sendShippedEmailIfReady(order, {})
+    }
+
+    void logAuditFromReq(req, {
+      action: 'order.shipping_label',
+      entityType: 'order',
+      entityId: order._id,
+      summary: `Purchased shipping label for order #${String(order._id).slice(-8).toUpperCase()}`,
+      after: { trackingNumber: order.trackingNumber, labelUrl: label.labelUrl },
+    })
+    res.locals.auditLogged = true
+
+    res.json({
+      ok: true,
+      reused: false,
+      labelUrl: label.labelUrl,
+      trackingNumber: order.trackingNumber,
+      trackingUrl: label.trackingUrl,
+      order,
+    })
+  } catch (err) {
+    console.error('Shippo label purchase failed:', err.shippo || err.message)
+    res.status(502).json({
+      message: err.message || 'Could not purchase UPS/Shippo shipping label',
+    })
+  }
+})
+
 // PUT /api/orders/:id/status  — admin: update status
 router.put('/:id/status', protect, admin, requireOrdersPassword, async (req, res) => {
   const { status } = req.body

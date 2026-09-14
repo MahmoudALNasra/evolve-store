@@ -208,7 +208,7 @@ export default function CartPage() {
 
           <div className="cart-trust">
             <span>🔒 Secure checkout</span>
-            <span>↩ 30-day returns</span>
+            <span>↩ 14-day returns</span>
           </div>
         </div>
       </div>

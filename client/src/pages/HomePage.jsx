@@ -5,6 +5,8 @@ import HeroSection from '../components/home/HeroSection'
 import BestSellers from '../components/home/BestSellers'
 import CategoryGrid from '../components/home/CategoryGrid'
 import TrustSection from '../components/home/TrustSection'
+import GoogleReviewsSection from '../components/home/GoogleReviewsSection'
+import PaymentTrustSection from '../components/home/PaymentTrustSection'
 
 async function fetchBestSellers() {
   const featuredRes = await api.get('/products', {
@@ -70,6 +72,8 @@ export default function HomePage() {
       <HeroSection />
       <BestSellers products={featured} loading={loading} />
       <CategoryGrid categories={categories} loading={loading} />
+      <GoogleReviewsSection />
+      <PaymentTrustSection />
       <TrustSection />
     </div>
   )

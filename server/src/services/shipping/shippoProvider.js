@@ -64,7 +64,7 @@ function mapRate(rate) {
   }
 }
 
-async function createShipmentWithRates({ toAddress, user, weightLb }) {
+async function createShipmentWithRates({ toAddress, user, weightLb, carrierAccountIds } = {}) {
   const parcel = {
     length: String(DEFAULT_PARCEL.lengthIn),
     width: String(DEFAULT_PARCEL.widthIn),
@@ -74,14 +74,27 @@ async function createShipmentWithRates({ toAddress, user, weightLb }) {
     mass_unit: 'lb',
   }
 
+  const payload = {
+    address_from: toShippoFrom(),
+    address_to: toShippoTo(toAddress, user),
+    parcels: [parcel],
+    async: false,
+  }
+
+  const accounts = Array.isArray(carrierAccountIds)
+    ? carrierAccountIds.filter(Boolean)
+    : String(process.env.SHIPPO_UPS_CARRIER_ACCOUNT_ID || process.env.SHIPPO_CARRIER_ACCOUNT_IDS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+  if (accounts.length) {
+    payload.carrier_accounts = accounts
+  }
+
   const { data } = await axios.post(
     `${SHIPPO_API}/shipments/`,
-    {
-      address_from: toShippoFrom(),
-      address_to: toShippoTo(toAddress, user),
-      parcels: [parcel],
-      async: false,
-    },
+    payload,
     { headers: shippoHeaders(), timeout: 30000 }
   )
 
@@ -102,7 +115,56 @@ async function createShipmentWithRates({ toAddress, user, weightLb }) {
   }
 }
 
+async function purchaseLabel({ rateObjectId, labelFileType = 'PDF_4x6' }) {
+  if (!rateObjectId) {
+    throw new Error('Missing Shippo rate id — create a live shipping rate at checkout first')
+  }
+
+  const tryTypes = [labelFileType, 'PDF'].filter((v, i, a) => v && a.indexOf(v) === i)
+
+  let lastError = null
+  for (const fileType of tryTypes) {
+    try {
+      const { data } = await axios.post(
+        `${SHIPPO_API}/transactions/`,
+        {
+          rate: rateObjectId,
+          label_file_type: fileType,
+          async: false,
+        },
+        { headers: shippoHeaders(), timeout: 45000 }
+      )
+
+      if (data.status === 'ERROR' || data.status === 'ERROR_CREATING' || !data.label_url) {
+        const msg = (data.messages || []).map((m) => m.text).filter(Boolean).join('; ')
+          || 'Shippo could not create the shipping label'
+        lastError = new Error(msg)
+        lastError.shippo = data
+        continue
+      }
+
+      return {
+        transactionId: data.object_id,
+        status: data.status,
+        trackingNumber: data.tracking_number || '',
+        trackingUrl: data.tracking_url_provider || '',
+        labelUrl: data.label_url || '',
+        commercialInvoiceUrl: data.commercial_invoice_url || '',
+        carrier: data.rate?.provider || '',
+        labelFileType: fileType,
+      }
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  throw lastError || new Error('Could not purchase shipping label')
+}
+
 module.exports = {
   isConfigured,
   createShipmentWithRates,
+  purchaseLabel,
+  toShippoFrom,
+  toShippoTo,
 }

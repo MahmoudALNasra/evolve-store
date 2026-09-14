@@ -10,7 +10,7 @@ import ShipToBar from '@/components/ShipToBar'
 const TRUST_ITEMS = [
   'Free shipping over $100',
   'Lab-tested quality',
-  '30-day returns',
+  '14-day returns',
 ]
 
 const HERO_COLOR_STOPS = ['#0a0a0a', '#C9A84C', '#1c1a14']

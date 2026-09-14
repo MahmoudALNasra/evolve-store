@@ -34,7 +34,7 @@ export default function Footer() {
           {[
             { icon: <Truck size={20} />, title: 'Free Shipping', desc: 'On all orders over $100' },
             { icon: <Shield size={20} />, title: 'Quality Guaranteed', desc: 'Third-party lab tested products' },
-            { icon: <RefreshCw size={20} />, title: 'Easy Returns', desc: '30-day hassle-free returns' },
+            { icon: <RefreshCw size={20} />, title: '14-Day Returns', desc: 'Unopened items — refund after we receive' },
           ].map((f) => (
             <div key={f.title} className="footer-trust-item">
               <div className="footer-trust-icon">{f.icon}</div>
@@ -84,6 +84,7 @@ export default function Footer() {
             <li><Link to="/about">About Us</Link></li>
             <li><Link to="/contact">Contact Us</Link></li>
             <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+            <li><Link to="/return-policy">Return Policy</Link></li>
             <li>
               <button type="button" className="footer-cookie-btn" onClick={openCookiePreferences}>
                 Cookie preferences
@@ -96,6 +97,7 @@ export default function Footer() {
           <h4>Support</h4>
           <ul>
             <li><Link to="/contact">Contact Us</Link></li>
+            <li><Link to="/return-policy">14-Day Returns</Link></li>
             <li><Link to="/refill-prescription">Refill Prescription</Link></li>
             <li><Link to="/transfer-prescription">Transfer Prescription</Link></li>
             <li><Link to="/orders">My Orders</Link></li>
@@ -144,6 +146,18 @@ export default function Footer() {
         </div>
       </div>
 
+      <div className="footer-payments" style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        padding: '0 24px 20px',
+        color: '#9ca3af',
+        fontSize: 13,
+        lineHeight: 1.6,
+        textAlign: 'center',
+      }}>
+        Secure Stripe checkout: credit &amp; debit cards, Link, and supported bank transfers.
+        {' '}Eligible unopened items: <Link to="/return-policy" style={{ color: 'var(--brand-primary-light)' }}>14-day return policy</Link>.
+      </div>
       <div className="footer-bottom">
         <span>© {new Date().getFullYear()} Evolve Specialty Pharmacy & Wellness. All rights reserved.</span>
         <span>Made with care for your health 🌿</span>

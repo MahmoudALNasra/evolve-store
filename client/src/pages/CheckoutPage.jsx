@@ -697,9 +697,13 @@ export default function CheckoutPage() {
             </div>
 
             <div className="checkout-secure">
-              <strong>Secure checkout</strong>
+              <strong>Secure Stripe checkout</strong>
               <br />
-              Next you’ll pay on Stripe. Your card details never touch our servers.
+              Credit &amp; debit cards, Link, and supported bank methods. Card details never touch our servers.
+              <br />
+              <span style={{ fontSize: 12, opacity: 0.85 }}>
+                Eligible unopened items: 14-day returns after we receive the product.
+              </span>
             </div>
           </div>
         </aside>

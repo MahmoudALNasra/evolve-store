@@ -5,6 +5,15 @@ const { ADDRESS_SUPPORT_EMAIL } = require('../utils/addressEditWindow')
 
 const formatMoney = (n) => `$${Number(n || 0).toFixed(2)}`
 
+function getEmailLogoUrl(clientUrl) {
+  if (process.env.EMAIL_LOGO_URL) {
+    return String(process.env.EMAIL_LOGO_URL).trim()
+  }
+  const origin = (process.env.SITE_URL || process.env.CLIENT_URL || clientUrl || 'https://evolvepharmacy.com')
+    .replace(/\/$/, '')
+  return `${origin}/logo.png`
+}
+
 const formatAddress = (addr) => {
   if (!addr?.line1) return '—'
   const lines = [
@@ -28,7 +37,9 @@ const buildOrderConfirmationEmail = ({ order, userName, clientUrl, ordersUrl }) 
   const paymentLabel = formatPaymentMethodLabel(order)
   const supportEmail = ADDRESS_SUPPORT_EMAIL || process.env.SUPPORT_EMAIL || 'info@evolvepharmacy.com'
   const storeName = process.env.EMAIL_FROM_NAME || 'Evolve Specialty Pharmacy & Wellness'
-  const ordersLink = ordersUrl || withEmailUtms(`${clientUrl}/orders`, {
+  const logoUrl = getEmailLogoUrl(clientUrl)
+  const siteOrigin = (process.env.SITE_URL || process.env.CLIENT_URL || clientUrl || 'https://evolvepharmacy.com').replace(/\/$/, '')
+  const ordersLink = ordersUrl || withEmailUtms(`${siteOrigin}/orders`, {
     campaign: 'order_confirmation',
     content: 'view_orders',
   })
@@ -83,16 +94,8 @@ Amount paid: ${formatMoney(total)}
 
 ${pickupLine}
 
-Need to change a shipping address?
-- Orders placed after 5:00 PM CT: editable for 6 hours in My Orders
-- Otherwise: editable until 5:00 PM CT the same day
-- After the window closes, email ${supportEmail}
-
 View your orders: ${ordersLink}
-
 Questions? Contact us at ${supportEmail}
-
-This is an automated message — please do not reply to this email.
 `
 
   const html = `<!DOCTYPE html>
@@ -103,9 +106,18 @@ This is an automated message — please do not reply to this email.
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;max-width:600px;">
         <tr>
-          <td style="background:#0d0d0d;padding:24px 32px;border-bottom:3px solid #c9a227;">
-            <h1 style="margin:0;color:#fff;font-size:22px;">${storeName}</h1>
-            <p style="margin:8px 0 0;color:#c9a227;font-size:14px;">Order confirmation</p>
+          <td style="background:#0d0d0d;padding:20px 32px;border-bottom:3px solid #c9a227;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;width:72px;">
+                  <img src="${logoUrl}" alt="${storeName}" width="64" height="64" style="display:block;border:0;border-radius:8px;" />
+                </td>
+                <td style="padding-left:16px;vertical-align:middle;">
+                  <h1 style="margin:0;color:#fff;font-size:20px;line-height:1.3;">${storeName}</h1>
+                  <p style="margin:6px 0 0;color:#c9a227;font-size:14px;">Order confirmation</p>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
         <tr>
@@ -134,7 +146,7 @@ This is an automated message — please do not reply to this email.
             </table>
             <p style="margin:0 0 8px;font-size:13px;font-weight:bold;color:#666;">${fulfillmentTitle}</p>
             <p style="margin:0 0 16px;line-height:1.6;white-space:pre-line;">${fulfillmentHtml}</p>
-            ${!isPickup ? `<p style="margin:0 0 24px;font-size:12px;color:#666;line-height:1.5;">Need to update your shipping address? Use <strong>My Orders</strong> within the edit window (6 hours if ordered after 5:00 PM CT; otherwise until 5:00 PM CT). After that, email <a href="mailto:${supportEmail}" style="color:#a68520;">${supportEmail}</a>.</p>` : ''}
+            <p style="margin:0 0 20px;font-size:12px;color:#666;line-height:1.5;">Payments are processed securely by Stripe (cards, debit/credit, Link, and supported bank methods). <a href="${siteOrigin}/return-policy" style="color:#a68520;">14-day return policy</a>.</p>
             <a href="${ordersLink}" style="display:inline-block;background:#c9a227;color:#0d0d0d;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;">View your orders</a>
             <p style="margin:24px 0 0;font-size:13px;color:#888;line-height:1.6;">Questions? Email <a href="mailto:${supportEmail}" style="color:#a68520;">${supportEmail}</a></p>
           </td>
@@ -153,4 +165,4 @@ This is an automated message — please do not reply to this email.
   return { subject, text, html }
 }
 
-module.exports = { buildOrderConfirmationEmail, formatAddress }
+module.exports = { buildOrderConfirmationEmail, formatAddress, getEmailLogoUrl }

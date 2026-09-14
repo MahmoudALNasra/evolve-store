@@ -5,6 +5,7 @@ import {
   buildProductMeta,
   buildProductFaqJsonLd,
   buildSpeakableJsonLd,
+  buildPharmacyLocalBusinessJsonLd,
 } from '../lib/productSeo'
 
 const META_ATTR = 'data-product-seo'
@@ -62,7 +63,7 @@ function upsertJsonLd(id, data) {
 function removeProductSeoArtifacts() {
   document.querySelectorAll(`[${META_ATTR}]`).forEach((n) => n.remove())
   document.querySelectorAll(`[${JSON_LD_ATTR}]`).forEach((n) => n.remove())
-  ;['jsonld-product', 'jsonld-breadcrumb', 'jsonld-product-faq', 'jsonld-speakable'].forEach((id) => {
+  ;['jsonld-product', 'jsonld-breadcrumb', 'jsonld-product-faq', 'jsonld-speakable', 'jsonld-pharmacy'].forEach((id) => {
     document.getElementById(id)?.remove()
   })
 }
@@ -78,6 +79,8 @@ export default function ProductSEO({ product }) {
     upsertMetaName('keywords', meta.keywords.join(', '))
     upsertMetaName('robots', meta.robots)
     upsertMetaName('publisher', meta.publisher)
+    if (meta.geoRegion) upsertMetaName('geo.region', meta.geoRegion)
+    if (meta.geoPlacename) upsertMetaName('geo.placename', meta.geoPlacename)
     upsertLink('canonical', meta.canonical)
 
     upsertMetaProperty('og:title', meta.og.title)
@@ -85,6 +88,8 @@ export default function ProductSEO({ product }) {
     upsertMetaProperty('og:image', meta.og.image)
     upsertMetaProperty('og:type', meta.og.type)
     upsertMetaProperty('og:url', meta.og.url)
+    if (meta.og.locale) upsertMetaProperty('og:locale', meta.og.locale)
+    if (meta.og.siteName) upsertMetaProperty('og:site_name', meta.og.siteName)
     upsertMetaProperty('product:price:amount', meta.og.priceAmount)
     upsertMetaProperty('product:price:currency', meta.og.priceCurrency)
 
@@ -97,6 +102,7 @@ export default function ProductSEO({ product }) {
     upsertJsonLd('jsonld-breadcrumb', buildBreadcrumbJsonLd(product))
     upsertJsonLd('jsonld-product-faq', buildProductFaqJsonLd(product))
     upsertJsonLd('jsonld-speakable', buildSpeakableJsonLd(product))
+    upsertJsonLd('jsonld-pharmacy', buildPharmacyLocalBusinessJsonLd())
 
     return () => {
       removeProductSeoArtifacts()

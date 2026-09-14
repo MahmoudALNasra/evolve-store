@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { looksLikeHtml, sanitizeProductHtml } from '../../lib/sanitizeProductHtml'
 
 const TABS = [
   { id: 'description', label: 'Description' },
@@ -21,11 +22,7 @@ function TabPanel({ id, active, children }) {
   )
 }
 
-function renderContent(text) {
-  if (!text?.trim()) {
-    return <p className="product-tabs-empty">Information not available for this product.</p>
-  }
-
+function renderPlainContent(text) {
   return text.split(/\n{2,}/).map((block) => {
     const trimmed = block.trim()
     if (!trimmed) return null
@@ -41,13 +38,30 @@ function renderContent(text) {
   })
 }
 
+function renderContent(text) {
+  if (!text?.trim()) {
+    return <p className="product-tabs-empty">Information not available for this product.</p>
+  }
+
+  if (looksLikeHtml(text)) {
+    return (
+      <div
+        className="product-tabs-html"
+        dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(text) }}
+      />
+    )
+  }
+
+  return renderPlainContent(text)
+}
+
 export default function ProductDetailTabs({ product }) {
-  const panels = {
+  const panels = useMemo(() => ({
     description: product.description,
     ingredients: product.ingredients,
     suggestedUse: product.suggestedUse,
     moreInfo: product.moreInfo,
-  }
+  }), [product.description, product.ingredients, product.suggestedUse, product.moreInfo])
 
   const availableTabs = TABS.filter(({ id }) => panels[id]?.trim())
   const [active, setActive] = useState(availableTabs[0]?.id || 'description')

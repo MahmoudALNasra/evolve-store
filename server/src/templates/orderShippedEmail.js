@@ -1,9 +1,11 @@
 const { withEmailUtms } = require('../utils/emailLinks')
+const { getEmailLogoUrl } = require('./orderConfirmationEmail')
 
 const buildOrderShippedEmail = ({ order, userName, clientUrl }) => {
   const orderId = order._id.toString().slice(-8).toUpperCase()
   const supportEmail = process.env.SUPPORT_EMAIL || 'support@evolvepharmacy.com'
   const storeName = process.env.EMAIL_FROM_NAME || 'Evolve Specialty Pharmacy & Wellness'
+  const logoUrl = getEmailLogoUrl(clientUrl)
   const ordersUrl = withEmailUtms(`${clientUrl}/orders/${order._id}`, {
     campaign: 'order_shipped',
     content: 'view_order',
@@ -47,10 +49,21 @@ Questions? Contact us at ${supportEmail}
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f4;padding:24px 0;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;max-width:600px;">
-        <tr><td style="background:#0d0d0d;padding:24px 32px;border-bottom:3px solid #c9a227;">
-          <h1 style="margin:0;color:#fff;font-size:22px;">${storeName}</h1>
-          <p style="margin:8px 0 0;color:#c9a227;">Your order has shipped</p>
-        </td></tr>
+        <tr>
+          <td style="background:#0d0d0d;padding:20px 32px;border-bottom:3px solid #c9a227;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;width:72px;">
+                  <img src="${logoUrl}" alt="${storeName}" width="64" height="64" style="display:block;border:0;border-radius:8px;" />
+                </td>
+                <td style="padding-left:16px;vertical-align:middle;">
+                  <h1 style="margin:0;color:#fff;font-size:20px;line-height:1.3;">${storeName}</h1>
+                  <p style="margin:6px 0 0;color:#c9a227;font-size:14px;">Your order has shipped</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
         <tr><td style="padding:32px;">
           <p style="margin:0 0 16px;">Hi ${userName},</p>
           <p style="margin:0 0 16px;line-height:1.6;">Order <strong>#${orderId}</strong> is on its way!</p>

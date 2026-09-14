@@ -12,7 +12,7 @@ function buildProductTitleBase(product) {
   return cleanId(product?.name)
 }
 
-function buildProductKeywordList(product) {
+function buildProductKeywordList(product, extra = []) {
   const tags = Array.isArray(product?.tags) ? product.tags : []
   const barcode = cleanId(product?.barcode)
   const sku = cleanId(product?.sku)
@@ -27,6 +27,7 @@ function buildProductKeywordList(product) {
     product?.category,
     brand,
     ...tags,
+    ...(Array.isArray(extra) ? extra : []),
     `${product?.category || 'wellness'} supplements`,
     'specialty pharmacy',
     'Evolve Pharmacy',

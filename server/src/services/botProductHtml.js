@@ -7,6 +7,9 @@ const {
   buildProductMeta,
   buildProductJsonLd,
   buildBreadcrumbJsonLd,
+  buildProductFaqJsonLd,
+  buildSpeakableJsonLd,
+  buildPharmacyLocalBusinessJsonLd,
   getProductImages,
   getProductMetaDescription,
 } = require('../utils/productSeoServer')
@@ -46,18 +49,25 @@ async function findPublishedProduct(slug) {
 function buildHeadInjection(meta, product) {
   const productLd = JSON.stringify(buildProductJsonLd(product)).replace(/</g, '\\u003c')
   const breadcrumbLd = JSON.stringify(buildBreadcrumbJsonLd(product)).replace(/</g, '\\u003c')
+  const faqLd = JSON.stringify(buildProductFaqJsonLd(product)).replace(/</g, '\\u003c')
+  const speakableLd = JSON.stringify(buildSpeakableJsonLd(product)).replace(/</g, '\\u003c')
+  const pharmacyLd = JSON.stringify(buildPharmacyLocalBusinessJsonLd()).replace(/</g, '\\u003c')
 
   return `
     <meta name="description" content="${escapeHtml(meta.description)}" data-bot-seo="true" />
     <meta name="keywords" content="${escapeHtml(meta.keywords.join(', '))}" data-bot-seo="true" />
     <meta name="robots" content="${escapeHtml(meta.robots)}" data-bot-seo="true" />
     <meta name="publisher" content="${escapeHtml(meta.publisher)}" data-bot-seo="true" />
+    ${meta.geoRegion ? `<meta name="geo.region" content="${escapeHtml(meta.geoRegion)}" data-bot-seo="true" />` : ''}
+    ${meta.geoPlacename ? `<meta name="geo.placename" content="${escapeHtml(meta.geoPlacename)}" data-bot-seo="true" />` : ''}
     <link rel="canonical" href="${escapeHtml(meta.canonical)}" data-bot-seo="true" />
     <meta property="og:title" content="${escapeHtml(meta.og.title)}" data-bot-seo="true" />
     <meta property="og:description" content="${escapeHtml(meta.og.description)}" data-bot-seo="true" />
     <meta property="og:image" content="${escapeHtml(meta.og.image)}" data-bot-seo="true" />
     <meta property="og:type" content="${escapeHtml(meta.og.type)}" data-bot-seo="true" />
     <meta property="og:url" content="${escapeHtml(meta.og.url)}" data-bot-seo="true" />
+    <meta property="og:locale" content="en_US" data-bot-seo="true" />
+    <meta property="og:site_name" content="${escapeHtml(meta.publisher)}" data-bot-seo="true" />
     <meta property="product:price:amount" content="${escapeHtml(meta.og.priceAmount)}" data-bot-seo="true" />
     <meta property="product:price:currency" content="${escapeHtml(meta.og.priceCurrency)}" data-bot-seo="true" />
     <meta name="twitter:card" content="${escapeHtml(meta.twitter.card)}" data-bot-seo="true" />
@@ -66,6 +76,9 @@ function buildHeadInjection(meta, product) {
     <meta name="twitter:image" content="${escapeHtml(meta.twitter.image)}" data-bot-seo="true" />
     <script type="application/ld+json" id="jsonld-product" data-bot-seo="true">${productLd}</script>
     <script type="application/ld+json" id="jsonld-breadcrumb" data-bot-seo="true">${breadcrumbLd}</script>
+    <script type="application/ld+json" id="jsonld-product-faq" data-bot-seo="true">${faqLd}</script>
+    <script type="application/ld+json" id="jsonld-speakable" data-bot-seo="true">${speakableLd}</script>
+    <script type="application/ld+json" id="jsonld-pharmacy" data-bot-seo="true">${pharmacyLd}</script>
   `
 }
 
@@ -74,15 +87,18 @@ function buildBodySnapshot(product) {
   const description = escapeHtml(getProductMetaDescription(product))
   const price = Number(product.price).toFixed(2)
   const img = escapeHtml(images[0])
+  const faqs = (product.seoFaqs || []).filter((f) => f?.question && f?.answer)
 
   return `
     <main data-prerender="product" id="prerender-product">
       <article>
         <h1>${escapeHtml(product.name)}</h1>
-        <p>${description}</p>
+        <p id="product-speakable-summary">${description}</p>
         <p><strong>$${price}</strong> USD</p>
         <img src="${img}" alt="${escapeHtml(product.name)}" width="600" height="600" />
         ${product.category ? `<p>Category: ${escapeHtml(product.category)}</p>` : ''}
+        <p>Sold by Evolve Specialty Pharmacy &amp; Wellness · San Antonio, TX · Secure Stripe checkout · 14-day return policy on eligible unopened items.</p>
+        ${faqs.length ? `<section><h2>FAQs</h2>${faqs.map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`).join('')}</section>` : ''}
       </article>
     </main>
   `

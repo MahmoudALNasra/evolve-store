@@ -32,6 +32,7 @@ import OrderSuccessPage from './pages/OrderSuccessPage'
 import AboutPage from './pages/AboutPage'
 import ContactPage from './pages/ContactPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import ReturnPolicyPage from './pages/ReturnPolicyPage'
 import RefillPrescriptionPage from './pages/RefillPrescriptionPage'
 import TransferPrescriptionPage from './pages/TransferPrescriptionPage'
 import BlogListPage from './pages/BlogListPage'
@@ -118,6 +119,7 @@ export default function App() {
         <Route path="/about" element={<StorefrontLayout><AboutPage /></StorefrontLayout>} />
         <Route path="/contact" element={<StorefrontLayout><ContactPage /></StorefrontLayout>} />
         <Route path="/privacy-policy" element={<StorefrontLayout><PrivacyPolicyPage /></StorefrontLayout>} />
+        <Route path="/return-policy" element={<StorefrontLayout><ReturnPolicyPage /></StorefrontLayout>} />
         <Route path="/refill-prescription" element={<StorefrontLayout><RefillPrescriptionPage /></StorefrontLayout>} />
         <Route path="/transfer-prescription" element={<StorefrontLayout><TransferPrescriptionPage /></StorefrontLayout>} />
 
