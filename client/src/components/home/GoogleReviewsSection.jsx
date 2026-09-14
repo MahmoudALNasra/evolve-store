@@ -5,8 +5,25 @@ import SectionTitle from '@/components/ui/SectionTitle'
 import api from '@/lib/api'
 
 const FALLBACK_MAPS_URL = 'https://share.google/RLz2KuwpRoi58Qmr2'
-const PAGE_SIZE = 6
+const PAGE_SIZE_DESKTOP = 6
+const PAGE_SIZE_MOBILE = 4
 const ROTATE_MS = 7000
+
+function usePageSize() {
+  const [size, setSize] = useState(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+      ? PAGE_SIZE_MOBILE
+      : PAGE_SIZE_DESKTOP
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const apply = () => setSize(mq.matches ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  return size
+}
 
 function Stars({ value = 0 }) {
   const n = Math.round(Number(value) || 0)
@@ -81,6 +98,7 @@ function chunkReviews(list, size) {
 
 export default function GoogleReviewsSection() {
   const reduced = useReducedMotion()
+  const pageSize = usePageSize()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -111,10 +129,14 @@ export default function GoogleReviewsSection() {
 
   const mapsUrl = data?.mapsUrl || FALLBACK_MAPS_URL
   const reviews = data?.reviews || []
-  const pages = useMemo(() => chunkReviews(reviews, PAGE_SIZE), [reviews])
+  const pages = useMemo(() => chunkReviews(reviews, pageSize), [reviews, pageSize])
   const pageCount = pages.length
   const safePage = pageCount ? page % pageCount : 0
   const visible = pages[safePage] || []
+
+  useEffect(() => {
+    setPage(0)
+  }, [pageSize])
 
   useEffect(() => {
     if (reduced || paused || pageCount <= 1) return undefined

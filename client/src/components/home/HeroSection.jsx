@@ -36,9 +36,9 @@ export default function HeroSection() {
       <div className="hero-aurora-wrap">
         <Aurora
           colorStops={HERO_COLOR_STOPS}
-          amplitude={1.15}
+          amplitude={1.05}
           blend={0.52}
-          speed={0.85}
+          speed={1}
           className="hero-aurora"
         />
       </div>
@@ -50,7 +50,7 @@ export default function HeroSection() {
         </BlurIn>
 
         <BlurIn delay={0.05}>
-          <Logo size={120} showText={false} to="/" className="hero-logo" />
+          <Logo size={96} showText={false} to="/" className="hero-logo" />
         </BlurIn>
 
         <BlurIn delay={0.15}>

@@ -214,6 +214,43 @@
   /* Solid fallback so WebGL gaps never punch through to body cream */
   background: #0a0a0a;
 }
+/* CSS aurora — always present so phones still get motion if WebGL is slow/blocked */
+.hero-aurora-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 30%, rgba(201, 168, 76, 0.35), transparent 55%),
+    radial-gradient(ellipse 50% 45% at 80% 20%, rgba(201, 168, 76, 0.18), transparent 50%),
+    radial-gradient(ellipse 55% 50% at 50% 80%, rgba(28, 26, 20, 0.9), transparent 60%),
+    linear-gradient(135deg, #0a0a0a 0%, #1a1710 45%, #0a0a0a 100%);
+  animation: hero-aurora-drift 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.hero-aurora-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 70% 60%, rgba(201, 168, 76, 0.22), transparent 42%),
+    radial-gradient(circle at 25% 70%, rgba(201, 168, 76, 0.12), transparent 40%);
+  animation: hero-aurora-pulse 9s ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+@keyframes hero-aurora-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1.05); }
+  to { transform: translate3d(4%, 3%, 0) scale(1.12); }
+}
+@keyframes hero-aurora-pulse {
+  from { opacity: 0.55; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 1; transform: translate3d(-2%, 2%, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-aurora-wrap::before,
+  .hero-aurora-wrap::after {
+    animation: none;
+  }
+}
 .hero-bottom-fade {
   position: absolute;
   bottom: 0;
@@ -236,6 +273,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 1;
 }
 .aurora-canvas canvas {
   width: 100% !important;
@@ -1389,10 +1427,15 @@
 }
 
 /* ── Grids (responsive) ── */
-.storefront-shell .products-grid {
+/* Shop + home: Walmart/Nominal-style 2-up product cards on phones */
+.storefront-shell .products-grid,
+.storefront-shell .products-grid--home,
+.storefront-shell .products-grid--shop {
   display: grid;
-  gap: 12px;
+  width: 100%;
+  max-width: 100%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 .storefront-shell .products-grid__item {
   min-width: 0;
@@ -1402,18 +1445,18 @@
 .storefront-shell .products-grid__item > a.product-card {
   height: 100%;
 }
-.storefront-shell .products-grid--home {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-/* Shop: one full-width card per row on phones (avoids img intrinsic width overflow) */
-.storefront-shell .products-grid--shop {
-  width: 100%;
+.storefront-shell .products-grid__item,
+.storefront-shell .category-grid__item,
+.storefront-shell .fade-content {
+  min-width: 0;
   max-width: 100%;
-  grid-template-columns: 1fr;
+}
+.storefront-shell .category-grid__item > .category-card {
+  height: 100%;
 }
 .storefront-shell .category-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 .storefront-shell .payment-trust-item .why-title {
   color: rgba(255, 255, 255, 0.92);
@@ -1529,6 +1572,9 @@
 @media (min-width: 640px) {
   .storefront-shell .products-grid--shop {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .storefront-shell .category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1965,8 +2011,8 @@
     padding: 64px 20px 80px;
   }
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
   .storefront-shell .product-gallery-layout {
     flex-direction: column-reverse;

@@ -133,13 +133,20 @@ export default function Aurora({
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (prefersReduced) return
 
-    const initial = propsRef.current
-    const renderer = new Renderer({
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: true,
-    })
+    let renderer
+    try {
+      renderer = new Renderer({
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: true,
+      })
+    } catch (err) {
+      console.warn('Aurora WebGL unavailable — using CSS fallback', err?.message || err)
+      return
+    }
     const gl = renderer.gl
+    if (!gl) return
+    const initial = propsRef.current
     gl.clearColor(0, 0, 0, 0)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)

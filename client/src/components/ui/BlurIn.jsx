@@ -10,13 +10,21 @@ export default function BlurIn({
 }) {
   const reduced = useReducedMotion()
   const Component = motion[Tag] || motion.div
+  // Soften blur — heavy filter anims often look stuck on mobile Safari
+  const blurPx = 8
+  const safeDelay = Math.min(Number(delay) || 0, 0.4)
+  const safeDuration = Math.min(duration, 0.55)
 
   return (
     <Component
       className={className}
-      initial={reduced ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: 'blur(14px)' }}
+      initial={reduced ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: `blur(${blurPx}px)` }}
       animate={{ opacity: 1, filter: 'blur(0px)' }}
-      transition={{ duration: reduced ? 0 : duration, delay: reduced ? 0 : delay, ease: MOTION_EASE }}
+      transition={{
+        duration: reduced ? 0 : safeDuration,
+        delay: reduced ? 0 : safeDelay,
+        ease: MOTION_EASE,
+      }}
     >
       {children}
     </Component>

@@ -107,7 +107,7 @@ export default function CategoryGrid({ categories = [], loading = false }) {
               {categories.map((cat, i) => {
                 const Icon = resolveCategoryIcon(cat)
                 return (
-                  <FadeContent key={cat} delay={i * 0.06}>
+                  <FadeContent key={cat} delay={i * 0.04} className="category-grid__item">
                     <Link
                       to={`/shop?category=${encodeURIComponent(cat)}`}
                       className="category-card"
