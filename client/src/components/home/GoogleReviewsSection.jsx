@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Star, User } from 'lucide-react'
-import { useReducedMotion } from 'framer-motion'
+import { ChevronLeft, ChevronRight, ExternalLink, Star, User } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import SectionTitle from '@/components/ui/SectionTitle'
 import api from '@/lib/api'
 
 const FALLBACK_MAPS_URL = 'https://share.google/RLz2KuwpRoi58Qmr2'
+const PAGE_SIZE = 6
+const ROTATE_MS = 7000
 
 function Stars({ value = 0 }) {
   const n = Math.round(Number(value) || 0)
@@ -67,46 +69,26 @@ function ReviewCard({ review }) {
   )
 }
 
-/** Repeat until we have enough cards for a smooth looping track. */
-function padReviews(list, minCount = 8) {
+function chunkReviews(list, size) {
   if (!list.length) return []
-  const out = [...list]
-  let i = 0
-  while (out.length < minCount) {
-    out.push({ ...list[i % list.length], _pad: `${out.length}` })
-    i += 1
+  const pages = []
+  for (let i = 0; i < list.length; i += size) {
+    pages.push(list.slice(i, i + size))
   }
-  return out
-}
-
-function ReviewMarqueeRow({ reviews, direction = 'left', reduced }) {
-  const track = useMemo(() => [...reviews, ...reviews], [reviews])
-
-  return (
-    <div
-      className={`google-reviews-marquee google-reviews-marquee--${direction}${reduced ? ' is-static' : ''}`}
-      aria-hidden={false}
-    >
-      <div className="google-reviews-track">
-        {track.map((r, idx) => (
-          <ReviewCard
-            key={`${r.authorName}-${r.time || r.relativeTime}-${r._pad || ''}-${idx}`}
-            review={r}
-          />
-        ))}
-      </div>
-    </div>
-  )
+  // If only one page and few cards, still show them in the grid
+  return pages
 }
 
 export default function GoogleReviewsSection() {
   const reduced = useReducedMotion()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const [paused, setPaused] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    api.get('/reviews/google', { params: { limit: 10 } })
+    api.get('/reviews/google', { params: { limit: 12 } })
       .then(({ data: payload }) => {
         if (!cancelled) setData(payload)
       })
@@ -129,12 +111,21 @@ export default function GoogleReviewsSection() {
 
   const mapsUrl = data?.mapsUrl || FALLBACK_MAPS_URL
   const reviews = data?.reviews || []
+  const pages = useMemo(() => chunkReviews(reviews, PAGE_SIZE), [reviews])
+  const pageCount = pages.length
+  const safePage = pageCount ? page % pageCount : 0
+  const visible = pages[safePage] || []
 
-  const rowA = useMemo(() => padReviews(reviews, 8), [reviews])
-  const rowB = useMemo(() => {
-    const flipped = [...reviews].reverse()
-    return padReviews(flipped.length ? flipped : reviews, 8)
-  }, [reviews])
+  useEffect(() => {
+    if (reduced || paused || pageCount <= 1) return undefined
+    const id = setInterval(() => {
+      setPage((p) => (p + 1) % pageCount)
+    }, ROTATE_MS)
+    return () => clearInterval(id)
+  }, [reduced, paused, pageCount])
+
+  const goPrev = () => setPage((p) => (p - 1 + pageCount) % pageCount)
+  const goNext = () => setPage((p) => (p + 1) % pageCount)
 
   return (
     <section className="ev-home-section google-reviews-section">
@@ -154,9 +145,55 @@ export default function GoogleReviewsSection() {
         {loading ? (
           <p className="checkout-hint" style={{ textAlign: 'center' }}>Loading Google reviews…</p>
         ) : reviews.length > 0 ? (
-          <div className="google-reviews-rotator" aria-label="Google customer reviews">
-            <ReviewMarqueeRow reviews={rowA} direction="left" reduced={reduced} />
-            <ReviewMarqueeRow reviews={rowB} direction="right" reduced={reduced} />
+          <div
+            className="google-reviews-rotator"
+            aria-label="Google customer reviews"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocusCapture={() => setPaused(true)}
+            onBlurCapture={() => setPaused(false)}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={safePage}
+                className="google-reviews-grid"
+                initial={reduced ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduced ? undefined : { opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+              >
+                {visible.map((r) => (
+                  <ReviewCard
+                    key={`${r.authorName}-${r.time || r.relativeTime}-${r.text?.slice(0, 24)}`}
+                    review={r}
+                  />
+                ))}
+              </motion.div>
+            </AnimatePresence>
+
+            {pageCount > 1 && (
+              <div className="google-reviews-controls">
+                <button type="button" className="google-reviews-nav" onClick={goPrev} aria-label="Previous reviews">
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="google-reviews-dots" role="tablist" aria-label="Review pages">
+                  {pages.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      role="tab"
+                      aria-selected={i === safePage}
+                      className={`google-reviews-dot${i === safePage ? ' is-active' : ''}`}
+                      onClick={() => setPage(i)}
+                      aria-label={`Show reviews page ${i + 1}`}
+                    />
+                  ))}
+                </div>
+                <button type="button" className="google-reviews-nav" onClick={goNext} aria-label="Next reviews">
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="google-reviews-empty checkout-card" style={{ textAlign: 'center', maxWidth: 560, margin: '0 auto' }}>

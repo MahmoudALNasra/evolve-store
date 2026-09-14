@@ -6,7 +6,7 @@ const router = express.Router()
 // GET /api/reviews/google — public Google Business reviews for homepage
 router.get('/google', async (req, res) => {
   try {
-    const data = await getBusinessReviews({ maxReviews: Number(req.query.limit) || 10 })
+    const data = await getBusinessReviews({ maxReviews: Number(req.query.limit) || 12 })
     res.json(data)
   } catch (err) {
     console.error('Google reviews error:', err.message)

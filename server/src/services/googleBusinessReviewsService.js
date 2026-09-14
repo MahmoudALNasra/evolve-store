@@ -82,10 +82,10 @@ async function fetchPlaceReviews(placeId, key, reviewsSort) {
  * Fetch Google Business Profile reviews via Places Details API.
  * Merges most_relevant + newest to surface more unique reviews (API caps ~5 per call).
  */
-async function getBusinessReviews({ maxReviews = 10 } = {}) {
+async function getBusinessReviews({ maxReviews = 12 } = {}) {
   const key = getMapsApiKey()
   const mapsUrl = getMapsShareUrl()
-  const limit = Math.min(Math.max(Number(maxReviews) || 10, 1), 20)
+  const limit = Math.min(Math.max(Number(maxReviews) || 12, 1), 20)
 
   if (!key) {
     return {
