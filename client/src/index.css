@@ -3836,29 +3836,99 @@ img { display: block; max-width: 100%; height: auto; }
   .cookie-btn-ghost { flex: 1 1 100%; margin-right: 0; }
 }
 
-/* Google Business reviews (homepage) */
+/* Google Business reviews (homepage) — rotating marquee grid */
 .google-reviews-section {
   padding: 64px 0 40px;
+  overflow: hidden;
 }
-.google-reviews-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+.google-reviews-rotator {
   margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.google-reviews-marquee {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.google-reviews-track {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  will-change: transform;
+}
+.google-reviews-marquee--left .google-reviews-track {
+  animation: google-reviews-scroll-left 55s linear infinite;
+}
+.google-reviews-marquee--right .google-reviews-track {
+  animation: google-reviews-scroll-right 65s linear infinite;
+}
+.google-reviews-marquee:hover .google-reviews-track,
+.google-reviews-marquee.is-static .google-reviews-track {
+  animation-play-state: paused;
+}
+.google-reviews-marquee.is-static .google-reviews-track {
+  animation: none;
+  transform: none;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  justify-content: center;
+}
+@keyframes google-reviews-scroll-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes google-reviews-scroll-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
 }
 .google-review-card {
-  padding: 20px 18px;
+  flex: 0 0 300px;
+  width: 300px;
+  padding: 18px 16px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(201, 168, 76, 0.22);
-  min-height: 160px;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+}
+.google-review-author-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.google-review-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(201, 168, 76, 0.2);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+}
+.google-review-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #c9a84c;
+}
+.google-review-author-meta {
+  min-width: 0;
+  flex: 1;
 }
 .google-review-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .google-review-stars {
   display: inline-flex;
@@ -3873,28 +3943,42 @@ img { display: block; max-width: 100%; height: auto; }
   font-size: 14px;
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.82);
-  margin: 0 0 14px;
+  margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 6;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  flex: 1;
 }
 .google-review-author {
-  margin: 0;
-  font-size: 13px;
+  margin: 0 0 4px;
+  font-size: 14px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .payment-trust-section {
   padding-bottom: 24px;
 }
-@media (max-width: 960px) {
-  .google-reviews-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 640px) {
+  .google-review-card {
+    flex-basis: 260px;
+    width: 260px;
   }
 }
-@media (max-width: 640px) {
-  .google-reviews-grid {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .google-reviews-marquee .google-reviews-track {
+    animation: none !important;
+    transform: none !important;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+  }
+  .google-reviews-marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
   }
 }
