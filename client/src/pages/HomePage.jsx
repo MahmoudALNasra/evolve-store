@@ -10,13 +10,13 @@ import PaymentTrustSection from '../components/home/PaymentTrustSection'
 
 async function fetchBestSellers() {
   const featuredRes = await api.get('/products', {
-    params: { featured: true, limit: 8 },
+    params: { featured: true, limit: 12 },
   })
   if (featuredRes.data.products?.length > 0) {
     return featuredRes.data.products
   }
   const recentRes = await api.get('/products', {
-    params: { limit: 8, sort: '-createdAt' },
+    params: { limit: 12, sort: '-createdAt' },
   })
   return recentRes.data.products || []
 }
@@ -36,7 +36,7 @@ export default function HomePage() {
       .then(([products, categoriesRes]) => {
         if (cancelled) return
         setFeatured(products)
-        setCategories(categoriesRes.data.slice(0, 6))
+        setCategories(categoriesRes.data.slice(0, 8))
       })
       .catch(() => {
         if (!cancelled) {

@@ -9,7 +9,7 @@ import { generateSEOTitle, generateMetaDescription } from '../lib/seoUtils'
 import { getPageRange } from '../lib/pagination'
 import { notifyScrollRestorationReady } from '../lib/scrollRestoration'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 24
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams()

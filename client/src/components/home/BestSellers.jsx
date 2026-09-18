@@ -26,18 +26,18 @@ export default function BestSellers({ products = [], loading = false }) {
         </div>
 
         {loading ? (
-          <SkeletonProductGrid count={3} />
+          <SkeletonProductGrid count={6} />
         ) : hasProducts ? (
           <div className="products-grid products-grid--home">
             {products.map((p, i) => (
-              <FadeContent key={p._id} delay={i * 0.05} className="products-grid__item">
+              <FadeContent key={p._id} delay={Math.min(i * 0.04, 0.2)} className="products-grid__item">
                 <ProductCard product={p} />
               </FadeContent>
             ))}
           </div>
         ) : (
           <>
-            <SkeletonProductGrid count={3} />
+            <SkeletonProductGrid count={6} />
             <p className="ev-section-placeholder-caption">
               Our bestsellers are on their way — check back soon.
             </p>

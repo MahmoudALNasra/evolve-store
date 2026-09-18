@@ -653,20 +653,42 @@
 .storefront-shell .floating-rx-btn-primary {
   background: var(--brand-primary);
   color: #0d0d0d;
-  border-radius: var(--ev-radius-sm);
+  border-radius: 999px;
   box-shadow: var(--ev-glow);
 }
 .storefront-shell .floating-rx-btn-secondary {
   background: var(--brand-olive-light);
   color: var(--brand-primary-light);
   border: 1px solid rgba(201, 168, 76, 0.35);
-  border-radius: var(--ev-radius-sm);
+  border-radius: 999px;
 }
 .storefront-shell .floating-rx-note {
   background: rgba(13, 13, 13, 0.94);
   border: 1px solid rgba(201, 168, 76, 0.45);
   color: var(--brand-primary-light);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 768px) {
+  .storefront-shell .floating-rx-btn-primary,
+  .storefront-shell .floating-rx-btn-secondary {
+    border-radius: 50%;
+  }
+  .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-primary,
+  .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-secondary {
+    border-radius: 999px;
+  }
+  .storefront-shell .products-grid,
+  .storefront-shell .products-grid--home,
+  .storefront-shell .products-grid--shop {
+    gap: 8px;
+  }
+  .storefront-shell .ev-home-section {
+    padding: 36px 0;
+  }
+  .storefront-shell .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }
 
 /* ── Blog (editorial / readable light theme) ── */
