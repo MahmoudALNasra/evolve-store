@@ -79,38 +79,30 @@ export default function AccountPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 24px' }}>
+    <div className="account-page-shell">
       <h1 className="page-title">My Account</h1>
 
       <div className="responsive-2col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
         {/* Profile Information */}
-        <div className="card">
+        <div className="checkout-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              background: 'linear-gradient(135deg, #d1f4e0 0%, #a7e9c5 100%)',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <User size={18} style={{ color: '#2d7a3a' }} />
+            <div className="checkout-card-icon">
+              <User size={18} />
             </div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Profile Information</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Profile Information</h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid #e8eee8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid rgba(201,168,76,0.15)', minWidth: 0 }}>
             {user?.avatar ? (
-              <img src={user.avatar} alt={user.name} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8eee8' }} />
+              <img src={user.avatar} alt={user.name} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(201,168,76,0.25)', flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#e8f4e8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2d7a3a', fontWeight: 700, fontSize: 24 }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand-primary-light)', fontWeight: 700, fontSize: 24, flexShrink: 0 }}>
                 {user?.name?.[0]?.toUpperCase()}
               </div>
             )}
-            <div>
-              <p style={{ fontWeight: 700, fontSize: 18, color: '#1c2b1c', marginBottom: 4 }}>{user?.name}</p>
-              <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontWeight: 700, fontSize: 18, color: '#fff', marginBottom: 4, overflowWrap: 'anywhere' }}>{user?.name}</p>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, overflowWrap: 'anywhere' }}>
                 <Mail size={14} /> {user?.email}
               </p>
               <span className={`admin-badge ${user?.role === 'admin' ? 'indigo' : 'gray'}`}>{user?.role}</span>
@@ -133,20 +125,12 @@ export default function AccountPage() {
         </div>
 
         {/* Change Password */}
-        <div className="card">
+        <div className="checkout-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              background: 'linear-gradient(135deg, #d1f4e0 0%, #a7e9c5 100%)',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Lock size={18} style={{ color: '#2d7a3a' }} />
+            <div className="checkout-card-icon">
+              <Lock size={18} />
             </div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Change Password</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Change Password</h2>
           </div>
 
           <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -187,23 +171,15 @@ export default function AccountPage() {
       </div>
 
       {/* Recent Orders */}
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="checkout-card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              background: 'linear-gradient(135deg, #d1f4e0 0%, #a7e9c5 100%)',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Package size={18} style={{ color: '#2d7a3a' }} />
+            <div className="checkout-card-icon">
+              <Package size={18} />
             </div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>Recent Orders</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Recent Orders</h2>
           </div>
-          <Link to="/orders" style={{ fontSize: 13, color: '#2d7a3a', fontWeight: 600, textDecoration: 'none' }}>
+          <Link to="/orders" style={{ fontSize: 13, color: 'var(--brand-primary-light)', fontWeight: 600, textDecoration: 'none' }}>
             View all →
           </Link>
         </div>
@@ -213,7 +189,7 @@ export default function AccountPage() {
             <div className="spinner spinner-lg" />
           </div>
         ) : recentOrders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>
+          <div style={{ textAlign: 'center', padding: 32, color: 'rgba(255,255,255,0.45)' }}>
             <Package size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
             <p>No orders yet</p>
             <Link to="/shop" className="btn-primary" style={{ marginTop: 16, display: 'inline-flex' }}>
@@ -226,37 +202,19 @@ export default function AccountPage() {
               <Link
                 key={order._id}
                 to={`/orders/${order._id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 16,
-                  background: '#f9fafb',
-                  borderRadius: 10,
-                  border: '1px solid #e8eee8',
-                  textDecoration: 'none',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#2d7a3a'
-                  e.currentTarget.style.background = '#f0f9f4'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e8eee8'
-                  e.currentTarget.style.background = '#f9fafb'
-                }}
+                className="account-order-link"
               >
-                <div>
-                  <p style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, fontFamily: 'monospace' }}>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4, fontFamily: 'monospace' }}>
                     #{order._id.slice(-8).toUpperCase()}
                   </p>
-                  <p style={{ fontSize: 13, color: '#6b7280' }}>{formatDate(order.createdAt)}</p>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{formatDate(order.createdAt)}</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <span className={`admin-badge ${STATUS_COLOR[order.status] || 'gray'}`}>
                     {STATUS_LABELS[order.status] || order.status}
                   </span>
-                  <span style={{ fontWeight: 700, fontSize: 16, color: '#1c2b1c' }}>{formatPrice(order.total)}</span>
+                  <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>{formatPrice(order.total)}</span>
                 </div>
               </Link>
             ))}
