@@ -54,7 +54,8 @@ const PRERENDER_BLACKLIST = [
   /^\/api\b/,
   /^\/admin\b/,
   /^\/sitemap\.xml$/i,
-  /\.(js|css|map|json|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|txt|xml)$/i,
+  /^\/google[a-f0-9]+\.html$/i, // Google Search Console verification files
+  /\.(js|css|map|json|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|txt|xml|html)$/i,
 ]
 
 function matchesCrawler(userAgent) {
