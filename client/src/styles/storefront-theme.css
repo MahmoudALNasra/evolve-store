@@ -3665,3 +3665,49 @@
     align-items: flex-start;
   }
 }
+
+/* Contact page — dark storefront */
+.storefront-shell .contact-info-card,
+.storefront-shell .contact-form-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.storefront-shell .contact-info-card h2,
+.storefront-shell .contact-hero h1 {
+  color: #fff;
+}
+.storefront-shell .contact-hero p,
+.storefront-shell .contact-info-item a,
+.storefront-shell .contact-info-item span {
+  color: rgba(255, 255, 255, 0.6);
+}
+.storefront-shell .contact-info-item strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+.storefront-shell .contact-info-item {
+  border-top-color: rgba(201, 168, 76, 0.12);
+}
+.storefront-shell .contact-info-item svg {
+  color: var(--brand-primary-light);
+}
+.storefront-shell .contact-map-link {
+  color: var(--brand-primary-light);
+}
+.storefront-shell .contact-map {
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  background: #14120e;
+}
+.storefront-shell .pharmacy-call-btn {
+  background: var(--brand-primary);
+  color: #0d0d0d;
+}
+@media (max-width: 640px) {
+  .storefront-shell .contact-map {
+    height: 240px;
+  }
+  .pharmacy-call-btn--inline {
+    width: 100%;
+    justify-content: center;
+  }
+}

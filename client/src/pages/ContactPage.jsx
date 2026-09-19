@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Mail, MapPin, Phone, Send } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Mail, MapPin, Phone, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
+import {
+  PHARMACY_ADDRESS_LINES,
+  PHARMACY_EMAIL,
+  PHARMACY_MAPS_EMBED_URL,
+  PHARMACY_MAPS_LINK,
+  PHARMACY_PHONE_DISPLAY,
+  PHARMACY_PHONE_TEL,
+} from '../lib/pharmacyContact'
 
 const INITIAL_FORM = {
   name: '',
@@ -65,22 +73,53 @@ export default function ContactPage() {
               <Phone size={18} />
               <div>
                 <strong>Phone</strong>
-                <a href="tel:+12105550123">(210) 555-0123</a>
+                <a href={`tel:${PHARMACY_PHONE_TEL}`}>{PHARMACY_PHONE_DISPLAY}</a>
               </div>
             </div>
             <div className="contact-info-item">
               <Mail size={18} />
               <div>
                 <strong>Email</strong>
-                <a href="mailto:info@evolvepharmacy.com">info@evolvepharmacy.com</a>
+                <a href={`mailto:${PHARMACY_EMAIL}`}>{PHARMACY_EMAIL}</a>
               </div>
             </div>
             <div className="contact-info-item">
               <MapPin size={18} />
               <div>
                 <strong>Location</strong>
-                <span>19239 Stone Oak Pkwy Ste #103<br />San Antonio, TX 78258</span>
+                <span>
+                  {PHARMACY_ADDRESS_LINES[0]}
+                  <br />
+                  {PHARMACY_ADDRESS_LINES[1]}
+                </span>
               </div>
+            </div>
+
+            <a
+              href={`tel:${PHARMACY_PHONE_TEL}`}
+              className="pharmacy-call-btn"
+            >
+              <Phone size={18} aria-hidden="true" />
+              Call pharmacy
+            </a>
+
+            <div className="contact-map-wrap">
+              <iframe
+                title="Evolve Specialty Pharmacy & Wellness location map"
+                src={PHARMACY_MAPS_EMBED_URL}
+                className="contact-map"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+              <a
+                href={PHARMACY_MAPS_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="contact-map-link"
+              >
+                Open in Google Maps <ExternalLink size={14} aria-hidden="true" />
+              </a>
             </div>
           </aside>
 

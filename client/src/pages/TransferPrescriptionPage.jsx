@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRightLeft, CheckCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, CheckCircle, Phone, Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import useAuthStore from '../store/useAuthStore'
+import { PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
 
 const emptyMed = () => ({ name: '', dosage: '', prescriptionNumber: '' })
 
@@ -102,11 +103,20 @@ export default function TransferPrescriptionPage() {
           Transfer a Prescription
         </h1>
       </div>
-      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>
+      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 16, lineHeight: 1.6 }}>
         Move your prescriptions from another pharmacy to Evolve. We'll handle the transfer for you — just provide the details below.
       </p>
 
-      <form onSubmit={handleSubmit} className="auth-box" style={{ padding: 24 }}>
+      <a
+        href={`tel:${PHARMACY_PHONE_TEL}`}
+        className="pharmacy-call-btn pharmacy-call-btn--inline"
+        aria-label={`Call pharmacy at ${PHARMACY_PHONE_DISPLAY}`}
+      >
+        <Phone size={18} aria-hidden="true" />
+        Call the pharmacy — {PHARMACY_PHONE_DISPLAY}
+      </a>
+
+      <form onSubmit={handleSubmit} className="auth-box" style={{ padding: 24, marginTop: 20 }}>
         <div className="auth-form">
           {/* Patient info */}
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: -4 }}>
