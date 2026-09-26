@@ -1,7 +1,7 @@
 /**
  * Google Tag Manager & GA4 ecommerce dataLayer helpers.
- * GA4 is deployed via GTM — no gtag.js here.
- * GTM script loads only after analytics/marketing cookie consent.
+ * GA4 web stream (G-797RS12Z30) loads via gtag.js in index.html (Consent Mode).
+ * GTM also loads after analytics/marketing cookie consent for tags/ecommerce.
  */
 
 import { allowsGtm, loadGtmIfAllowed } from './cookieConsent'
