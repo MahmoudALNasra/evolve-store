@@ -8,6 +8,8 @@ const storeSettingsSchema = new mongoose.Schema(
     supportEmail: { type: String, default: 'support@evolvepharmacy.com', trim: true, lowercase: true },
     currency: { type: String, default: 'USD', trim: true, uppercase: true },
     lowStockThreshold: { type: Number, default: 5, min: 0 },
+    /** When false, cookie banner is hidden and analytics/marketing storage is granted. */
+    cookieConsentEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 )
@@ -33,6 +35,9 @@ storeSettingsSchema.statics.update = async function (fields = {}) {
   }
   if (fields.lowStockThreshold != null && Number.isFinite(Number(fields.lowStockThreshold))) {
     allowed.lowStockThreshold = Math.max(0, Number(fields.lowStockThreshold))
+  }
+  if (typeof fields.cookieConsentEnabled === 'boolean') {
+    allowed.cookieConsentEnabled = fields.cookieConsentEnabled
   }
 
   return this.findOneAndUpdate(

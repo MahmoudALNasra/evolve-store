@@ -27,6 +27,7 @@ const robotsRoutes = require('./routes/robotsRoutes')
 const inventorySyncRoutes = require('./routes/inventorySyncRoutes')
 const blogRoutes = require('./routes/blogRoutes')
 const adminBlogRoutes = require('./routes/adminBlogRoutes')
+const settingsRoutes = require('./routes/settingsRoutes')
 const errorHandler = require('./middleware/errorHandler')
 const { authLimiter, publicFormLimiter, apiLimiter } = require('./middleware/rateLimiters')
 const securityHeaders = require('./middleware/securityHeaders')
@@ -88,6 +89,7 @@ app.use('/api/inventory', inventorySyncRoutes)
 app.use('/webhooks', inventorySyncRoutes)
 app.use('/api/blog', blogRoutes)
 app.use('/api/admin/blog', adminBlogRoutes)
+app.use('/api/settings', settingsRoutes)
 
 app.get('/api/health', (req, res) => {
   res.json({

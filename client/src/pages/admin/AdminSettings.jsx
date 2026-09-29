@@ -9,6 +9,7 @@ export default function AdminSettings() {
     currency: 'USD',
     lowStockThreshold: 5,
     supportEmail: 'support@evolvepharmacy.com',
+    cookieConsentEnabled: false,
   })
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,6 +27,7 @@ export default function AdminSettings() {
           supportEmail: data.supportEmail || '',
           currency: data.currency || 'USD',
           lowStockThreshold: Number(data.lowStockThreshold ?? 5),
+          cookieConsentEnabled: Boolean(data.cookieConsentEnabled),
         })
       }),
       api.get('/categories').then(({ data }) => setCategories(data)),
@@ -44,6 +46,7 @@ export default function AdminSettings() {
         supportEmail: data.supportEmail || '',
         currency: data.currency || 'USD',
         lowStockThreshold: Number(data.lowStockThreshold ?? 5),
+        cookieConsentEnabled: Boolean(data.cookieConsentEnabled),
       })
       toast.success('Settings saved')
     } catch (err) {
@@ -152,6 +155,36 @@ export default function AdminSettings() {
               />
               <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>Products at or below this stock level trigger a low-stock alert.</p>
             </div>
+          </div>
+        </div>
+
+        <div className="admin-card">
+          <h2 className="admin-card-title">Privacy & analytics</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                cursor: 'pointer',
+                fontSize: 14,
+                color: '#1c2b1c',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(form.cookieConsentEnabled)}
+                onChange={(e) => setForm((f) => ({ ...f, cookieConsentEnabled: e.target.checked }))}
+                style={{ marginTop: 3, width: 16, height: 16 }}
+              />
+              <span>
+                <strong style={{ display: 'block', marginBottom: 4 }}>Require cookie consent banner</strong>
+                <span style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.45 }}>
+                  When off, the banner is hidden and Google Analytics / marketing tags run without asking.
+                  Turn this on later when you want Consent Mode back.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 

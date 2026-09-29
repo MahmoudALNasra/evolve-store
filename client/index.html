@@ -37,15 +37,21 @@
       }
     </script>
 
-    <!-- Consent Mode defaults denied until banner choice; GTM loads after accept (cookieConsent.js) -->
+    <!-- Consent Mode: defaults follow admin "cookie consent" cache (localStorage).
+         When consent is off (default), analytics/ad storage start granted so GA4 works. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      var consentRequired = false;
+      try {
+        var cached = localStorage.getItem('evolve_cookie_consent_required_v1');
+        if (cached === '1' || cached === 'true') consentRequired = true;
+      } catch (e) {}
       gtag('consent', 'default', {
-        ad_storage: 'denied',
-        ad_user_data: 'denied',
-        ad_personalization: 'denied',
-        analytics_storage: 'denied',
+        ad_storage: consentRequired ? 'denied' : 'granted',
+        ad_user_data: consentRequired ? 'denied' : 'granted',
+        ad_personalization: consentRequired ? 'denied' : 'granted',
+        analytics_storage: consentRequired ? 'denied' : 'granted',
         functionality_storage: 'granted',
         security_storage: 'granted',
         wait_for_update: 500

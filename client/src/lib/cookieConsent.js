@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'evolve_cookie_consent_v1'
+const CONSENT_REQUIRED_KEY = 'evolve_cookie_consent_required_v1'
 const CONSENT_EVENT = 'evolve:cookie-consent'
+const CONSENT_MODE_EVENT = 'evolve:cookie-consent-mode'
 const GTM_ID = 'GTM-PV2RLR9P'
 
 export const DEFAULT_CONSENT = {
@@ -8,21 +10,62 @@ export const DEFAULT_CONSENT = {
   marketing: false,
 }
 
+const BYPASS_CONSENT = {
+  necessary: true,
+  analytics: true,
+  marketing: true,
+  decidedAt: 'bypass',
+}
+
 function gtag() {
   window.dataLayer = window.dataLayer || []
   // eslint-disable-next-line prefer-rest-params
   window.dataLayer.push(arguments)
 }
 
+/**
+ * Cached admin setting: whether the cookie banner / Consent Mode gate is required.
+ * Default false (consent off) until server says otherwise — matches current store preference.
+ */
+export function isCookieConsentRequired() {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = localStorage.getItem(CONSENT_REQUIRED_KEY)
+    if (raw == null) return false
+    return raw === '1' || raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function setCookieConsentRequired(enabled) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(CONSENT_REQUIRED_KEY, enabled ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(
+    new CustomEvent(CONSENT_MODE_EVENT, { detail: { cookieConsentEnabled: Boolean(enabled) } })
+  )
+}
+
+export function onCookieConsentModeChange(handler) {
+  const listener = (e) => handler(e.detail)
+  window.addEventListener(CONSENT_MODE_EVENT, listener)
+  return () => window.removeEventListener(CONSENT_MODE_EVENT, listener)
+}
+
 /** Google Consent Mode v2 defaults — call before GTM loads (also set in index.html). */
 export function ensureConsentDefaults() {
   if (typeof window === 'undefined' || window.__evolveConsentDefaults) return
+  const required = isCookieConsentRequired()
   window.dataLayer = window.dataLayer || []
   gtag('consent', 'default', {
-    ad_storage: 'denied',
-    ad_user_data: 'denied',
-    ad_personalization: 'denied',
-    analytics_storage: 'denied',
+    ad_storage: required ? 'denied' : 'granted',
+    ad_user_data: required ? 'denied' : 'granted',
+    ad_personalization: required ? 'denied' : 'granted',
+    analytics_storage: required ? 'denied' : 'granted',
     functionality_storage: 'granted',
     security_storage: 'granted',
     wait_for_update: 500,
@@ -84,10 +127,12 @@ export function onConsentChange(handler) {
 }
 
 export function allowsAnalytics(consent = getStoredConsent()) {
+  if (!isCookieConsentRequired()) return true
   return Boolean(consent?.analytics)
 }
 
 export function allowsMarketing(consent = getStoredConsent()) {
+  if (!isCookieConsentRequired()) return true
   return Boolean(consent?.marketing)
 }
 
@@ -114,7 +159,7 @@ function pushConsentUpdate(consent) {
 }
 
 /**
- * Load GTM only after analytics or marketing consent.
+ * Load GTM only after analytics or marketing consent (or when consent gate is off).
  * Idempotent — safe to call multiple times.
  */
 export function loadGtmIfAllowed(consent = getStoredConsent()) {
@@ -146,9 +191,43 @@ export function applyConsentToRuntime(consent = getStoredConsent()) {
   }
 }
 
-/** Call once on app boot if user already decided. */
+/** Grant analytics + marketing without showing the banner (admin toggle off). */
+export function applyConsentBypass() {
+  window.dispatchEvent(new CustomEvent(CONSENT_EVENT, { detail: BYPASS_CONSENT }))
+  applyConsentToRuntime(BYPASS_CONSENT)
+}
+
+/** Call once on app boot if user already decided, or bypass when consent is disabled. */
 export function initCookieConsentRuntime() {
   ensureConsentDefaults()
+  if (!isCookieConsentRequired()) {
+    applyConsentBypass()
+    return
+  }
   const consent = getStoredConsent()
   if (consent?.decidedAt) applyConsentToRuntime(consent)
+}
+
+/**
+ * Fetch Admin → Settings flag and apply. Safe to call on every app boot.
+ * @returns {Promise<boolean>} whether cookie consent is required
+ */
+export async function syncCookieConsentSettingFromServer() {
+  try {
+    const res = await fetch('/api/settings/public', { credentials: 'same-origin' })
+    if (!res.ok) throw new Error(`settings ${res.status}`)
+    const data = await res.json()
+    const required = Boolean(data.cookieConsentEnabled)
+    setCookieConsentRequired(required)
+    if (!required) {
+      applyConsentBypass()
+    } else {
+      const consent = getStoredConsent()
+      if (consent?.decidedAt) applyConsentToRuntime(consent)
+    }
+    return required
+  } catch {
+    if (!isCookieConsentRequired()) applyConsentBypass()
+    return isCookieConsentRequired()
+  }
 }

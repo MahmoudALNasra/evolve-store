@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import useAuthStore from './store/useAuthStore'
@@ -14,7 +14,12 @@ import ScrollRestoration from './components/ScrollRestoration'
 import AnalyticsTracker from './components/AnalyticsTracker'
 import CookieBanner from './components/CookieBanner'
 import AdminLayout from './components/admin/AdminLayout'
-import { initCookieConsentRuntime } from './lib/cookieConsent'
+import {
+  initCookieConsentRuntime,
+  isCookieConsentRequired,
+  onCookieConsentModeChange,
+  syncCookieConsentSettingFromServer,
+} from './lib/cookieConsent'
 
 // Storefront pages
 import HomePage from './pages/HomePage'
@@ -65,7 +70,14 @@ function StorefrontLayout({ children }) {
 
 function StorefrontCookieBanner() {
   const { pathname } = useLocation()
+  const [consentEnabled, setConsentEnabled] = useState(() => isCookieConsentRequired())
+
+  useEffect(() => onCookieConsentModeChange((detail) => {
+    setConsentEnabled(Boolean(detail?.cookieConsentEnabled))
+  }), [])
+
   if (pathname.startsWith('/admin')) return null
+  if (!consentEnabled) return null
   return <CookieBanner />
 }
 
@@ -74,6 +86,7 @@ export default function App() {
 
   useEffect(() => {
     initCookieConsentRuntime()
+    syncCookieConsentSettingFromServer()
     init()
   }, [])
 
