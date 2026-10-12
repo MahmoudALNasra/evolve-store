@@ -5,6 +5,7 @@ const User = require('../models/User')
 const { protect, admin } = require('../middleware/auth')
 const { auditWriteLogger } = require('../middleware/auditWriteLogger')
 const { logAuditFromReq } = require('../services/auditLogService')
+const { sendPrescriptionNotification } = require('../services/emailService')
 
 const router = express.Router()
 router.use(auditWriteLogger())
@@ -101,6 +102,11 @@ router.post('/', optionalAuth, async (req, res) => {
     after: { type: doc.type, email, status: doc.status },
   })
   res.locals.auditLogged = true
+
+  // Notify pharmacy inboxes (does not block the customer response)
+  void sendPrescriptionNotification(doc).catch((err) => {
+    console.error('Prescription notify unexpected error:', err.message)
+  })
 
   res.status(201).json({
     message:

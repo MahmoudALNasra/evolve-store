@@ -4,12 +4,29 @@ const { buildContactMessageEmail } = require('../templates/contactMessageEmail')
 const { buildOrderConfirmationEmail } = require('../templates/orderConfirmationEmail')
 const { buildNewOrderNotificationEmail } = require('../templates/newOrderNotificationEmail')
 const { buildOrderShippedEmail } = require('../templates/orderShippedEmail')
+const { buildPrescriptionNotificationEmail } = require('../templates/prescriptionNotificationEmail')
 const { createEmailLoginUrl } = require('../utils/emailLoginToken')
+
+const DEFAULT_PRESCRIPTION_NOTIFY = [
+  'info@evolvepharmacy.com',
+  'evolvepharmacy01@gmail.com',
+]
 
 const getFromAddress = () => {
   const name = process.env.EMAIL_FROM_NAME || 'Evolve Specialty Pharmacy & Wellness'
   const email = process.env.EMAIL_FROM
   return `"${name}" <${email}>`
+}
+
+const normalizeRecipients = (to) => {
+  const list = Array.isArray(to) ? to : String(to || '').split(',')
+  return [...new Set(list.map((s) => String(s).trim()).filter(Boolean))]
+}
+
+const getPrescriptionNotifyRecipients = () => {
+  const fromEnv = process.env.PRESCRIPTION_NOTIFY_EMAIL
+  if (fromEnv && String(fromEnv).trim()) return normalizeRecipients(fromEnv)
+  return [...DEFAULT_PRESCRIPTION_NOTIFY]
 }
 
 const formatProviderError = (err) => {
@@ -24,16 +41,19 @@ const formatProviderError = (err) => {
   return [err.message, status ? `status=${status}` : '', detail].filter(Boolean).join(' | ')
 }
 
-const sendWithResend = async ({ to, subject, text, html }) => {
+const sendWithResend = async ({ to, subject, text, html, replyTo }) => {
+  const recipients = normalizeRecipients(to)
+  if (!recipients.length) throw new Error('No email recipients')
+
   const { data } = await axios.post(
     'https://api.resend.com/emails',
     {
       from: getFromAddress(),
-      to: [to],
+      to: recipients,
       subject,
       text,
       html,
-      reply_to: process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM,
+      reply_to: replyTo || process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM,
     },
     {
       headers: {
@@ -47,9 +67,15 @@ const sendWithResend = async ({ to, subject, text, html }) => {
   return data?.id || true
 }
 
-const sendMail = async ({ to, subject, text, html }) => {
+const sendMail = async ({ to, subject, text, html, replyTo }) => {
+  const recipients = normalizeRecipients(to)
+  if (!recipients.length) {
+    console.warn('Email skipped: no recipients')
+    return false
+  }
+
   if (isResendConfigured()) {
-    await sendWithResend({ to, subject, text, html })
+    await sendWithResend({ to: recipients, subject, text, html, replyTo })
     return true
   }
 
@@ -61,11 +87,11 @@ const sendMail = async ({ to, subject, text, html }) => {
 
   await transport.sendMail({
     from: getFromAddress(),
-    to,
+    to: recipients.join(', '),
     subject,
     text,
     html,
-    replyTo: process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM,
+    replyTo: replyTo || process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM,
   })
   return true
 }
@@ -173,6 +199,31 @@ const sendContactMessage = async (payload) => {
   }
 }
 
+const sendPrescriptionNotification = async (prescription) => {
+  if (!isEmailConfigured()) {
+    console.warn(
+      `Prescription email skipped for ${prescription?._id}: email provider not configured`
+    )
+    return false
+  }
+
+  const to = getPrescriptionNotifyRecipients()
+  const { subject, text, html } = buildPrescriptionNotificationEmail(prescription)
+  const replyTo = prescription.email || process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM
+
+  try {
+    const sent = await sendMail({ to, subject, text, html, replyTo })
+    if (!sent) return false
+    console.log(
+      `📧 Prescription ${prescription.type} notification sent to ${to.join(', ')} (${prescription._id})`
+    )
+    return true
+  } catch (err) {
+    console.error('Prescription notification email failed:', formatProviderError(err))
+    return false
+  }
+}
+
 function logEmailStartupStatus() {
   if (isResendConfigured()) {
     console.log(`Email: Resend configured (from ${process.env.EMAIL_FROM})`)
@@ -192,6 +243,7 @@ function logEmailStartupStatus() {
 module.exports = {
   isEmailConfigured,
   sendContactMessage,
+  sendPrescriptionNotification,
   sendOrderConfirmation,
   sendNewOrderNotification,
   sendOrderShipped,
