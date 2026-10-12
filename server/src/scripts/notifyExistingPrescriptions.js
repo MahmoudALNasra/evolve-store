@@ -54,6 +54,7 @@ async function main() {
 
   let sent = 0
   let failed = 0
+  const delayMs = Math.max(0, Number(process.env.DELAY_MS || 200))
 
   for (const doc of docs) {
     const ok = await sendPrescriptionNotification(doc)
@@ -63,6 +64,9 @@ async function main() {
     } else {
       failed += 1
       console.error(`Failed ${doc.type} ${doc._id} (${doc.patientName})`)
+    }
+    if (delayMs > 0) {
+      await new Promise((r) => setTimeout(r, delayMs))
     }
   }
 
