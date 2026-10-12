@@ -21,6 +21,8 @@ export default function RefillPrescriptionPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [website, setWebsite] = useState('') // honeypot — leave empty
+  const [formOpenedAt] = useState(() => Date.now())
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -36,7 +38,12 @@ export default function RefillPrescriptionPage() {
     }
     setSubmitting(true)
     try {
-      await api.post('/prescriptions', { type: 'refill', ...form })
+      await api.post('/prescriptions', {
+        type: 'refill',
+        ...form,
+        website,
+        formOpenedAt,
+      })
       setSubmitted(true)
       toast.success('Refill request submitted')
     } catch (err) {
@@ -94,6 +101,19 @@ export default function RefillPrescriptionPage() {
 
       <form onSubmit={handleSubmit} className="auth-box" style={{ padding: 24 }}>
         <div className="auth-form">
+          {/* Honeypot — hidden from people, bots often fill it */}
+          <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
+            <label htmlFor="rx-website">Website</label>
+            <input
+              id="rx-website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
           <div className="auth-field">
             <label>Patient Full Name *</label>
             <input value={form.patientName} onChange={update('patientName')} required placeholder="John Doe" autoComplete="name" />

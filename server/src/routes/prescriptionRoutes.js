@@ -6,6 +6,7 @@ const { protect, admin } = require('../middleware/auth')
 const { auditWriteLogger } = require('../middleware/auditWriteLogger')
 const { logAuditFromReq } = require('../services/auditLogService')
 const { sendPrescriptionNotification } = require('../services/emailService')
+const { validatePrescriptionSubmission } = require('../utils/prescriptionSpamGuard')
 
 const router = express.Router()
 router.use(auditWriteLogger())
@@ -52,6 +53,22 @@ router.post('/', optionalAuth, async (req, res) => {
   }
   if (!patientName || !dateOfBirth || !phone || !email) {
     return res.status(400).json({ message: 'Missing required patient information' })
+  }
+
+  const spamCheck = validatePrescriptionSubmission(req.body)
+  if (!spamCheck.ok) {
+    if (spamCheck.silent) {
+      console.warn(`Blocked bot prescription (${spamCheck.code}) from ${req.ip}`)
+      // Fake success so bots do not retry aggressively
+      return res.status(201).json({
+        message:
+          type === 'refill'
+            ? 'Refill request received — we will contact you shortly.'
+            : 'Transfer request received — we will reach out to your current pharmacy.',
+        prescription: { _id: null, type, status: 'pending', createdAt: new Date() },
+      })
+    }
+    return res.status(400).json({ message: spamCheck.message })
   }
 
   if (type === 'refill') {

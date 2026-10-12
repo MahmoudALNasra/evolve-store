@@ -25,6 +25,8 @@ export default function TransferPrescriptionPage() {
   const [medications, setMedications] = useState([emptyMed()])
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [website, setWebsite] = useState('') // honeypot — leave empty
+  const [formOpenedAt] = useState(() => Date.now())
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -51,6 +53,8 @@ export default function TransferPrescriptionPage() {
         type: 'transfer',
         ...form,
         medications: cleanedMeds,
+        website,
+        formOpenedAt,
       })
       setSubmitted(true)
       toast.success('Transfer request submitted')
@@ -118,6 +122,20 @@ export default function TransferPrescriptionPage() {
 
       <form onSubmit={handleSubmit} className="auth-box" style={{ padding: 24, marginTop: 20 }}>
         <div className="auth-form">
+          {/* Honeypot — hidden from people, bots often fill it */}
+          <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
+            <label htmlFor="rx-transfer-website">Website</label>
+            <input
+              id="rx-transfer-website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
+
           {/* Patient info */}
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: -4 }}>
             Patient Information

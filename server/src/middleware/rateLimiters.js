@@ -20,6 +20,14 @@ const publicFormLimiter = rateLimit({
   limit: 20,
 })
 
+// Stricter limit for prescription refill/transfer (bots hammer these).
+const prescriptionLimiter = rateLimit({
+  ...shared,
+  windowMs: 60 * 60 * 1000,
+  limit: Number(process.env.PRESCRIPTION_RATE_LIMIT_PER_HOUR) || 8,
+  message: { message: 'Too many prescription requests from this network. Please try again later or call the pharmacy.' },
+})
+
 // Broad API throttle (scanners / noisy clients). Webhooks are mounted before this.
 const apiLimiter = rateLimit({
   ...shared,
@@ -31,4 +39,4 @@ const apiLimiter = rateLimit({
   },
 })
 
-module.exports = { authLimiter, publicFormLimiter, apiLimiter }
+module.exports = { authLimiter, publicFormLimiter, prescriptionLimiter, apiLimiter }
