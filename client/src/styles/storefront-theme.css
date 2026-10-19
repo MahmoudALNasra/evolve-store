@@ -662,6 +662,20 @@
   border: 1px solid rgba(201, 168, 76, 0.35);
   border-radius: 999px;
 }
+.storefront-shell .floating-rx-btn-call {
+  background: #1f7a45;
+  color: #fff;
+  border: 1px solid rgba(164, 230, 190, 0.35);
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(31, 122, 69, 0.35);
+}
+.storefront-shell .navbar-call-btn {
+  background: #1f7a45;
+  color: #fff !important;
+}
+.storefront-shell .navbar-call-btn:hover {
+  background: #176338;
+}
 .storefront-shell .floating-rx-note {
   background: rgba(13, 13, 13, 0.94);
   border: 1px solid rgba(201, 168, 76, 0.45);
@@ -670,11 +684,13 @@
 }
 @media (max-width: 768px) {
   .storefront-shell .floating-rx-btn-primary,
-  .storefront-shell .floating-rx-btn-secondary {
+  .storefront-shell .floating-rx-btn-secondary,
+  .storefront-shell .floating-rx-btn-call {
     border-radius: 50%;
   }
   .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-primary,
-  .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-secondary {
+  .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-secondary,
+  .storefront-shell .floating-rx-ctas.is-label-peek .floating-rx-btn-call {
     border-radius: 999px;
   }
   .storefront-shell .products-grid,
@@ -3692,6 +3708,9 @@
 }
 .storefront-shell .contact-map-link {
   color: var(--brand-primary-light);
+}
+.storefront-shell .contact-hours-row {
+  color: rgba(255, 255, 255, 0.65);
 }
 .storefront-shell .contact-map {
   border: 1px solid rgba(201, 168, 76, 0.2);

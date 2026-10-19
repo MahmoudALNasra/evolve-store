@@ -21,7 +21,7 @@ const { toAbsoluteMediaUrl } = require('./productMediaPaths')
 
 const PHARMACY_GEO = {
   name: STORE_NAME,
-  streetAddress: '19239 Stone Oak Pkwy Ste # 103',
+  streetAddress: '19239 Stone Oak Pkwy Ste 103',
   addressLocality: 'San Antonio',
   addressRegion: 'TX',
   postalCode: '78258',
@@ -31,6 +31,21 @@ const PHARMACY_GEO = {
   longitude: -98.4852,
   priceRange: '$$',
 }
+
+const PHARMACY_OPENING_HOURS_SPEC = [
+  {
+    '@type': 'OpeningHoursSpecification',
+    dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday'],
+    opens: '09:00',
+    closes: '17:00',
+  },
+  {
+    '@type': 'OpeningHoursSpecification',
+    dayOfWeek: 'Friday',
+    opens: '09:00',
+    closes: '18:00',
+  },
+]
 
 function getSiteOrigin() {
   const url = process.env.SITE_URL || process.env.CLIENT_URL || 'http://localhost:5173'
@@ -171,6 +186,7 @@ function buildPharmacyLocalBusinessJsonLd() {
       latitude: PHARMACY_GEO.latitude,
       longitude: PHARMACY_GEO.longitude,
     },
+    openingHoursSpecification: PHARMACY_OPENING_HOURS_SPEC,
     areaServed: {
       '@type': 'Country',
       name: 'United States',

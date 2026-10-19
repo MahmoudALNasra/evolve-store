@@ -359,7 +359,7 @@ export default function CheckoutPage() {
                   <div className="checkout-card-icon"><Clock size={20} /></div>
                   <div>
                     <h2>Pickup Details</h2>
-                    <p className="checkout-card-sub">Monday – Friday, 9:00 AM – 5:00 PM</p>
+                    <p className="checkout-card-sub">Mon–Thu 9 AM–5 PM · Fri 9 AM–6 PM</p>
                   </div>
                 </div>
                 <div className="checkout-notice checkout-notice--pickup">

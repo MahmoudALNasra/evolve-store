@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Mail, MapPin, Phone, Send } from 'lucide-react'
+import { ArrowLeft, Clock, ExternalLink, Mail, MapPin, Phone, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import {
   PHARMACY_ADDRESS_LINES,
   PHARMACY_EMAIL,
+  PHARMACY_HOURS,
   PHARMACY_MAPS_EMBED_URL,
   PHARMACY_MAPS_LINK,
   PHARMACY_PHONE_DISPLAY,
@@ -91,6 +92,20 @@ export default function ContactPage() {
                   {PHARMACY_ADDRESS_LINES[0]}
                   <br />
                   {PHARMACY_ADDRESS_LINES[1]}
+                </span>
+              </div>
+            </div>
+            <div className="contact-info-item">
+              <Clock size={18} />
+              <div>
+                <strong>Hours</strong>
+                <span className="contact-hours-list">
+                  {PHARMACY_HOURS.map((row) => (
+                    <span key={row.days} className="contact-hours-row">
+                      <span>{row.days}</span>
+                      <span>{row.hours}</span>
+                    </span>
+                  ))}
                 </span>
               </div>
             </div>

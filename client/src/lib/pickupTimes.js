@@ -1,16 +1,16 @@
 export const PICKUP_ADDRESS = {
   name: 'Evolve Specialty Pharmacy & Wellness',
-  line1: '19239 Stone Oak Pkwy Ste # 103',
+  line1: '19239 Stone Oak Pkwy Ste 103',
   city: 'San Antonio',
   state: 'TX',
   zip: '78258',
 }
 
 const OPEN_HOUR = 9
-const CLOSE_HOUR = 17
-const LAST_PICKUP_HOUR = 16
-const LAST_PICKUP_MINUTE = 45
 const INTERVAL_MINUTES = 15
+
+/** Close hour: Mon–Thu 5 PM, Friday 6 PM (last pickup 15 min before close). */
+const closeHourFor = (date) => (date.getDay() === 5 ? 18 : 17)
 
 const isBusinessDay = (date) => {
   const day = date.getDay()
@@ -35,7 +35,8 @@ const roundUpToInterval = (date) => {
 
 const lastPickupFor = (date) => {
   const last = new Date(date)
-  last.setHours(LAST_PICKUP_HOUR, LAST_PICKUP_MINUTE, 0, 0)
+  const closeHour = closeHourFor(date)
+  last.setHours(closeHour - 1, 45, 0, 0)
   return last
 }
 

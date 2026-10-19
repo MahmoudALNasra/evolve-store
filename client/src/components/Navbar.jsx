@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X } from 'lucide-react'
+import { ShoppingCart, User, Menu, X, Phone } from 'lucide-react'
 import useAuthStore from '../store/useAuthStore'
 import useCartStore from '../store/useCartStore'
 import Logo from './Logo'
 import SearchBar from './SearchBar'
+import { PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
 
 function navLinkClass({ isActive }) {
   return `navbar-link${isActive ? ' navbar-link--active' : ''}`
@@ -75,6 +76,15 @@ export default function Navbar() {
           <NavLink to="/about" className={navLinkClass}>About</NavLink>
           <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
 
+          <a
+            href={`tel:${PHARMACY_PHONE_TEL}`}
+            className="navbar-call-btn"
+            aria-label={`Call now ${PHARMACY_PHONE_DISPLAY}`}
+          >
+            <Phone size={16} aria-hidden="true" />
+            <span className="navbar-call-btn-text">Call Now</span>
+          </a>
+
           <button type="button" onClick={openCart} className="navbar-cart-btn" aria-label="Open cart">
             <ShoppingCart size={21} />
             {cartCount > 0 && <span className="navbar-cart-badge">{cartCount}</span>}
@@ -128,6 +138,15 @@ export default function Navbar() {
             </button>
           </div>
           <SearchBar className="navbar-search--mobile" inputProps={{ style: { width: '100%' } }} onNavigate={closeAll} />
+          <a
+            href={`tel:${PHARMACY_PHONE_TEL}`}
+            className="navbar-mobile-call"
+            onClick={closeAll}
+            aria-label={`Call now ${PHARMACY_PHONE_DISPLAY}`}
+          >
+            <Phone size={18} aria-hidden="true" />
+            Call Now — {PHARMACY_PHONE_DISPLAY}
+          </a>
           {mobileLinks.map((link, i) => (
             <NavLink
               key={link.to}

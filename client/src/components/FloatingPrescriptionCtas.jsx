@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRightLeft, Pill } from 'lucide-react'
+import { ArrowRightLeft, Phone, Pill } from 'lucide-react'
+import { PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
 
 const HIDDEN_PATHS = new Set(['/refill-prescription', '/transfer-prescription'])
 const LABEL_PEEK_MS = 3800
@@ -34,6 +35,14 @@ export default function FloatingPrescriptionCtas() {
       className={`floating-rx-ctas${showLabels ? ' is-label-peek' : ''}`}
       aria-label="Prescription services"
     >
+      <a
+        href={`tel:${PHARMACY_PHONE_TEL}`}
+        className="floating-rx-btn floating-rx-btn-call"
+        aria-label={`Call pharmacy at ${PHARMACY_PHONE_DISPLAY}`}
+      >
+        <Phone size={15} aria-hidden="true" />
+        <span>Call Now</span>
+      </a>
       <Link
         to="/transfer-prescription"
         className="floating-rx-btn floating-rx-btn-secondary"

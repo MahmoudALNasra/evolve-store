@@ -1,6 +1,6 @@
 const PICKUP_ADDRESS = {
   name: 'Evolve Specialty Pharmacy & Wellness',
-  line1: '19239 Stone Oak Pkwy Ste # 103',
+  line1: '19239 Stone Oak Pkwy Ste 103',
   city: 'San Antonio',
   state: 'TX',
   zip: '78258',
@@ -15,8 +15,12 @@ function validatePickupTime(value) {
   if (day === 0 || day === 6) return 'Pickup is available Monday through Friday only'
 
   const minutes = date.getHours() * 60 + date.getMinutes()
-  if (minutes < 9 * 60 || minutes > 16 * 60 + 45) {
-    return 'Pickup must be between 9:00 AM and 4:45 PM'
+  // Mon–Thu last pickup 4:45 PM; Friday last pickup 5:45 PM
+  const lastPickupMinutes = day === 5 ? 17 * 60 + 45 : 16 * 60 + 45
+  if (minutes < 9 * 60 || minutes > lastPickupMinutes) {
+    return day === 5
+      ? 'Friday pickup must be between 9:00 AM and 5:45 PM'
+      : 'Pickup must be between 9:00 AM and 4:45 PM'
   }
   return null
 }

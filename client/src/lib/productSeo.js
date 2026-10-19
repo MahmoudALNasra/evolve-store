@@ -14,6 +14,7 @@ import {
   buildProductKeywordList,
   buildProductTitleBase,
 } from './productIdentifierSeo'
+import { PHARMACY_OPENING_HOURS_SPEC } from './pharmacyContact'
 
 export const STORE_NAME = 'Evolve Specialty Pharmacy & Wellness'
 export const STORE_BRAND = 'Evolve Specialty Pharmacy & Wellness'
@@ -22,7 +23,7 @@ export const DEFAULT_CURRENCY = 'USD'
 /** San Antonio pharmacy — GEO for LocalBusiness / pharmacy entity */
 export const PHARMACY_GEO = {
   name: STORE_NAME,
-  streetAddress: '19239 Stone Oak Pkwy Ste # 103',
+  streetAddress: '19239 Stone Oak Pkwy Ste 103',
   addressLocality: 'San Antonio',
   addressRegion: 'TX',
   postalCode: '78258',
@@ -188,6 +189,7 @@ export function buildPharmacyLocalBusinessJsonLd() {
       latitude: PHARMACY_GEO.latitude,
       longitude: PHARMACY_GEO.longitude,
     },
+    openingHoursSpecification: PHARMACY_OPENING_HOURS_SPEC,
     areaServed: {
       '@type': 'Country',
       name: 'United States',
