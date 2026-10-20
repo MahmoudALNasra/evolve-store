@@ -21,9 +21,10 @@ function formatAddress(addr) {
 
 export default function OrderSuccessPage() {
   const [searchParams] = useSearchParams()
+  const sessionId = searchParams.get('session_id') || ''
   const clearCart = useCartStore((s) => s.clearCart)
-  const [cleared, setCleared] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const cartCleared = useRef(false)
+  const [loading, setLoading] = useState(Boolean(sessionId))
   const [order, setOrder] = useState(null)
   const [status, setStatus] = useState({ isPaid: false, confirmationEmailSent: false })
   const purchaseSent = useRef(false)
@@ -35,26 +36,24 @@ export default function OrderSuccessPage() {
   }, [order, status.isPaid])
 
   useEffect(() => {
-    const sessionId = searchParams.get('session_id')
     let cancelled = false
 
     async function run() {
+      if (!cartCleared.current) {
+        clearCart()
+        cartCleared.current = true
+      }
+
       if (!sessionId) {
-        if (!cleared) {
-          clearCart()
-          setCleared(true)
-        }
         setLoading(false)
         return
       }
 
-      if (!cleared) {
-        clearCart()
-        setCleared(true)
-      }
-
+      setLoading(true)
       let latest = null
+
       for (let attempt = 1; attempt <= 8; attempt += 1) {
+        if (cancelled) return
         try {
           const { data } = await api.get(`/checkout/session/${sessionId}`, { skipAuthRedirect: true })
           latest = data
@@ -65,24 +64,31 @@ export default function OrderSuccessPage() {
                 isPaid: Boolean(data.isPaid),
                 confirmationEmailSent: Boolean(data.confirmationEmailSent),
               })
+              // Stop the spinner as soon as we have order details
+              setLoading(false)
             }
             if (data.isPaid) break
           }
         } catch (err) {
           console.warn(`Order verification attempt ${attempt} failed:`, err.response?.data?.message || err.message)
         }
-        await new Promise((resolve) => setTimeout(resolve, 1500))
+
+        if (attempt < 8) {
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+        }
       }
 
       // Fallback: authenticated order fetch if session payload lacked items
       if (!cancelled && latest?.orderId && !latest?.order?.items?.length) {
         try {
           const { data } = await api.get(`/orders/${latest.orderId}`)
-          setOrder(data)
-          setStatus({
-            isPaid: Boolean(data.isPaid),
-            confirmationEmailSent: Boolean(latest.confirmationEmailSent),
-          })
+          if (!cancelled) {
+            setOrder(data)
+            setStatus({
+              isPaid: Boolean(data.isPaid ?? latest.isPaid),
+              confirmationEmailSent: Boolean(latest.confirmationEmailSent),
+            })
+          }
         } catch {
           /* session summary is enough */
         }
@@ -92,8 +98,10 @@ export default function OrderSuccessPage() {
     }
 
     run()
-    return () => { cancelled = true }
-  }, [clearCart, cleared, searchParams])
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, clearCart])
 
   const addressLines = order?.fulfillmentMethod === 'pickup'
     ? [
@@ -123,14 +131,14 @@ export default function OrderSuccessPage() {
         </p>
       </div>
 
-      {loading && (
+      {loading && !order && (
         <div className="checkout-card" style={{ textAlign: 'center' }}>
           <div className="spinner" style={{ margin: '12px auto' }} />
           <p className="checkout-hint">Loading your order details…</p>
         </div>
       )}
 
-      {!loading && order && (
+      {order && (
         <div className="order-success-grid">
           <div className="checkout-card">
             <div className="checkout-card-title-row">
