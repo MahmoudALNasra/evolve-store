@@ -12,6 +12,8 @@
 require('dotenv').config()
 const connectDB = require('../config/db')
 const Order = require('../models/Order')
+// Required so Order.populate('user') can resolve the model in this standalone script.
+require('../models/User')
 const {
   isEmailConfigured,
   sendPendingPaymentFollowUp,
