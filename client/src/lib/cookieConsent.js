@@ -159,8 +159,8 @@ function pushConsentUpdate(consent) {
 }
 
 /**
- * Load GTM only after analytics or marketing consent (or when consent gate is off).
- * Idempotent — safe to call multiple times.
+ * Ensure GTM is available when analytics/marketing are allowed.
+ * GTM-PV2RLR9P is also installed in index.html; this is a fallback and is idempotent.
  */
 export function loadGtmIfAllowed(consent = getStoredConsent()) {
   if (typeof window === 'undefined') return false

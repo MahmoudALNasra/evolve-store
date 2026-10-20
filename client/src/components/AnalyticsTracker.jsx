@@ -1,14 +1,29 @@
 import { useEffect } from 'react'
 import useAnalytics from '../hooks/useAnalytics'
+import { pushPhoneCall } from '../lib/gtm'
 
 /** Auto page views + sampled click/scroll tracking for admin heatmaps. */
 export default function AnalyticsTracker() {
   const { trackEvent } = useAnalytics()
   const lastClickRef = { t: 0 }
   const lastScrollRef = { t: 0, depth: 0 }
+  const lastPhoneRef = { t: 0 }
 
   useEffect(() => {
     const onClick = (event) => {
+      const telLink = event.target?.closest?.('a[href^="tel:"]')
+      if (telLink) {
+        const now = Date.now()
+        if (now - lastPhoneRef.t > 800) {
+          lastPhoneRef.t = now
+          pushPhoneCall({
+            phone: telLink.getAttribute('href')?.replace(/^tel:/i, '') || '',
+            label: (telLink.textContent || 'Call Now').trim().slice(0, 80),
+            location: window.location.pathname,
+          })
+        }
+      }
+
       const now = Date.now()
       if (now - lastClickRef.t < 400) return
       lastClickRef.t = now

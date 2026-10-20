@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, CreditCard, Clock, PackageCheck, Truck, X, Minus, Plus, Tag } from 'lucide-react'
 import useCartStore from '../store/useCartStore'
 import useAuthStore from '../store/useAuthStore'
+import { pushBeginCheckout } from '../lib/gtm'
 import { useShipLocation } from '../hooks/useShipLocation'
 import { formatPrice } from '../lib/utils'
 import ProductImage from '../components/ProductImage'
@@ -68,6 +69,7 @@ export default function CheckoutPage() {
   const { items, removeItem, updateQty } = useCartStore()
   const user = useAuthStore((s) => s.user)
   const { location: shipLocation } = useShipLocation()
+  const beginCheckoutSent = useRef(false)
 
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
@@ -114,6 +116,13 @@ export default function CheckoutPage() {
   const [dispatchMessage, setDispatchMessage] = useState('')
   const [shippingRateError, setShippingRateError] = useState(null)
   const [promotionCode, setPromotionCode] = useState('')
+
+  // GA4 / GTM begin_checkout once per checkout visit
+  useEffect(() => {
+    if (beginCheckoutSent.current || !items.length) return
+    beginCheckoutSent.current = true
+    pushBeginCheckout(items, { coupon: promotionCode.trim() })
+  }, [items, promotionCode])
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const isPickup = fulfillmentMethod === 'pickup'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCircle, MapPin, Package, Truck } from 'lucide-react'
 import useCartStore from '../store/useCartStore'
@@ -6,6 +6,7 @@ import api from '../lib/api'
 import { formatPrice, formatDate } from '../lib/utils'
 import ProductImage from '../components/ProductImage'
 import CheckoutProgress from '../components/checkout/CheckoutProgress'
+import { pushPurchase } from '../lib/gtm'
 
 function orderNumber(id) {
   return String(id || '').slice(-8).toUpperCase()
@@ -25,6 +26,13 @@ export default function OrderSuccessPage() {
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
   const [status, setStatus] = useState({ isPaid: false, confirmationEmailSent: false })
+  const purchaseSent = useRef(false)
+
+  useEffect(() => {
+    if (purchaseSent.current || !order?._id || !status.isPaid) return
+    purchaseSent.current = true
+    pushPurchase(order)
+  }, [order, status.isPaid])
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
