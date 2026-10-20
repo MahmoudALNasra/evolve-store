@@ -5,6 +5,7 @@ const { buildOrderConfirmationEmail } = require('../templates/orderConfirmationE
 const { buildNewOrderNotificationEmail } = require('../templates/newOrderNotificationEmail')
 const { buildOrderShippedEmail } = require('../templates/orderShippedEmail')
 const { buildPrescriptionNotificationEmail } = require('../templates/prescriptionNotificationEmail')
+const { buildPendingPaymentFollowUpEmail } = require('../templates/pendingPaymentFollowUpEmail')
 const { createEmailLoginUrl } = require('../utils/emailLoginToken')
 
 const DEFAULT_PRESCRIPTION_NOTIFY = [
@@ -12,9 +13,9 @@ const DEFAULT_PRESCRIPTION_NOTIFY = [
   'evolvepharmacy01@gmail.com',
 ]
 
-const getFromAddress = () => {
+const getFromAddress = (overrideEmail) => {
   const name = process.env.EMAIL_FROM_NAME || 'Evolve Specialty Pharmacy & Wellness'
-  const email = process.env.EMAIL_FROM
+  const email = overrideEmail || process.env.EMAIL_FROM
   return `"${name}" <${email}>`
 }
 
@@ -41,14 +42,14 @@ const formatProviderError = (err) => {
   return [err.message, status ? `status=${status}` : '', detail].filter(Boolean).join(' | ')
 }
 
-const sendWithResend = async ({ to, subject, text, html, replyTo }) => {
+const sendWithResend = async ({ to, subject, text, html, replyTo, fromEmail }) => {
   const recipients = normalizeRecipients(to)
   if (!recipients.length) throw new Error('No email recipients')
 
   const { data } = await axios.post(
     'https://api.resend.com/emails',
     {
-      from: getFromAddress(),
+      from: getFromAddress(fromEmail),
       to: recipients,
       subject,
       text,
@@ -67,7 +68,7 @@ const sendWithResend = async ({ to, subject, text, html, replyTo }) => {
   return data?.id || true
 }
 
-const sendMail = async ({ to, subject, text, html, replyTo }) => {
+const sendMail = async ({ to, subject, text, html, replyTo, fromEmail }) => {
   const recipients = normalizeRecipients(to)
   if (!recipients.length) {
     console.warn('Email skipped: no recipients')
@@ -75,7 +76,7 @@ const sendMail = async ({ to, subject, text, html, replyTo }) => {
   }
 
   if (isResendConfigured()) {
-    await sendWithResend({ to: recipients, subject, text, html, replyTo })
+    await sendWithResend({ to: recipients, subject, text, html, replyTo, fromEmail })
     return true
   }
 
@@ -86,7 +87,7 @@ const sendMail = async ({ to, subject, text, html, replyTo }) => {
   }
 
   await transport.sendMail({
-    from: getFromAddress(),
+    from: getFromAddress(fromEmail),
     to: recipients.join(', '),
     subject,
     text,
@@ -224,6 +225,38 @@ const sendPrescriptionNotification = async (prescription) => {
   }
 }
 
+const sendPendingPaymentFollowUp = async ({ order, user }) => {
+  const to = user?.email
+  if (!to) {
+    console.warn(`Pending-payment follow-up skipped for ${order?._id}: no customer email`)
+    return false
+  }
+  if (!isEmailConfigured()) {
+    console.warn('Pending-payment follow-up skipped: email provider not configured')
+    return false
+  }
+
+  const fromEmail =
+    process.env.ORDER_FOLLOWUP_FROM ||
+    process.env.CONTACT_NOTIFY_EMAIL ||
+    'info@evolvepharmacy.com'
+  const replyTo = fromEmail
+  const { subject, text, html } = buildPendingPaymentFollowUpEmail({
+    customerName: user.name,
+    orderId: order._id,
+  })
+
+  try {
+    const sent = await sendMail({ to, subject, text, html, replyTo, fromEmail })
+    if (!sent) return false
+    console.log(`📧 Pending-payment follow-up sent to ${to} for order ${order._id}`)
+    return true
+  } catch (err) {
+    console.error('Pending-payment follow-up failed:', formatProviderError(err))
+    return false
+  }
+}
+
 function logEmailStartupStatus() {
   if (isResendConfigured()) {
     console.log(`Email: Resend configured (from ${process.env.EMAIL_FROM})`)
@@ -244,6 +277,7 @@ module.exports = {
   isEmailConfigured,
   sendContactMessage,
   sendPrescriptionNotification,
+  sendPendingPaymentFollowUp,
   sendOrderConfirmation,
   sendNewOrderNotification,
   sendOrderShipped,
