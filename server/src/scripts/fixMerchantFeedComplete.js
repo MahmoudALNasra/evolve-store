@@ -6,9 +6,10 @@
  *  2) price → "12.99 USD"
  *  3) title → max 150 chars
  *  4) image hosts → https://evolvepharmacy.com (+ prefer non-AVIF)
- *  5) excluded_destination → Free_local_listings,Local_inventory_ads
- *  6) restore/fill description, availability, gtin, mpn, brand, condition
- *  7) preserve existing product links when possible
+ *  5) restore/fill description, availability, gtin, mpn, brand, condition
+ *  6) preserve existing product links when possible
+ *  7) clear excluded_destination (keep Free listings + Free local listings eligible)
+ *  8) sync "Local inventory" tab from master stock (needs GOOGLE_MERCHANT_STORE_CODE)
  *
  * Usage (droplet, /var/www/evolve-store/server):
  *   DRY_RUN=1 npm run inventory:fix-merchant-feed
@@ -30,13 +31,13 @@ const {
   isMerchantSafeImageUrl,
 } = require('../utils/websiteToSheetMapper')
 const { getSiteOrigin } = require('../utils/productMediaPaths')
+const { syncLocalInventoryFeed } = require('../services/localInventoryFeedService')
 
 const LEGACY_HOST = '138.197.107.137'
 const PUBLIC_ORIGIN = (process.env.SITE_URL || process.env.PUBLIC_MEDIA_URL || 'https://evolvepharmacy.com')
   .replace(/\/$/, '')
 const CURRENCY = process.env.GOOGLE_MERCHANT_CURRENCY || 'USD'
 const TITLE_MAX = 150
-const EXCLUDED_DESTINATIONS = 'Free_local_listings,Local_inventory_ads'
 const CLEAR_TO_ROW = Number(process.env.MERCHANT_FEED_CLEAR_TO_ROW || 2500)
 
 function preferSafePrimary(primary, extra) {
@@ -209,29 +210,7 @@ async function ensureGridLargeEnough(sheets, spreadsheetId, sheetName, { minColu
   }
 }
 
-async function ensureExcludedHeader(sheets, sheetId, sheetName, headers, dryRun) {
-  let idx = indexOfHeader(headers, 'excluded destination')
-  if (idx >= 0) return { idx, letter: columnToLetter(idx + 1), created: false }
-  idx = headers.length
-  const letter = columnToLetter(idx + 1)
-  if (!dryRun) {
-    // Sheet1 is capped at 38 columns — expand grid before writing AM1.
-    await ensureGridLargeEnough(sheets, sheetId, sheetName, {
-      minColumns: idx + 1,
-      minRows: CLEAR_TO_ROW,
-    })
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: sheetRange(sheetName, `${letter}1`),
-      valueInputOption: 'RAW',
-      requestBody: { values: [['excluded destination']] },
-    })
-  }
-  headers.push('excluded destination')
-  return { idx, letter, created: true }
-}
-
-function buildFeedFormulas(excludedLetter) {
+function buildFeedFormulas() {
   const m = "'from MasterSheet(products)'"
   return {
     B2: `=ARRAYFORMULA(IF(${m}!B2:B="",,LEFT(${m}!B2:B,${TITLE_MAX})))`,
@@ -254,8 +233,6 @@ function buildFeedFormulas(excludedLetter) {
       `SUBSTITUTE(SUBSTITUTE(${m}!N2:N,"http://${LEGACY_HOST}","${PUBLIC_ORIGIN}"),` +
       `"https://${LEGACY_HOST}","${PUBLIC_ORIGIN}")))`,
     T2: `=ARRAYFORMULA(IF(${m}!B2:B="",,"new"))`,
-    [`${excludedLetter}2`]:
-      `=ARRAYFORMULA(IF(${m}!B2:B="",,"${EXCLUDED_DESTINATIONS}"))`,
   }
 }
 
@@ -319,12 +296,14 @@ async function fixSheet1(sheets, masterInfo, { dryRun }) {
     mobileCol.push([prev?.mobile && !/138\.197|localhost/i.test(prev.mobile) ? prev.mobile : link])
   }
 
-  const excluded = await ensureExcludedHeader(sheets, sheetId, sheetName, headers, dryRun)
-  const formulas = buildFeedFormulas(excluded.letter)
+  const formulas = buildFeedFormulas()
+  const excludedIdx = indexOfHeader(headers, 'excluded destination')
 
   console.log(`Sheet1 "${sheetName}": rows=${Math.max(0, values.length - 1)} titled=${titled} orphanIds=${orphanIds}`)
   console.log(`  writing ${idCol.length} clean product rows; preserve ids=${preservedIds} links=${preservedLinks}`)
-  console.log(`  excluded column=${excluded.letter} created=${excluded.created}`)
+  if (excludedIdx >= 0) {
+    console.log(`  will clear excluded destination column ${columnToLetter(excludedIdx + 1)} (local listings stay eligible)`)
+  }
 
   if (dryRun) {
     return {
@@ -338,6 +317,7 @@ async function fixSheet1(sheets, masterInfo, { dryRun }) {
       sampleIds: idCol.slice(0, 3).map((r) => r[0]),
       sampleLinks: linkCol.slice(0, 2).map((r) => r[0]),
       formulaCells: Object.keys(formulas),
+      clearExcludedDestination: excludedIdx >= 0,
     }
   }
 
@@ -362,6 +342,13 @@ async function fixSheet1(sheets, masterInfo, { dryRun }) {
   for (const [cell, formula] of Object.entries(formulas)) {
     data.push({ range: sheetRange(sheetName, cell), values: [[formula]] })
   }
+  // Keep Free listings + Free local listings eligible (do not exclude local destinations).
+  if (excludedIdx >= 0) {
+    data.push({
+      range: sheetRange(sheetName, `${columnToLetter(excludedIdx + 1)}2`),
+      values: [['']],
+    })
+  }
 
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: sheetId,
@@ -377,7 +364,7 @@ async function fixSheet1(sheets, masterInfo, { dryRun }) {
     preservedIds,
     preservedLinks,
     clearedThroughRow: CLEAR_TO_ROW,
-    excludedColumn: excluded.letter,
+    clearedExcludedDestination: excludedIdx >= 0,
     formulaCells: Object.keys(formulas),
   }
 }
@@ -392,6 +379,8 @@ async function main() {
 
   const master = await fixMasterProducts(sheets, { dryRun })
   const feed = await fixSheet1(sheets, master, { dryRun })
+  console.log('\n--- Local inventory feed ---')
+  const local = await syncLocalInventoryFeed({ dryRun })
 
   console.log(JSON.stringify({
     dryRun,
@@ -401,6 +390,7 @@ async function main() {
       ipHits: master.ipHits,
     },
     feed,
+    local,
   }, null, 2))
 
   if (!dryRun) {
@@ -410,8 +400,12 @@ Done. Sheet1 should now have ~${master.productCount} products (not 1500+).
 Next:
 1) Confirm column A ends after the real catalog; no PID-only empty rows.
 2) Prices look like "47.99 ${CURRENCY}".
-3) Merchant Center → Products → Data sources → refresh Sheet1.
-4) Leave Free local listings / Local inventory ads off (or keep excluded_destination).
+3) Merchant Center → Products → Data sources → refresh Sheet1 (primary / online).
+4) Local inventory:
+   - Set GOOGLE_MERCHANT_STORE_CODE in .env to your Google Business Profile store code.
+   - Re-run: npm run inventory:sync-local-feed
+   - Merchant Center → Data sources → Supplemental → add Google Sheet tab "Local inventory".
+   - Keep Free local listings + Local inventory ads add-ons ON, and finish "Add inventory".
 5) Misrepresentation: fill Business information in Merchant Center (manual).
 `)
   }

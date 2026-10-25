@@ -52,6 +52,7 @@
     "inventory:cleanup-golden-junk": "node src/scripts/cleanupGoldenImportJunk.js",
     "inventory:fix-merchant-images": "node src/scripts/fixMerchantFeedComplete.js",
     "inventory:fix-merchant-feed": "node src/scripts/fixMerchantFeedComplete.js",
+    "inventory:sync-local-feed": "node src/scripts/syncLocalInventoryFeed.js",
     "product:dedupe-barcodes": "node src/scripts/dedupeBarcodeProducts.js",
     "product:catalog-maintenance": "node src/scripts/productCatalogMaintenance.js",
     "google:oauth-token": "node src/scripts/googleOAuthRefreshToken.js",
