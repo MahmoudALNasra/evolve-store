@@ -49,9 +49,11 @@ function buildMerchantProduct(payload) {
     .map((url) => url.trim())
     .filter(Boolean)
 
+  const title = String(payload.name || '').trim().slice(0, 150)
+
   return {
     offerId,
-    title: payload.name,
+    title,
     description: payload.description || payload.name,
     link: productLinkPath && baseUrl ? `${baseUrl}${productLinkPath}` : payload.productUrl || `${baseUrl}/shop`,
     imageLink: imageUrls[0],
