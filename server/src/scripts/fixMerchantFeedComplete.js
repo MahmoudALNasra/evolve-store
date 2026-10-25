@@ -157,12 +157,69 @@ async function fixMasterProducts(sheets, { dryRun }) {
   }
 }
 
+async function getSheetTabId(sheets, spreadsheetId, sheetName) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title,gridProperties))',
+  })
+  const tab = (meta.data.sheets || []).find(
+    (s) => String(s.properties?.title || '') === String(sheetName)
+  )
+  if (!tab) throw new Error(`Sheet tab not found: ${sheetName}`)
+  return {
+    sheetTabId: tab.properties.sheetId,
+    columnCount: tab.properties.gridProperties?.columnCount || 0,
+    rowCount: tab.properties.gridProperties?.rowCount || 0,
+  }
+}
+
+async function ensureGridLargeEnough(sheets, spreadsheetId, sheetName, { minColumns, minRows }) {
+  const { sheetTabId, columnCount, rowCount } = await getSheetTabId(sheets, spreadsheetId, sheetName)
+  const requests = []
+  if (columnCount < minColumns) {
+    requests.push({
+      appendDimension: {
+        sheetId: sheetTabId,
+        dimension: 'COLUMNS',
+        length: minColumns - columnCount,
+      },
+    })
+  }
+  if (rowCount < minRows) {
+    requests.push({
+      appendDimension: {
+        sheetId: sheetTabId,
+        dimension: 'ROWS',
+        length: minRows - rowCount,
+      },
+    })
+  }
+  if (!requests.length) {
+    return { sheetTabId, columnCount, rowCount, expanded: false }
+  }
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  })
+  return {
+    sheetTabId,
+    columnCount: Math.max(columnCount, minColumns),
+    rowCount: Math.max(rowCount, minRows),
+    expanded: true,
+  }
+}
+
 async function ensureExcludedHeader(sheets, sheetId, sheetName, headers, dryRun) {
   let idx = indexOfHeader(headers, 'excluded destination')
   if (idx >= 0) return { idx, letter: columnToLetter(idx + 1), created: false }
   idx = headers.length
   const letter = columnToLetter(idx + 1)
   if (!dryRun) {
+    // Sheet1 is capped at 38 columns — expand grid before writing AM1.
+    await ensureGridLargeEnough(sheets, sheetId, sheetName, {
+      minColumns: idx + 1,
+      minRows: CLEAR_TO_ROW,
+    })
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: sheetRange(sheetName, `${letter}1`),
@@ -285,7 +342,11 @@ async function fixSheet1(sheets, masterInfo, { dryRun }) {
   }
 
   // Wipe stale feed body (orphans + old values/formulas).
-  const lastCol = columnToLetter(Math.max(headers.length, 40))
+  const lastCol = columnToLetter(Math.max(headers.length, 1))
+  await ensureGridLargeEnough(sheets, sheetId, sheetName, {
+    minColumns: Math.max(headers.length, 1),
+    minRows: CLEAR_TO_ROW,
+  })
   await sheets.spreadsheets.values.clear({
     spreadsheetId: sheetId,
     range: sheetRange(sheetName, `A2:${lastCol}${CLEAR_TO_ROW}`),
