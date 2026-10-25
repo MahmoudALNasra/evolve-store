@@ -41,13 +41,34 @@ function parsePackageNdc(moreInfo) {
   return match ? match[1] : ''
 }
 
+/** Hosts that must never appear in Merchant Center / public sheet feeds. */
+const LEGACY_MEDIA_HOST_RE = /^https?:\/\/(138\.197\.107\.137|localhost(?::\d+)?)(?=\/|$)/i
+
+function rewritePublicMediaHost(url) {
+  const cleaned = cleanText(url)
+  if (!cleaned) return ''
+  // Force feed URLs onto the public site origin (SITE_URL / PUBLIC_MEDIA_URL).
+  if (LEGACY_MEDIA_HOST_RE.test(cleaned)) {
+    return toAbsoluteMediaUrl(cleaned.replace(LEGACY_MEDIA_HOST_RE, ''))
+  }
+  if (/^https?:\/\//i.test(cleaned)) return cleaned
+  return toAbsoluteMediaUrl(cleaned)
+}
+
+function isMerchantSafeImageUrl(url) {
+  // GMC does not accept AVIF (or HEIC). Prefer jpeg/png/webp/gif.
+  return /\.(jpe?g|png|webp|gif|bmp|tiff?)(\?|#|$)/i.test(url)
+}
+
 function collectAbsoluteImageUrls(product) {
   const urls = (product.images || [])
-    .map((img) => toAbsoluteMediaUrl(img?.url))
+    .map((img) => rewritePublicMediaHost(img?.url))
     .map(cleanText)
     .filter((url) => /^https?:\/\//i.test(url))
 
-  return [...new Set(urls)]
+  const unique = [...new Set(urls)]
+  // Put Merchant-safe formats first so column H / image_link is crawlable.
+  return unique.sort((a, b) => Number(isMerchantSafeImageUrl(b)) - Number(isMerchantSafeImageUrl(a)))
 }
 
 /**
@@ -104,6 +125,8 @@ module.exports = {
   sheetRowToValues,
   productsToSheetMatrix,
   collectAbsoluteImageUrls,
+  rewritePublicMediaHost,
+  isMerchantSafeImageUrl,
   parsePackageNdc,
   parseIngredientsParts,
 }

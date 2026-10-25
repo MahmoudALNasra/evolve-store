@@ -50,6 +50,7 @@
     "inventory:import-golden-sheet": "node src/scripts/importGoldenSheet.js",
     "inventory:normalize-stock-1-to-2": "node src/scripts/normalizeStockOneToTwo.js",
     "inventory:cleanup-golden-junk": "node src/scripts/cleanupGoldenImportJunk.js",
+    "inventory:fix-merchant-images": "node src/scripts/fixMerchantFeedImageUrls.js",
     "product:dedupe-barcodes": "node src/scripts/dedupeBarcodeProducts.js",
     "product:catalog-maintenance": "node src/scripts/productCatalogMaintenance.js",
     "google:oauth-token": "node src/scripts/googleOAuthRefreshToken.js",

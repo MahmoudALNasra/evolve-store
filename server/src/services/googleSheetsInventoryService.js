@@ -303,6 +303,8 @@ module.exports = {
   getSheetName,
   getStockSheetId,
   getStockSheetName,
+  getMerchantFeedSheetId,
+  getMerchantFeedSheetName,
   quoteSheetName,
   sheetRange,
 }
