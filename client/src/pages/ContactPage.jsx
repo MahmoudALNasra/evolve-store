@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Clock, ExternalLink, Mail, MapPin, Phone, Send } from 'lucide-react'
+import { ArrowLeft, Clock, Mail, MapPin, Navigation, Phone, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import {
   PHARMACY_ADDRESS_LINES,
   PHARMACY_EMAIL,
   PHARMACY_HOURS,
+  PHARMACY_DIRECTIONS_URL,
   PHARMACY_MAPS_EMBED_URL,
-  PHARMACY_MAPS_LINK,
   PHARMACY_PHONE_DISPLAY,
   PHARMACY_PHONE_TEL,
 } from '../lib/pharmacyContact'
@@ -119,21 +119,30 @@ export default function ContactPage() {
             </a>
 
             <div className="contact-map-wrap">
-              <iframe
-                title="Evolve Specialty Pharmacy & Wellness location map"
-                src={PHARMACY_MAPS_EMBED_URL}
-                className="contact-map"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
               <a
-                href={PHARMACY_MAPS_LINK}
+                href={PHARMACY_DIRECTIONS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="contact-map-link"
+                className="contact-map-hit"
+                aria-label="Get directions to Evolve Pharmacy in Google Maps"
               >
-                Open in Google Maps <ExternalLink size={14} aria-hidden="true" />
+                <iframe
+                  title="Evolve Specialty Pharmacy location"
+                  src={PHARMACY_MAPS_EMBED_URL}
+                  className="contact-map"
+                  loading="lazy"
+                  tabIndex={-1}
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </a>
+              <a
+                href={PHARMACY_DIRECTIONS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pharmacy-call-btn"
+              >
+                <Navigation size={18} aria-hidden="true" />
+                Get directions
               </a>
             </div>
           </aside>

@@ -11,6 +11,9 @@ export const PHARMACY_MAPS_EMBED_URL =
   `https://maps.google.com/maps?q=${encodeURIComponent(PHARMACY_MAPS_QUERY)}&z=15&output=embed`
 export const PHARMACY_MAPS_LINK =
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(PHARMACY_MAPS_QUERY)}`
+/** Opens Google Maps (or the Maps app) with the pharmacy as the destination. */
+export const PHARMACY_DIRECTIONS_URL =
+  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PHARMACY_MAPS_QUERY)}`
 
 /** Display hours (matches Google Business listing) */
 export const PHARMACY_HOURS = [

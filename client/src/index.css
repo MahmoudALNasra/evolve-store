@@ -3341,6 +3341,7 @@ img { display: block; max-width: 100%; height: auto; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-top: 14px;
   font-size: 13px;
   font-weight: 700;
   color: var(--brand-primary-dark);
@@ -3348,6 +3349,16 @@ img { display: block; max-width: 100%; height: auto; }
 }
 .contact-map-link:hover {
   text-decoration: underline;
+}
+.contact-map-hit {
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  line-height: 0;
+}
+.contact-map-hit .contact-map {
+  pointer-events: none;
+  height: 160px;
 }
 .contact-hours-list {
   display: flex;
