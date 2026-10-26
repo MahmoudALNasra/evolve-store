@@ -1,10 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowRightLeft, Phone, Pill } from 'lucide-react'
-import { PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
+import { ArrowRightLeft, Navigation, Phone, Pill } from 'lucide-react'
+import { PHARMACY_DIRECTIONS_URL, PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
 
 const HIDDEN_PATHS = new Set(['/refill-prescription', '/transfer-prescription'])
 const LABEL_PEEK_MS = 3800
+const PEEK_SESSION_KEY = 'evolve-rx-cta-peeked'
+
+function peekAlreadyShown() {
+  try {
+    return sessionStorage.getItem(PEEK_SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markPeekShown() {
+  try {
+    sessionStorage.setItem(PEEK_SESSION_KEY, '1')
+  } catch {
+    /* private mode */
+  }
+}
 
 export default function FloatingPrescriptionCtas() {
   const { pathname } = useLocation()
@@ -17,12 +34,12 @@ export default function FloatingPrescriptionCtas() {
     }
 
     const isMobile = window.matchMedia('(max-width: 768px)').matches
-    if (!isMobile) {
+    if (!isMobile || pathname !== '/' || peekAlreadyShown()) {
       setShowLabels(false)
       return undefined
     }
 
-    // Peek labels on every page change so users learn what the icons mean
+    markPeekShown()
     setShowLabels(true)
     const timer = window.setTimeout(() => setShowLabels(false), LABEL_PEEK_MS)
     return () => window.clearTimeout(timer)
@@ -42,6 +59,16 @@ export default function FloatingPrescriptionCtas() {
       >
         <Phone size={15} aria-hidden="true" />
         <span>Call Now</span>
+      </a>
+      <a
+        href={PHARMACY_DIRECTIONS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="floating-rx-btn floating-rx-btn-directions"
+        aria-label="Get directions to the pharmacy"
+      >
+        <Navigation size={15} aria-hidden="true" />
+        <span>Get directions</span>
       </a>
       <Link
         to="/transfer-prescription"

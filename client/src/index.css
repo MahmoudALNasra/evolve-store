@@ -1552,6 +1552,11 @@ img { display: block; max-width: 100%; height: auto; }
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
+.floating-rx-btn-directions {
+  background: #1a56c4;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
 .floating-rx-note {
   pointer-events: auto;
   max-width: 190px;
