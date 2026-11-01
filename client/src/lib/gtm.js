@@ -211,20 +211,33 @@ export function pushPurchase(order) {
   })
 }
 
+let lastPhoneCallAt = 0
+
 /**
- * Custom phone_call event for Call Now / tel: links (mark as key event in GA4).
+ * Custom phone_call event for Call Now / tel: links.
+ * Always pushes to dataLayer so GTM trigger `CE - phone_call` can fire.
+ * Consent Mode still gates whether GA4 stores the hit.
  * @param {object} [meta]
  * @param {string} [meta.phone]
  * @param {string} [meta.label]
  * @param {string} [meta.location]
  */
 export function pushPhoneCall(meta = {}) {
-  if (!canPushEcommerce()) return
+  if (typeof window === 'undefined') return
 
-  ensureDataLayer().push({
+  const now = Date.now()
+  if (now - lastPhoneCallAt < 800) return
+  lastPhoneCallAt = now
+
+  const payload = {
     event: 'phone_call',
     phone_number: meta.phone || '+12103146464',
     link_text: meta.label || 'Call Now',
     click_location: meta.location || window.location.pathname,
-  })
+  }
+
+  // Keep GTM warm if consent already allows it (no-op when denied).
+  if (allowsGtm()) loadGtmIfAllowed()
+
+  ensureDataLayer().push(payload)
 }

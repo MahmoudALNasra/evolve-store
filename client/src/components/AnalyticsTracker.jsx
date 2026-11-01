@@ -1,32 +1,51 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useAnalytics from '../hooks/useAnalytics'
 import { pushPhoneCall } from '../lib/gtm'
+
+function phoneFromTelHref(href) {
+  return String(href || '').replace(/^tel:/i, '').trim()
+}
+
+function labelFromTelLink(telLink) {
+  return (telLink.getAttribute('aria-label') || telLink.textContent || 'Call Now')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+}
 
 /** Auto page views + sampled click/scroll tracking for admin heatmaps. */
 export default function AnalyticsTracker() {
   const { trackEvent } = useAnalytics()
-  const lastClickRef = { t: 0 }
-  const lastScrollRef = { t: 0, depth: 0 }
-  const lastPhoneRef = { t: 0 }
+  const lastClickRef = useRef(0)
+  const lastScrollRef = useRef({ t: 0, depth: 0 })
+  const lastPhoneRef = useRef(0)
 
   useEffect(() => {
+    const trackTelClick = (telLink) => {
+      if (!telLink) return
+      const now = Date.now()
+      if (now - lastPhoneRef.current < 800) return
+      lastPhoneRef.current = now
+      pushPhoneCall({
+        phone: phoneFromTelHref(telLink.getAttribute('href')),
+        label: labelFromTelLink(telLink),
+        location: window.location.pathname,
+      })
+    }
+
+    const onPointerDown = (event) => {
+      // pointerdown fires before navigation / dialer handoff on mobile
+      const telLink = event.target?.closest?.('a[href^="tel:"]')
+      if (telLink) trackTelClick(telLink)
+    }
+
     const onClick = (event) => {
       const telLink = event.target?.closest?.('a[href^="tel:"]')
-      if (telLink) {
-        const now = Date.now()
-        if (now - lastPhoneRef.t > 800) {
-          lastPhoneRef.t = now
-          pushPhoneCall({
-            phone: telLink.getAttribute('href')?.replace(/^tel:/i, '') || '',
-            label: (telLink.textContent || 'Call Now').trim().slice(0, 80),
-            location: window.location.pathname,
-          })
-        }
-      }
+      if (telLink) trackTelClick(telLink)
 
       const now = Date.now()
-      if (now - lastClickRef.t < 400) return
-      lastClickRef.t = now
+      if (now - lastClickRef.current < 400) return
+      lastClickRef.current = now
 
       const docHeight = Math.max(document.documentElement.scrollHeight, 1)
       const xPct = (event.clientX / Math.max(window.innerWidth, 1)) * 100
@@ -42,24 +61,27 @@ export default function AnalyticsTracker() {
 
     const onScroll = () => {
       const now = Date.now()
-      if (now - lastScrollRef.t < 2000) return
+      const scrollState = lastScrollRef.current
+      if (now - scrollState.t < 2000) return
 
       const docHeight = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1)
       const depth = Math.round((window.scrollY / docHeight) * 100)
-      if (depth <= lastScrollRef.depth) return
+      if (depth <= scrollState.depth) return
 
-      lastScrollRef.t = now
-      lastScrollRef.depth = depth
+      scrollState.t = now
+      scrollState.depth = depth
       trackEvent('scroll_depth', {
         depth,
         path: window.location.pathname,
       })
     }
 
+    document.addEventListener('pointerdown', onPointerDown, true)
     document.addEventListener('click', onClick, true)
     window.addEventListener('scroll', onScroll, { passive: true })
 
     return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('click', onClick, true)
       window.removeEventListener('scroll', onScroll)
     }

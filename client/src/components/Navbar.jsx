@@ -6,6 +6,15 @@ import useCartStore from '../store/useCartStore'
 import Logo from './Logo'
 import SearchBar from './SearchBar'
 import { PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
+import { pushPhoneCall } from '../lib/gtm'
+
+function trackCallClick(label) {
+  pushPhoneCall({
+    phone: PHARMACY_PHONE_TEL,
+    label,
+    location: window.location.pathname,
+  })
+}
 
 function navLinkClass({ isActive }) {
   return `navbar-link${isActive ? ' navbar-link--active' : ''}`
@@ -80,6 +89,7 @@ export default function Navbar() {
             href={`tel:${PHARMACY_PHONE_TEL}`}
             className="navbar-call-btn"
             aria-label={`Call now ${PHARMACY_PHONE_DISPLAY}`}
+            onClick={() => trackCallClick('Call Now')}
           >
             <Phone size={16} aria-hidden="true" />
             <span className="navbar-call-btn-text">Call Now</span>
@@ -141,7 +151,10 @@ export default function Navbar() {
           <a
             href={`tel:${PHARMACY_PHONE_TEL}`}
             className="navbar-mobile-call"
-            onClick={closeAll}
+            onClick={() => {
+              trackCallClick(`Call Now — ${PHARMACY_PHONE_DISPLAY}`)
+              closeAll()
+            }}
             aria-label={`Call now ${PHARMACY_PHONE_DISPLAY}`}
           >
             <Phone size={18} aria-hidden="true" />

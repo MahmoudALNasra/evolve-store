@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowRightLeft, Navigation, Phone, Pill } from 'lucide-react'
 import { PHARMACY_DIRECTIONS_URL, PHARMACY_PHONE_DISPLAY, PHARMACY_PHONE_TEL } from '../lib/pharmacyContact'
+import { pushPhoneCall } from '../lib/gtm'
 
 const HIDDEN_PATHS = new Set(['/refill-prescription', '/transfer-prescription'])
 const LABEL_PEEK_MS = 3800
@@ -56,6 +57,11 @@ export default function FloatingPrescriptionCtas() {
         href={`tel:${PHARMACY_PHONE_TEL}`}
         className="floating-rx-btn floating-rx-btn-call"
         aria-label={`Call pharmacy at ${PHARMACY_PHONE_DISPLAY}`}
+        onClick={() => pushPhoneCall({
+          phone: PHARMACY_PHONE_TEL,
+          label: 'Call Now',
+          location: pathname,
+        })}
       >
         <Phone size={15} aria-hidden="true" />
         <span>Call Now</span>

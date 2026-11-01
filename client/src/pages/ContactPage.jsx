@@ -12,6 +12,15 @@ import {
   PHARMACY_PHONE_DISPLAY,
   PHARMACY_PHONE_TEL,
 } from '../lib/pharmacyContact'
+import { pushPhoneCall } from '../lib/gtm'
+
+function trackCallClick(label) {
+  pushPhoneCall({
+    phone: PHARMACY_PHONE_TEL,
+    label,
+    location: '/contact',
+  })
+}
 
 const INITIAL_FORM = {
   name: '',
@@ -81,7 +90,9 @@ export default function ContactPage() {
               <Phone size={18} />
               <div>
                 <strong>Phone</strong>
-                <a href={`tel:${PHARMACY_PHONE_TEL}`}>{PHARMACY_PHONE_DISPLAY}</a>
+                <a href={`tel:${PHARMACY_PHONE_TEL}`} onClick={() => trackCallClick(PHARMACY_PHONE_DISPLAY)}>
+                  {PHARMACY_PHONE_DISPLAY}
+                </a>
               </div>
             </div>
             <div className="contact-info-item">
@@ -120,6 +131,7 @@ export default function ContactPage() {
             <a
               href={`tel:${PHARMACY_PHONE_TEL}`}
               className="pharmacy-call-btn"
+              onClick={() => trackCallClick('Call pharmacy')}
             >
               <Phone size={18} aria-hidden="true" />
               Call pharmacy
