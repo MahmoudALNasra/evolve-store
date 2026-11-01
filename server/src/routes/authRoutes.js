@@ -12,6 +12,7 @@ const {
   extractUtmsFromQuery,
 } = require('../utils/emailLoginToken')
 const { logAudit, logAuditFromReq } = require('../services/auditLogService')
+const { looksLikeBotName, looksLikeSpamEmail } = require('../utils/spamPatterns')
 
 const router = express.Router()
 
@@ -21,15 +22,28 @@ router.post('/register', async (req, res) => {
   if (!name || !email || !password)
     return res.status(400).json({ message: 'Please fill all fields' })
 
+  const cleanName = String(name).trim()
+  const cleanEmail = String(email).trim().toLowerCase()
+
+  if (looksLikeBotName(cleanName) || looksLikeSpamEmail(cleanEmail)) {
+    console.warn(`Blocked bot register from ${req.ip} email=${cleanEmail}`)
+    return res.status(400).json({ message: 'Unable to create account' })
+  }
+
   const pwErrors = validatePassword(password)
   if (pwErrors.length > 0)
     return res.status(400).json({ message: pwErrors[0], errors: pwErrors })
 
-  const exists = await User.findOne({ email })
+  const exists = await User.findOne({ email: cleanEmail })
   if (exists) return res.status(400).json({ message: 'Email already registered' })
 
   const isFirst = (await User.countDocuments()) === 0
-  const user = await User.create({ name, email, password, role: isFirst ? 'admin' : 'user' })
+  const user = await User.create({
+    name: cleanName,
+    email: cleanEmail,
+    password,
+    role: isFirst ? 'admin' : 'user',
+  })
 
   void logAudit({
     actorType: user.role === 'admin' ? 'admin' : 'user',

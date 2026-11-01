@@ -17,7 +17,7 @@ const authLimiter = rateLimit({
 const publicFormLimiter = rateLimit({
   ...shared,
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: Number(process.env.PUBLIC_FORM_RATE_LIMIT) || 8,
 })
 
 // Stricter limit for prescription refill/transfer (bots hammer these).

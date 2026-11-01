@@ -24,6 +24,8 @@ const INITIAL_FORM = {
 export default function ContactPage() {
   const [form, setForm] = useState(INITIAL_FORM)
   const [submitting, setSubmitting] = useState(false)
+  const [website, setWebsite] = useState('') // honeypot — leave empty
+  const [formOpenedAt] = useState(() => Date.now())
 
   const update = (field) => (e) => {
     setForm((current) => ({ ...current, [field]: e.target.value }))
@@ -39,9 +41,14 @@ export default function ContactPage() {
 
     setSubmitting(true)
     try {
-      await api.post('/contact', form)
+      await api.post('/contact', {
+        ...form,
+        website,
+        formOpenedAt,
+      })
       toast.success('Message sent. Our team will contact you shortly.')
       setForm(INITIAL_FORM)
+      setWebsite('')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Unable to send message right now')
     } finally {
@@ -148,6 +155,18 @@ export default function ContactPage() {
           </aside>
 
           <form className="contact-form-card" onSubmit={handleSubmit}>
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
+              <label htmlFor="contact-website">Website</label>
+              <input
+                id="contact-website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </div>
             <div className="contact-form-row">
               <div className="auth-field">
                 <label>Name *</label>

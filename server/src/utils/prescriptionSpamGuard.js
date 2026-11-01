@@ -1,11 +1,12 @@
+const { looksLikeBotName, looksLikeSpamEmail, looksLikeTokenBlob } = require('./spamPatterns')
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * Reject obvious bot spam on public refill/transfer forms.
- * Returns { ok: true } or { ok: false, message, code }.
+ * Returns { ok: true } or { ok: false, message, code, silent? }.
  */
 function validatePrescriptionSubmission(body = {}) {
-  // Honeypot — real users never see/fill this field
   const honey = String(body.website || body.company || body._gotcha || '').trim()
   if (honey) {
     return { ok: false, silent: true, message: 'Rejected', code: 'honeypot' }
@@ -14,17 +15,20 @@ function validatePrescriptionSubmission(body = {}) {
   const patientName = String(body.patientName || '').trim()
   const phone = String(body.phone || '').trim()
   const email = String(body.email || '').trim().toLowerCase()
+  const medicationName = String(body.medicationName || '').trim()
+  const pharmacyName = String(body.currentPharmacyName || '').trim()
+  const notes = String(body.notes || '').trim()
 
   if (!patientName || patientName.length < 2) {
     return { ok: false, message: 'Patient name is required', code: 'name' }
   }
 
-  // Spam pattern: long single-token gibberish with mixed case, no spaces
-  // e.g. "aczjkrzZLSTmEamCV", "alosxhVEQWHfYYaGHPjOZ"
   if (looksLikeBotName(patientName)) {
     return { ok: false, silent: true, message: 'Rejected', code: 'bot_name' }
   }
-
+  if (looksLikeSpamEmail(email)) {
+    return { ok: false, silent: true, message: 'Rejected', code: 'bot_email' }
+  }
   if (!EMAIL_RE.test(email)) {
     return { ok: false, message: 'Valid email address is required', code: 'email' }
   }
@@ -34,7 +38,16 @@ function validatePrescriptionSubmission(body = {}) {
     return { ok: false, message: 'Enter a valid phone number', code: 'phone' }
   }
 
-  // Form filled impossibly fast (< 2.5s) — typical of bots
+  if (medicationName && looksLikeBotName(medicationName)) {
+    return { ok: false, silent: true, message: 'Rejected', code: 'bot_med' }
+  }
+  if (pharmacyName && looksLikeBotName(pharmacyName)) {
+    return { ok: false, silent: true, message: 'Rejected', code: 'bot_pharmacy' }
+  }
+  if (notes && looksLikeTokenBlob(notes) && notes.length >= 8 && notes.length <= 40) {
+    return { ok: false, silent: true, message: 'Rejected', code: 'bot_notes' }
+  }
+
   const openedAt = Number(body.formOpenedAt)
   if (Number.isFinite(openedAt) && openedAt > 0) {
     const elapsed = Date.now() - openedAt
@@ -46,24 +59,4 @@ function validatePrescriptionSubmission(body = {}) {
   return { ok: true }
 }
 
-function looksLikeBotName(name) {
-  const n = String(name || '').trim()
-  if (!n) return true
-
-  // No whitespace, long, mixed upper+lower → classic random token spam
-  if (!/\s/.test(n) && n.length >= 12 && /[a-z]/.test(n) && /[A-Z]/.test(n)) {
-    return true
-  }
-
-  // Long run of letters with no space (even same case)
-  if (!/\s/.test(n) && n.length >= 22 && /^[A-Za-z]+$/.test(n)) {
-    return true
-  }
-
-  // Many digits in a "name"
-  if ((n.match(/\d/g) || []).length >= 4) return true
-
-  return false
-}
-
-module.exports = { validatePrescriptionSubmission, looksLikeBotName }
+module.exports = { validatePrescriptionSubmission, looksLikeBotName, looksLikeSpamEmail }

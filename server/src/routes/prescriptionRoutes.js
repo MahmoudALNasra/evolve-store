@@ -59,6 +59,7 @@ router.post('/', optionalAuth, async (req, res) => {
   if (!spamCheck.ok) {
     if (spamCheck.silent) {
       console.warn(`Blocked bot prescription (${spamCheck.code}) from ${req.ip}`)
+      res.locals.skipAudit = true
       // Fake success so bots do not retry aggressively
       return res.status(201).json({
         message:
