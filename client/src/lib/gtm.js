@@ -17,9 +17,13 @@ export function ensureDataLayer() {
   return window.dataLayer
 }
 
+/**
+ * Always allow dataLayer ecommerce pushes so GTM CE triggers can fire.
+ * Consent Mode still controls whether GA4 stores the hit.
+ */
 function canPushEcommerce() {
-  if (!allowsGtm()) return false
-  loadGtmIfAllowed()
+  if (typeof window === 'undefined') return false
+  if (allowsGtm()) loadGtmIfAllowed()
   return true
 }
 

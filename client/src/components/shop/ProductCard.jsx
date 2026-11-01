@@ -5,6 +5,7 @@ import ProductImage from '@/components/ProductImage'
 import { getProductPath } from '@/lib/productSeo'
 import { hasProductReviews, getProductImageAlt } from '@/lib/seoUtils'
 import useCartStore from '@/store/useCartStore'
+import { pushAddToCart } from '@/lib/gtm'
 import toast from 'react-hot-toast'
 
 const STAR_ACTIVE = '#C9A84C'
@@ -22,6 +23,7 @@ export default function ProductCard({ product }) {
     e.preventDefault()
     e.stopPropagation()
     if (isOutOfStock) return toast.error('Out of stock')
+    pushAddToCart(product, 1)
     addItem(product, 1)
     toast.success(`${product.name} added to cart`)
   }
