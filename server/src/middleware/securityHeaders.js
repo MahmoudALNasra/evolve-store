@@ -27,7 +27,7 @@ function securityHeaders(req, res, next) {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://js.stripe.com",
         "connect-src 'self' https: wss:",
-        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+        "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com",
       ].join('; ')
     )
   }

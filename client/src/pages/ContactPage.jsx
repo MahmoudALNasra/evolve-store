@@ -138,22 +138,23 @@ export default function ContactPage() {
             </a>
 
             <div className="contact-map-wrap">
-              <a
-                href={PHARMACY_DIRECTIONS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="contact-map-hit"
-                aria-label="Get directions to Evolve Pharmacy in Google Maps"
-              >
+              <div className="contact-map-hit">
                 <iframe
                   title="Evolve Specialty Pharmacy location"
                   src={PHARMACY_MAPS_EMBED_URL}
                   className="contact-map"
                   loading="lazy"
-                  tabIndex={-1}
                   referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
                 />
-              </a>
+                <a
+                  href={PHARMACY_DIRECTIONS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="contact-map-overlay"
+                  aria-label="Get directions to Evolve Pharmacy in Google Maps"
+                />
+              </div>
               <a
                 href={PHARMACY_DIRECTIONS_URL}
                 target="_blank"

@@ -7,8 +7,9 @@ export const PHARMACY_ADDRESS_LINES = [
   'San Antonio, TX 78258',
 ]
 export const PHARMACY_MAPS_QUERY = '19239 Stone Oak Pkwy Ste 103, San Antonio, TX 78258'
+/** Google Maps embed (iframe-safe). Do not use maps.google.com?...&output=embed — browsers block it. */
 export const PHARMACY_MAPS_EMBED_URL =
-  `https://maps.google.com/maps?q=${encodeURIComponent(PHARMACY_MAPS_QUERY)}&z=15&output=embed`
+  `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${PHARMACY_MAPS_QUERY.replace(/ /g, '+')}!6i15`
 export const PHARMACY_MAPS_LINK =
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(PHARMACY_MAPS_QUERY)}`
 /** Opens Google Maps (or the Maps app) with the pharmacy as the destination. */
