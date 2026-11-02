@@ -3615,6 +3615,46 @@ img { display: block; max-width: 100%; height: auto; }
 .blog-article-source a { color: var(--brand-primary-dark); display: inline-flex; align-items: center; gap: 4px; }
 .blog-disclaimer { margin-top: 12px; font-size: 13px; line-height: 1.6; }
 
+.compounding-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 8px;
+}
+.compounding-faq-item {
+  margin: 18px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5ebe5;
+}
+.compounding-faq-item:last-child { border-bottom: 0; }
+.compounding-faq-item h3 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+  color: #1c2b1c;
+}
+
+.about-compounding-note {
+  margin-top: 40px;
+  padding: 28px 0 8px;
+  border-top: 1px solid var(--brand-border);
+}
+.about-compounding-note h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+}
+.about-compounding-note p {
+  color: #4b5563;
+  line-height: 1.7;
+  margin-bottom: 12px;
+  max-width: 52ch;
+}
+.about-compounding-link {
+  color: var(--brand-primary-dark);
+  font-weight: 700;
+  font-size: 15px;
+}
+
 @media (max-width: 900px) {
   .blog-layout { grid-template-columns: 1fr; }
 }

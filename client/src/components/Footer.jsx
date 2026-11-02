@@ -82,6 +82,11 @@ export default function Footer() {
           <h4>Company</h4>
           <ul>
             <li><Link to="/about">About Us</Link></li>
+            <li>
+              <Link to="/what-is-a-compounding-pharmacy-and-how-does-it-work">
+                Compounding Pharmacy
+              </Link>
+            </li>
             <li><Link to="/contact">Contact Us</Link></li>
             <li><Link to="/privacy-policy">Privacy Policy</Link></li>
             <li><Link to="/return-policy">Return Policy</Link></li>

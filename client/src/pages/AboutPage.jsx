@@ -59,6 +59,17 @@ export default function AboutPage() {
             <p>A local pharmacy experience that values relationships and follow-through.</p>
           </div>
         </section>
+
+        <section className="about-compounding-note">
+          <h2>Compounding pharmacy services</h2>
+          <p>
+            When commercial medications aren&apos;t the right fit, compounding can customize
+            dose, form, and formulation for your needs.
+          </p>
+          <Link to="/what-is-a-compounding-pharmacy-and-how-does-it-work" className="about-compounding-link">
+            What is a compounding pharmacy and how does it work?
+          </Link>
+        </section>
       </div>
     </div>
   )

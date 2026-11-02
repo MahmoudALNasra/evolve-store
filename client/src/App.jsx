@@ -42,6 +42,7 @@ import RefillPrescriptionPage from './pages/RefillPrescriptionPage'
 import TransferPrescriptionPage from './pages/TransferPrescriptionPage'
 import BlogListPage from './pages/BlogListPage'
 import BlogArticlePage from './pages/BlogArticlePage'
+import CompoundingPharmacyPage from './pages/CompoundingPharmacyPage'
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -129,6 +130,10 @@ export default function App() {
         <Route path="/blog" element={<StorefrontLayout><BlogListPage /></StorefrontLayout>} />
         <Route path="/blog/:category" element={<StorefrontLayout><BlogListPage /></StorefrontLayout>} />
         <Route path="/blog/:category/:slug" element={<StorefrontLayout><BlogArticlePage /></StorefrontLayout>} />
+        <Route
+          path="/what-is-a-compounding-pharmacy-and-how-does-it-work"
+          element={<StorefrontLayout><CompoundingPharmacyPage /></StorefrontLayout>}
+        />
         <Route path="/about" element={<StorefrontLayout><AboutPage /></StorefrontLayout>} />
         <Route path="/contact" element={<StorefrontLayout><ContactPage /></StorefrontLayout>} />
         <Route path="/privacy-policy" element={<StorefrontLayout><PrivacyPolicyPage /></StorefrontLayout>} />
